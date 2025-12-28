@@ -233,19 +233,99 @@ final class Controller
 
     private function getSystemInfo(): array
     {
+        $loadAvg = function_exists('sys_getloadavg') ? sys_getloadavg() : null;
+        
+        // Get network interfaces if available
+        $networkInfo = [];
+        if (function_exists('net_get_interfaces')) {
+            $interfaces = @net_get_interfaces();
+            if ($interfaces) {
+                foreach ($interfaces as $name => $iface) {
+                    if (isset($iface['unicast']) && $name !== 'lo') {
+                        foreach ($iface['unicast'] as $addr) {
+                            if (isset($addr['address']) && filter_var($addr['address'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                                $networkInfo[$name] = $addr['address'];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // OPcache info
+        $opcacheEnabled = function_exists('opcache_get_status');
+        $opcacheStats = null;
+        if ($opcacheEnabled) {
+            $status = @opcache_get_status(false);
+            if ($status) {
+                $opcacheStats = [
+                    'enabled' => $status['opcache_enabled'] ?? false,
+                    'memory_used' => $status['memory_usage']['used_memory'] ?? 0,
+                    'memory_free' => $status['memory_usage']['free_memory'] ?? 0,
+                    'hit_rate' => isset($status['opcache_statistics']['opcache_hit_rate']) 
+                        ? round($status['opcache_statistics']['opcache_hit_rate'], 2) : 0,
+                    'cached_scripts' => $status['opcache_statistics']['num_cached_scripts'] ?? 0,
+                ];
+            }
+        }
+
+        // Disk usage for content directory
+        $contentPath = $this->app->configPath('content');
+        $contentSize = $this->getDirectorySize($contentPath);
+        $storagePath = $this->app->configPath('storage');
+        $storageSize = $this->getDirectorySize($storagePath);
+
         return [
             'php_version' => PHP_VERSION,
+            'php_sapi' => PHP_SAPI,
             'memory_limit' => ini_get('memory_limit'),
-            'memory_used' => $this->formatBytes(memory_get_usage(true)),
+            'memory_used' => memory_get_usage(true),
+            'memory_peak' => memory_get_peak_usage(true),
             'max_execution_time' => ini_get('max_execution_time'),
-            'disk_free' => $this->formatBytes(disk_free_space($this->app->path())),
+            'upload_max_filesize' => ini_get('upload_max_filesize'),
+            'post_max_size' => ini_get('post_max_size'),
+            'disk_free' => disk_free_space($this->app->path()),
+            'disk_total' => disk_total_space($this->app->path()),
+            'content_size' => $contentSize,
+            'storage_size' => $storageSize,
             'server' => $_SERVER['SERVER_SOFTWARE'] ?? 'CLI',
-            'extensions' => [
+            'os' => PHP_OS_FAMILY . ' ' . php_uname('r'),
+            'hostname' => gethostname(),
+            'load_avg' => $loadAvg,
+            'network' => $networkInfo,
+            'opcache' => $opcacheStats,
+            'extensions' => get_loaded_extensions(),
+            'extensions_check' => [
                 'yaml' => extension_loaded('yaml'),
                 'mbstring' => extension_loaded('mbstring'),
                 'json' => extension_loaded('json'),
+                'curl' => extension_loaded('curl'),
+                'gd' => extension_loaded('gd'),
+                'intl' => extension_loaded('intl'),
+                'opcache' => $opcacheEnabled,
             ],
+            'zend_version' => zend_version(),
+            'include_path' => get_include_path(),
+            'request_time' => $_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true),
         ];
+    }
+
+    private function getDirectorySize(string $path): int
+    {
+        $size = 0;
+        if (!is_dir($path)) return 0;
+        
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS)
+        );
+        
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                $size += $file->getSize();
+            }
+        }
+        
+        return $size;
     }
 
     private function getRecentContent(int $limit = 5): array

@@ -1,13 +1,24 @@
-- Getting Started
-  - [Home](/)
-  - [Configuration](configuration.md)
+**Getting Started**
 
-- Usage
-  - [Content](content.md)
-  - [Themes](themes.md)
-  - [Routing](routing.md)
-  - [Shortcodes](shortcodes.md)
-  - [CLI](cli.md)
+[🏠 Home](/)
+[⚙️ Configuration](configuration.md)
 
-- Reference
-  - [AI Reference](ai-reference.md)
+**Core Concepts**
+
+[📄 Content](content.md)
+[🎨 Themes](themes.md)
+[🛤️ Routing](routing.md)
+[📝 Shortcodes](shortcodes.md)
+
+**Extending**
+
+[🔌 Plugins](plugins.md)
+[🌐 API](api.md)
+
+**Tools**
+
+[💻 CLI](cli.md)
+
+**Reference**
+
+[🤖 AI Reference](ai-reference.md)

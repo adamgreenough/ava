@@ -300,6 +300,8 @@
         .list-item:last-child { border-bottom: none; }
         .list-label { color: var(--text-muted); font-size: 0.8125rem; }
         .list-value { font-weight: 500; font-size: 0.875rem; }
+        .list-item-link { text-decoration: none; color: inherit; transition: background 0.15s; }
+        .list-item-link:hover { background: var(--bg-hover); margin: 0 -1.25rem; padding-left: 1.25rem; padding-right: 1.25rem; }
 
         /* Content list */
         .content-item {
@@ -327,6 +329,51 @@
             color: var(--text-dim);
             font-size: 0.875rem;
             padding: 0.5rem 0;
+        }
+
+        /* System details */
+        .system-details {
+            border-top: 1px solid var(--border);
+            margin-top: 0.5rem;
+        }
+        .system-details summary {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 0;
+            cursor: pointer;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            list-style: none;
+        }
+        .system-details summary::-webkit-details-marker { display: none; }
+        .system-details summary::after {
+            content: '';
+            margin-left: auto;
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid var(--text-dim);
+            transition: transform 0.15s;
+        }
+        .system-details[open] summary::after {
+            transform: rotate(180deg);
+        }
+        .system-details summary:hover {
+            color: var(--text);
+        }
+        .system-details summary .material-symbols-rounded {
+            font-size: 18px;
+            color: var(--text-dim);
+        }
+        .system-details .details-content {
+            padding-bottom: 0.5rem;
+        }
+        .system-details .list-item {
+            padding: 0.375rem 0 0.375rem 1.75rem;
+            border-bottom: none;
         }
     </style>
 </head>
@@ -479,15 +526,24 @@
                             <span class="material-symbols-rounded">folder_open</span>
                             Content Types
                         </span>
+                        <a href="<?= $admin_url ?>/content/<?= array_key_first($content) ?? 'page' ?>" class="btn btn-sm btn-secondary">View All</a>
                     </div>
                     <?php foreach ($content as $type => $stats): ?>
-                    <div class="list-item">
-                        <span class="list-label"><?= ucfirst($type) ?></span>
-                        <span>
-                            <strong><?= $stats['published'] ?></strong>
-                            <span style="color: var(--text-dim)">/ <?= $stats['total'] ?></span>
+                    <a href="<?= $admin_url ?>/content/<?= $type ?>" class="list-item list-item-link">
+                        <div>
+                            <span class="list-label" style="color: var(--text); font-weight: 500;"><?= ucfirst($type) ?>s</span>
+                            <div style="font-size: 0.6875rem; color: var(--text-dim); margin-top: 0.125rem;">
+                                <span style="color: var(--success);"><?= $stats['published'] ?> published</span>
+                                <?php if ($stats['draft'] > 0): ?>
+                                · <span style="color: var(--warning);"><?= $stats['draft'] ?> drafts</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <span style="display: flex; align-items: center; gap: 0.5rem;">
+                            <strong style="font-size: 1.25rem;"><?= $stats['total'] ?></strong>
+                            <span class="material-symbols-rounded" style="color: var(--text-dim); font-size: 18px;">chevron_right</span>
                         </span>
-                    </div>
+                    </a>
                     <?php endforeach; ?>
                     <?php if (empty($content)): ?>
                     <p class="empty-state">No content types configured</p>
@@ -550,22 +606,194 @@
                             System
                         </span>
                     </div>
+                    
+                    <?php 
+                    $formatBytes = function($bytes) {
+                        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                        $i = 0;
+                        while ($bytes >= 1024 && $i < count($units) - 1) {
+                            $bytes /= 1024;
+                            $i++;
+                        }
+                        return round($bytes, 2) . ' ' . $units[$i];
+                    };
+                    $renderTime = round((microtime(true) - $system['request_time']) * 1000, 2);
+                    ?>
+                    
+                    <!-- Quick Stats -->
                     <div class="list-item">
-                        <span class="list-label">PHP</span>
-                        <span class="list-value"><?= htmlspecialchars($system['php_version']) ?></span>
+                        <span class="list-label">Page Rendered</span>
+                        <span class="list-value"><?= $renderTime ?>ms</span>
                     </div>
                     <div class="list-item">
                         <span class="list-label">Memory</span>
-                        <span class="list-value"><?= htmlspecialchars($system['memory_used'] ?? 'N/A') ?> / <?= htmlspecialchars($system['memory_limit']) ?></span>
-                    </div>
-                    <div class="list-item">
-                        <span class="list-label">Disk Free</span>
-                        <span class="list-value"><?= htmlspecialchars($system['disk_free']) ?></span>
+                        <span class="list-value"><?= $formatBytes($system['memory_used']) ?> / <?= $system['memory_limit'] ?></span>
                     </div>
                     <div class="list-item">
                         <span class="list-label">Theme</span>
                         <span class="list-value"><?= htmlspecialchars($theme ?? 'default') ?></span>
                     </div>
+                    
+                    <!-- Expandable Details -->
+                    <details class="system-details">
+                        <summary>
+                            <span class="material-symbols-rounded">memory</span>
+                            PHP &amp; Runtime
+                        </summary>
+                        <div class="details-content">
+                            <div class="list-item">
+                                <span class="list-label">PHP Version</span>
+                                <span class="list-value"><?= $system['php_version'] ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">SAPI</span>
+                                <span class="list-value"><?= $system['php_sapi'] ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Zend Engine</span>
+                                <span class="list-value"><?= $system['zend_version'] ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Memory Peak</span>
+                                <span class="list-value"><?= $formatBytes($system['memory_peak']) ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Max Execution</span>
+                                <span class="list-value"><?= $system['max_execution_time'] ?>s</span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Upload Limit</span>
+                                <span class="list-value"><?= $system['upload_max_filesize'] ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">POST Max</span>
+                                <span class="list-value"><?= $system['post_max_size'] ?></span>
+                            </div>
+                        </div>
+                    </details>
+                    
+                    <details class="system-details">
+                        <summary>
+                            <span class="material-symbols-rounded">computer</span>
+                            Server
+                        </summary>
+                        <div class="details-content">
+                            <div class="list-item">
+                                <span class="list-label">OS</span>
+                                <span class="list-value"><?= htmlspecialchars($system['os']) ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Hostname</span>
+                                <span class="list-value"><?= htmlspecialchars($system['hostname']) ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Web Server</span>
+                                <span class="list-value" style="font-size: 0.75rem;"><?= htmlspecialchars($system['server']) ?></span>
+                            </div>
+                            <?php if ($system['load_avg']): ?>
+                            <div class="list-item">
+                                <span class="list-label">Load Average</span>
+                                <span class="list-value"><?= implode(', ', array_map(fn($v) => number_format($v, 2), $system['load_avg'])) ?></span>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </details>
+                    
+                    <details class="system-details">
+                        <summary>
+                            <span class="material-symbols-rounded">storage</span>
+                            Storage
+                        </summary>
+                        <div class="details-content">
+                            <?php $diskPercent = round(100 - ($system['disk_free'] / $system['disk_total'] * 100), 1); ?>
+                            <div class="list-item">
+                                <span class="list-label">Disk Used</span>
+                                <span class="list-value"><?= $diskPercent ?>% of <?= $formatBytes($system['disk_total']) ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Disk Free</span>
+                                <span class="list-value"><?= $formatBytes($system['disk_free']) ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Content Dir</span>
+                                <span class="list-value"><?= $formatBytes($system['content_size']) ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Cache Dir</span>
+                                <span class="list-value"><?= $formatBytes($system['storage_size']) ?></span>
+                            </div>
+                        </div>
+                    </details>
+                    
+                    <?php if (!empty($system['network'])): ?>
+                    <details class="system-details">
+                        <summary>
+                            <span class="material-symbols-rounded">lan</span>
+                            Network
+                        </summary>
+                        <div class="details-content">
+                            <?php foreach ($system['network'] as $iface => $ip): ?>
+                            <div class="list-item">
+                                <span class="list-label"><?= htmlspecialchars($iface) ?></span>
+                                <span class="list-value"><code><?= htmlspecialchars($ip) ?></code></span>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </details>
+                    <?php endif; ?>
+                    
+                    <?php if ($system['opcache']): ?>
+                    <details class="system-details">
+                        <summary>
+                            <span class="material-symbols-rounded">speed</span>
+                            OPcache
+                        </summary>
+                        <div class="details-content">
+                            <div class="list-item">
+                                <span class="list-label">Status</span>
+                                <span class="list-value">
+                                    <?php if ($system['opcache']['enabled']): ?>
+                                        <span style="color: var(--success);">Enabled</span>
+                                    <?php else: ?>
+                                        <span style="color: var(--warning);">Disabled</span>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Hit Rate</span>
+                                <span class="list-value"><?= $system['opcache']['hit_rate'] ?>%</span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Cached Scripts</span>
+                                <span class="list-value"><?= number_format($system['opcache']['cached_scripts']) ?></span>
+                            </div>
+                            <div class="list-item">
+                                <span class="list-label">Memory Used</span>
+                                <span class="list-value"><?= $formatBytes($system['opcache']['memory_used']) ?></span>
+                            </div>
+                        </div>
+                    </details>
+                    <?php endif; ?>
+                    
+                    <details class="system-details">
+                        <summary>
+                            <span class="material-symbols-rounded">extension</span>
+                            Extensions (<?= count($system['extensions']) ?>)
+                        </summary>
+                        <div class="details-content">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.25rem;">
+                                <?php 
+                                $requiredExts = ['json', 'mbstring', 'curl'];
+                                $recommendedExts = ['gd', 'intl', 'opcache'];
+                                foreach ($system['extensions'] as $ext): 
+                                    $isRequired = in_array($ext, $requiredExts);
+                                    $isRecommended = in_array($ext, $recommendedExts);
+                                ?>
+                                <span style="font-size: 0.6875rem; padding: 0.125rem 0.375rem; background: var(--bg-hover); border-radius: 0.25rem; <?= $isRequired ? 'border-left: 2px solid var(--success);' : ($isRecommended ? 'border-left: 2px solid var(--accent);' : '') ?>"><?= $ext ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
