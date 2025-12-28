@@ -18,6 +18,19 @@
             --accent-hover: #4f46e5;
             --danger: #ef4444;
         }
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f8fafc;
+                --bg-card: #ffffff;
+                --bg-hover: #f1f5f9;
+                --border: #e2e8f0;
+                --text: #0f172a;
+                --text-muted: #64748b;
+                --accent: #6366f1;
+                --accent-hover: #4f46e5;
+                --danger: #dc2626;
+            }
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;

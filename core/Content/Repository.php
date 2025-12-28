@@ -10,11 +10,12 @@ use Ava\Application;
  * Content Repository
  *
  * Provides read access to indexed content.
- * All data comes from cache files, not from parsing Markdown.
+ * Metadata comes from cache, raw content is loaded on demand from files.
  */
 final class Repository
 {
     private Application $app;
+    private Parser $parser;
     private ?array $contentIndex = null;
     private ?array $taxIndex = null;
     private ?array $routes = null;
@@ -22,6 +23,24 @@ final class Repository
     public function __construct(Application $app)
     {
         $this->app = $app;
+        $this->parser = new Parser();
+    }
+
+    /**
+     * Load raw content from a file and return the Item with content.
+     */
+    private function hydrateItem(array $data): Item
+    {
+        $filePath = $data['file_path'] ?? '';
+        $rawContent = '';
+
+        // Load raw content from the file if the path exists
+        if ($filePath !== '' && file_exists($filePath)) {
+            $item = $this->parser->parseFile($filePath, $data['type'] ?? '');
+            $rawContent = $item->rawContent();
+        }
+
+        return Item::fromArray($data, $rawContent);
     }
 
     // -------------------------------------------------------------------------
@@ -40,7 +59,7 @@ final class Repository
             return null;
         }
 
-        return Item::fromArray($data);
+        return $this->hydrateItem($data);
     }
 
     /**
@@ -55,7 +74,7 @@ final class Repository
             return null;
         }
 
-        return Item::fromArray($data);
+        return $this->hydrateItem($data);
     }
 
     /**
@@ -70,7 +89,7 @@ final class Repository
             return null;
         }
 
-        return Item::fromArray($data);
+        return $this->hydrateItem($data);
     }
 
     /**
@@ -83,7 +102,7 @@ final class Repository
         $index = $this->loadContentIndex();
         $items = $index['by_type'][$type] ?? [];
 
-        return array_map(fn($data) => Item::fromArray($data), $items);
+        return array_map(fn($data) => $this->hydrateItem($data), $items);
     }
 
     /**

@@ -176,7 +176,7 @@ final class Router
     /**
      * Handle an exact route match.
      */
-    private function handleExactRoute(array $routeData, Request $request): RouteMatch
+    private function handleExactRoute(array $routeData, Request $request): ?RouteMatch
     {
         $type = $routeData['type'] ?? 'single';
 

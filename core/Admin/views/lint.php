@@ -20,6 +20,21 @@
             --success: #22c55e;
             --danger: #ef4444;
         }
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f8fafc;
+                --bg-card: #ffffff;
+                --bg-hover: #f1f5f9;
+                --border: #e2e8f0;
+                --text: #0f172a;
+                --text-muted: #64748b;
+                --text-dim: #94a3b8;
+                --accent: #6366f1;
+                --accent-hover: #4f46e5;
+                --success: #16a34a;
+                --danger: #dc2626;
+            }
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;

@@ -12,8 +12,6 @@ tag:
   - getting-started
 ---
 
-# Hello World
-
 This is your first post on Ava CMS.
 
 ## What's Next?
