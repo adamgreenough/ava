@@ -2,7 +2,7 @@
 
 Plugins extend Ava's functionality by adding new features, routes, shortcodes, and more.
 
-## 📁 Plugin Location
+## Plugin Location
 
 Plugins live in the `plugins/` directory. Each plugin has its own folder:
 
@@ -14,7 +14,7 @@ plugins/
     assets/         # Optional: CSS, JS, images
 ```
 
-## 🔧 Creating a Plugin
+## Creating a Plugin
 
 ### Basic Structure
 
@@ -62,7 +62,7 @@ The `boot` callback receives the Application instance and is called when Ava ini
 }
 ```
 
-## 🎣 Hooks System
+## Hooks System
 
 Plugins interact with Ava primarily through the hooks system. Hooks allow you to:
 
@@ -135,7 +135,7 @@ Hooks::add('render.context', $callback, 100);
 // Default priority is 10
 ```
 
-## 📝 Registering Shortcodes
+## Registering Shortcodes
 
 ```php
 use Ava\Shortcodes\Engine;
@@ -156,7 +156,7 @@ Usage in content:
 [button href="/contact" class="btn-primary"]Get in Touch[/button]
 ```
 
-## 🛤️ Adding Routes
+## Adding Routes
 
 ```php
 'boot' => function($app) {
@@ -188,7 +188,7 @@ Usage in content:
 }
 ```
 
-## 📦 Adding Content Types
+## Adding Content Types
 
 ```php
 'boot' => function($app) {
@@ -211,7 +211,7 @@ Usage in content:
 }
 ```
 
-## ✅ Enabling Plugins
+## Enabling Plugins
 
 Add plugins to your `app/config/ava.php`:
 
@@ -226,7 +226,7 @@ return [
 ];
 ```
 
-## 🔌 Example Plugin: Reading Time
+## Example Plugin: Reading Time
 
 A complete example that adds reading time to posts:
 
@@ -264,7 +264,7 @@ Usage in templates:
 <?php endif; ?>
 ```
 
-## 📂 Plugin Assets
+## Plugin Assets
 
 To include CSS or JS from your plugin:
 

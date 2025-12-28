@@ -1,14 +1,14 @@
 # Ava CMS
 
-> ✨ **Addy's Very Adaptable CMS** — A developer-first, flat-file PHP CMS for long-lived personal sites.
+> A developer-first, flat-file PHP CMS for long-lived personal sites.
 
 ## Why Ava?
 
-- 📁 **Flat-file** — No database, content is Markdown files. Git is your source of truth
-- ⚡ **Cache-first** — Blazing fast. Content indexes compiled to PHP arrays
-- 🛠️ **Developer-friendly** — Minimal magic, readable code, easy to extend
-- 🎨 **Flexible** — Custom content types, taxonomies, shortcodes, plugins
-- 🔒 **Secure** — Content never executes PHP, optional admin dashboard
+- **Flat-file** — No database, content is Markdown files. Git is your source of truth
+- **Cache-first** — Blazing fast. Content indexes compiled to PHP arrays
+- **Developer-friendly** — Minimal magic, readable code, easy to extend
+- **Flexible** — Custom content types, taxonomies, shortcodes, plugins
+- **Secure** — Content never executes PHP, optional admin dashboard
 
 ## Quick Start
 
@@ -37,18 +37,18 @@ Visit [http://localhost:8000](http://localhost:8000) to see your site.
 ```
 mysite/
 ├── app/
-│   ├── config/          # ⚙️ Configuration files
-│   ├── hooks.php        # 🎣 Custom hooks
-│   └── shortcodes.php   # 📝 Custom shortcodes
+│   ├── config/          # Configuration files
+│   ├── hooks.php        # Custom hooks
+│   └── shortcodes.php   # Custom shortcodes
 ├── content/
-│   ├── pages/           # 📄 Page content
-│   ├── posts/           # ✏️ Blog posts
-│   └── _taxonomies/     # 🏷️ Term registries
+│   ├── pages/           # Page content
+│   ├── posts/           # Blog posts
+│   └── _taxonomies/     # Term registries
 ├── themes/
-│   └── default/         # 🎨 Theme templates
-├── plugins/             # 🔌 Plugins
-├── public/              # 🌐 Web root
-├── storage/cache/       # 📦 Generated cache
+│   └── default/         # Theme templates
+├── plugins/             # Plugins
+├── public/              # Web root
+├── storage/cache/       # Generated cache
 └── bin/ava              # CLI tool
 ```
 

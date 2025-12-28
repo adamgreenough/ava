@@ -2,7 +2,7 @@
 
 Ava doesn't include a built-in REST API, but provides everything you need to build one. This keeps the core lightweight while giving you full control over your API design.
 
-## 🚀 Quick Start: JSON API Plugin
+## Quick Start: JSON API Plugin
 
 Create a simple read-only JSON API in minutes:
 
@@ -82,7 +82,7 @@ function handleApiRequest(callable $handler): \Ava\Routing\RouteMatch {
 }
 ```
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Response Format
 
@@ -112,7 +112,7 @@ Error responses:
 | GET | `/api/pages` | List all published pages |
 | GET | `/api/pages/{slug}` | Get single page by slug |
 
-## 🔧 Building Custom Endpoints
+## Building Custom Endpoints
 
 ### Basic Route
 
@@ -166,7 +166,7 @@ $router->addPrefixRoute('/api/v2/', function($request, $params) {
 });
 ```
 
-## 🔐 Authentication
+## Authentication
 
 ### API Key Authentication
 
@@ -212,7 +212,7 @@ return [
 ];
 ```
 
-## 📄 Pagination
+## Pagination
 
 ```php
 $router->addRoute('/api/posts', function($request) {
@@ -248,7 +248,7 @@ $router->addRoute('/api/posts', function($request) {
 });
 ```
 
-## 🏷️ Taxonomy Endpoints
+## Taxonomy Endpoints
 
 ```php
 // List all categories
@@ -278,7 +278,7 @@ $router->addRoute('/api/categories/{slug}/posts', function($request, $params) {
 });
 ```
 
-## 🔍 Search Endpoint
+## Search Endpoint
 
 ```php
 $router->addRoute('/api/search', function($request) {
@@ -323,7 +323,7 @@ $router->addRoute('/api/search', function($request) {
 });
 ```
 
-## 🌐 CORS Headers
+## CORS Headers
 
 For cross-origin requests, add CORS headers:
 
@@ -355,7 +355,7 @@ $router->addRoute('/api/posts', function($request) {
 });
 ```
 
-## 📊 Response Helper
+## Response Helper
 
 Add this helper function to your plugin:
 

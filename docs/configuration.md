@@ -2,7 +2,7 @@
 
 All configuration lives in `app/config/`. This guide explains every available option.
 
-## 📁 Configuration Files
+## Configuration Files
 
 | File | Purpose |
 |------|---------|
@@ -13,7 +13,7 @@ All configuration lives in `app/config/`. This guide explains every available op
 
 ---
 
-## 🏠 Main Config: `ava.php`
+## Main Config: `ava.php`
 
 ### Site Settings
 
@@ -82,7 +82,7 @@ The active theme name. Must match a folder in `themes/`.
 | `'always'` | Rebuild on every request | Active development |
 | `'never'` | Only rebuild via `./ava rebuild` | Production |
 
-> 💡 **Tip**: In production, use `'never'` and trigger rebuilds via deployment scripts or webhooks.
+> **Tip**: In production, use `'never'` and trigger rebuilds via deployment scripts or webhooks.
 
 ### Routing
 
@@ -164,7 +164,7 @@ Array of plugin folder names to activate. Plugins load in the order listed.
 
 ---
 
-## 📄 Content Types: `content_types.php`
+## Content Types: `content_types.php`
 
 Define what kinds of content your site has.
 
@@ -244,7 +244,7 @@ content/pages/services/web.md → /services/web
 
 ---
 
-## 🏷️ Taxonomies: `taxonomies.php`
+## Taxonomies: `taxonomies.php`
 
 Define ways to categorize content.
 
@@ -295,7 +295,7 @@ tag:
 
 ---
 
-## 🔧 Environment-Specific Config
+## Environment-Specific Config
 
 Override settings per environment:
 
@@ -324,7 +324,7 @@ return $config;
 
 ---
 
-## 📋 Complete Example
+## Complete Example
 
 ```php
 <?php
