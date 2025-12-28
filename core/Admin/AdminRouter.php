@@ -61,6 +61,11 @@ final class AdminRouter
         $router->addRoute($basePath . '/lint', function (Request $request) {
             return $this->handle('lint', $request);
         });
+
+        // Content list (protected) - pattern: /admin/content/{type}
+        $router->addRoute($basePath . '/content/{type}', function (Request $request, array $params) {
+            return $this->handleContent($request, $params['type']);
+        });
     }
 
     /**
@@ -89,6 +94,36 @@ final class AdminRouter
             'lint' => $this->controller->lint($request),
             default => null,
         };
+
+        if ($response === null) {
+            return null;
+        }
+
+        return new RouteMatch(
+            type: 'admin',
+            template: '__raw__',
+            params: ['response' => $response]
+        );
+    }
+
+    /**
+     * Handle content list request.
+     */
+    private function handleContent(Request $request, string $type): ?RouteMatch
+    {
+        $auth = $this->controller->auth();
+
+        if (!$auth->check()) {
+            $loginUrl = $this->app->config('admin.path', '/admin') . '/login';
+            $response = Response::redirect($loginUrl);
+            return new RouteMatch(
+                type: 'admin',
+                template: '__raw__',
+                params: ['response' => $response]
+            );
+        }
+
+        $response = $this->controller->contentList($request, $type);
 
         if ($response === null) {
             return null;

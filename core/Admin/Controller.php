@@ -94,6 +94,9 @@ final class Controller
             'content' => $this->getContentStats(),
             'taxonomies' => $this->getTaxonomyStats(),
             'system' => $this->getSystemInfo(),
+            'recentContent' => $this->getRecentContent(),
+            'plugins' => $this->getActivePlugins(),
+            'theme' => $this->app->config('theme', 'default'),
             'csrf' => $this->auth->csrfToken(),
             'user' => $this->auth->user(),
         ];
@@ -122,6 +125,40 @@ final class Controller
 
         $this->auth->regenerateCsrf();
         return Response::redirect($this->adminUrl() . '?action=rebuild&time=' . $elapsed);
+    }
+
+    /**
+     * Content list page.
+     */
+    public function contentList(Request $request, string $type): ?Response
+    {
+        $repository = $this->app->repository();
+        $types = $repository->types();
+
+        // Check if type exists
+        if (!in_array($type, $types)) {
+            return null; // 404
+        }
+
+        $items = $repository->all($type);
+
+        // Sort by date descending
+        usort($items, function($a, $b) {
+            $aDate = $a->date();
+            $bDate = $b->date();
+            if (!$aDate && !$bDate) return 0;
+            if (!$aDate) return 1;
+            if (!$bDate) return -1;
+            return $bDate->getTimestamp() - $aDate->getTimestamp();
+        });
+
+        $data = [
+            'type' => $type,
+            'items' => $items,
+            'allContent' => $this->getContentStats(),
+        ];
+
+        return Response::html($this->render('content-list', $data));
     }
 
     /**
@@ -199,14 +236,47 @@ final class Controller
         return [
             'php_version' => PHP_VERSION,
             'memory_limit' => ini_get('memory_limit'),
+            'memory_used' => $this->formatBytes(memory_get_usage(true)),
             'max_execution_time' => ini_get('max_execution_time'),
             'disk_free' => $this->formatBytes(disk_free_space($this->app->path())),
+            'server' => $_SERVER['SERVER_SOFTWARE'] ?? 'CLI',
             'extensions' => [
                 'yaml' => extension_loaded('yaml'),
                 'mbstring' => extension_loaded('mbstring'),
                 'json' => extension_loaded('json'),
             ],
         ];
+    }
+
+    private function getRecentContent(int $limit = 5): array
+    {
+        $repository = $this->app->repository();
+        $all = [];
+
+        foreach ($repository->types() as $type) {
+            $items = $repository->all($type);
+            foreach ($items as $item) {
+                $all[] = $item;
+            }
+        }
+
+        // Sort by date descending
+        usort($all, function($a, $b) {
+            $aDate = $a->date();
+            $bDate = $b->date();
+            if (!$aDate && !$bDate) return 0;
+            if (!$aDate) return 1;
+            if (!$bDate) return -1;
+            return $bDate->getTimestamp() - $aDate->getTimestamp();
+        });
+
+        return array_slice($all, 0, $limit);
+    }
+
+    private function getActivePlugins(): array
+    {
+        $plugins = $this->app->config('plugins', []);
+        return is_array($plugins) ? $plugins : [];
     }
 
     // -------------------------------------------------------------------------
