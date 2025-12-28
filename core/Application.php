@@ -113,6 +113,14 @@ final class Application
             return Response::redirect($match->getRedirectUrl(), $match->getRedirectCode());
         }
 
+        // Handle admin routes (return raw Response)
+        if ($match->getType() === 'admin') {
+            $response = $match->getParam('response');
+            if ($response instanceof Response) {
+                return $response;
+            }
+        }
+
         // Render the matched route
         return $this->renderRoute($match, $request);
     }
