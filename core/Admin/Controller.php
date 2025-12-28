@@ -17,10 +17,67 @@ use Ava\Http\Response;
 final class Controller
 {
     private Application $app;
+    private Auth $auth;
 
     public function __construct(Application $app)
     {
         $this->app = $app;
+        $this->auth = new Auth($app->path('app/config/users.php'));
+    }
+
+    /**
+     * Get the auth instance.
+     */
+    public function auth(): Auth
+    {
+        return $this->auth;
+    }
+
+    /**
+     * Login page.
+     */
+    public function login(Request $request): Response
+    {
+        // Already logged in?
+        if ($this->auth->check()) {
+            return Response::redirect($this->adminUrl());
+        }
+
+        $error = null;
+
+        // Handle login attempt
+        if ($request->isMethod('POST')) {
+            $csrf = $request->post('_csrf', '');
+            if (!$this->auth->verifyCsrf($csrf)) {
+                $error = 'Invalid request. Please try again.';
+            } else {
+                $email = $request->post('email', '');
+                $password = $request->post('password', '');
+
+                if ($this->auth->attempt($email, $password)) {
+                    $this->auth->regenerateCsrf();
+                    return Response::redirect($this->adminUrl());
+                }
+
+                $error = 'Invalid email or password.';
+            }
+        }
+
+        return Response::html($this->render('login', [
+            'error' => $error,
+            'csrf' => $this->auth->csrfToken(),
+            'loginUrl' => $this->adminUrl() . '/login',
+            'hasUsers' => $this->auth->hasUsers(),
+        ]));
+    }
+
+    /**
+     * Logout action.
+     */
+    public function logout(Request $request): Response
+    {
+        $this->auth->logout();
+        return Response::redirect($this->adminUrl() . '/login');
     }
 
     /**
@@ -37,6 +94,8 @@ final class Controller
             'content' => $this->getContentStats(),
             'taxonomies' => $this->getTaxonomyStats(),
             'system' => $this->getSystemInfo(),
+            'csrf' => $this->auth->csrfToken(),
+            'user' => $this->auth->user(),
         ];
 
         return Response::html($this->render('dashboard', $data));
@@ -51,11 +110,17 @@ final class Controller
             return Response::redirect($this->adminUrl());
         }
 
-        // CSRF check would go here in production
+        // CSRF check
+        $csrf = $request->post('_csrf', '');
+        if (!$this->auth->verifyCsrf($csrf)) {
+            return Response::redirect($this->adminUrl() . '?error=csrf');
+        }
+
         $start = microtime(true);
         $this->app->indexer()->rebuild();
         $elapsed = round((microtime(true) - $start) * 1000);
 
+        $this->auth->regenerateCsrf();
         return Response::redirect($this->adminUrl() . '?action=rebuild&time=' . $elapsed);
     }
 

@@ -13,7 +13,7 @@ return [
     // Site settings
     'site' => [
         'name' => 'My Ava Site',
-        'base_url' => 'http://localhost:8000',
+        'base_url' => 'https://ava.addy.zone/',
         'timezone' => 'UTC',
         'locale' => 'en_GB',
     ],

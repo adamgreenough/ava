@@ -69,6 +69,10 @@ final class Application
         $this->commands['lint'] = [$this, 'cmdLint'];
         $this->commands['make'] = [$this, 'cmdMake'];
         $this->commands['prefix'] = [$this, 'cmdPrefix'];
+        $this->commands['user:add'] = [$this, 'cmdUserAdd'];
+        $this->commands['user:password'] = [$this, 'cmdUserPassword'];
+        $this->commands['user:remove'] = [$this, 'cmdUserRemove'];
+        $this->commands['user:list'] = [$this, 'cmdUserList'];
     }
 
     // =========================================================================
@@ -414,6 +418,154 @@ final class Application
     }
 
     // =========================================================================
+    // User commands
+    // =========================================================================
+
+    /**
+     * Add a new user.
+     */
+    private function cmdUserAdd(array $args): int
+    {
+        if (count($args) < 2) {
+            $this->error('Usage: ava user:add <email> <password> [name]');
+            return 1;
+        }
+
+        $email = $args[0];
+        $password = $args[1];
+        $name = $args[2] ?? null;
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->error('Invalid email address.');
+            return 1;
+        }
+
+        $usersFile = $this->app->path('app/config/users.php');
+        $users = $this->loadUsers($usersFile);
+
+        if (isset($users[$email])) {
+            $this->error("User already exists: {$email}");
+            return 1;
+        }
+
+        $users[$email] = [
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'name' => $name ?? explode('@', $email)[0],
+            'created' => date('Y-m-d'),
+        ];
+
+        $this->saveUsers($usersFile, $users);
+
+        $this->success("User created: {$email}");
+        return 0;
+    }
+
+    /**
+     * Update a user's password.
+     */
+    private function cmdUserPassword(array $args): int
+    {
+        if (count($args) < 2) {
+            $this->error('Usage: ava user:password <email> <new-password>');
+            return 1;
+        }
+
+        $email = $args[0];
+        $password = $args[1];
+
+        $usersFile = $this->app->path('app/config/users.php');
+        $users = $this->loadUsers($usersFile);
+
+        if (!isset($users[$email])) {
+            $this->error("User not found: {$email}");
+            return 1;
+        }
+
+        $users[$email]['password'] = password_hash($password, PASSWORD_DEFAULT);
+        $users[$email]['updated'] = date('Y-m-d');
+
+        $this->saveUsers($usersFile, $users);
+
+        $this->success("Password updated for: {$email}");
+        return 0;
+    }
+
+    /**
+     * Remove a user.
+     */
+    private function cmdUserRemove(array $args): int
+    {
+        if (count($args) < 1) {
+            $this->error('Usage: ava user:remove <email>');
+            return 1;
+        }
+
+        $email = $args[0];
+
+        $usersFile = $this->app->path('app/config/users.php');
+        $users = $this->loadUsers($usersFile);
+
+        if (!isset($users[$email])) {
+            $this->error("User not found: {$email}");
+            return 1;
+        }
+
+        unset($users[$email]);
+
+        $this->saveUsers($usersFile, $users);
+
+        $this->success("User removed: {$email}");
+        return 0;
+    }
+
+    /**
+     * List all users.
+     */
+    private function cmdUserList(array $args): int
+    {
+        $usersFile = $this->app->path('app/config/users.php');
+        $users = $this->loadUsers($usersFile);
+
+        if (empty($users)) {
+            $this->writeln('No users configured.');
+            $this->writeln('');
+            $this->writeln('Create one with: ava user:add <email> <password>');
+            return 0;
+        }
+
+        $this->writeln('');
+        $this->writeln('Users:');
+        foreach ($users as $email => $data) {
+            $name = $data['name'] ?? '';
+            $created = $data['created'] ?? '';
+            $this->writeln("  {$email} - {$name} (created: {$created})");
+        }
+        $this->writeln('');
+
+        return 0;
+    }
+
+    /**
+     * Load users from file.
+     */
+    private function loadUsers(string $file): array
+    {
+        if (!file_exists($file)) {
+            return [];
+        }
+        return require $file;
+    }
+
+    /**
+     * Save users to file.
+     */
+    private function saveUsers(string $file, array $users): void
+    {
+        $content = "<?php\n\ndeclare(strict_types=1);\n\n/**\n * Users Configuration\n *\n * Managed by CLI. Do not edit manually.\n */\n\nreturn " . var_export($users, true) . ";\n";
+        file_put_contents($file, $content);
+    }
+
+    // =========================================================================
     // Output helpers
     // =========================================================================
 
@@ -432,12 +584,16 @@ final class Application
         $this->writeln('  make <type>    Create content of a specific type');
         $this->writeln('  prefix <add|remove> [type]  Toggle date prefix on filenames');
         $this->writeln('');
+        $this->writeln('User Management:');
+        $this->writeln('  user:add <email> <password> [name]  Create admin user');
+        $this->writeln('  user:password <email> <password>    Update password');
+        $this->writeln('  user:remove <email>                 Remove user');
+        $this->writeln('  user:list                           List all users');
+        $this->writeln('');
         $this->writeln('Examples:');
         $this->writeln('  php ava status');
-        $this->writeln('  php ava rebuild');
-        $this->writeln('  php ava make page "About Us"');
         $this->writeln('  php ava make post "Hello World"');
-        $this->writeln('  php ava prefix add post');
+        $this->writeln('  php ava user:add admin@example.com secretpass');
         $this->writeln('');
     }
 

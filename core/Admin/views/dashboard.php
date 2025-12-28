@@ -125,7 +125,10 @@
 <body>
     <header class="admin-header">
         <h1>⚡ Ava Admin</h1>
-        <a href="/" target="_blank">View Site →</a>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <a href="/" target="_blank">View Site →</a>
+            <a href="<?= $admin_url ?>/logout">Logout</a>
+        </div>
     </header>
 
     <main class="admin-main">
@@ -157,6 +160,7 @@
                 </div>
                 <div class="actions">
                     <form method="POST" action="<?= $admin_url ?>/rebuild">
+                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf) ?>">
                         <button type="submit" class="btn btn-primary">Rebuild Cache</button>
                     </form>
                     <a href="<?= $admin_url ?>/lint" class="btn btn-secondary">Lint Content</a>

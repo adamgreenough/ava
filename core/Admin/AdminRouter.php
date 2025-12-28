@@ -37,17 +37,27 @@ final class AdminRouter
         $basePath = $this->app->config('admin.path', '/admin');
         $router = $this->app->router();
 
-        // Dashboard
+        // Login (public)
+        $router->addRoute($basePath . '/login', function (Request $request) {
+            return $this->handle('login', $request, requireAuth: false);
+        });
+
+        // Logout (public, but needs session)
+        $router->addRoute($basePath . '/logout', function (Request $request) {
+            return $this->handle('logout', $request, requireAuth: false);
+        });
+
+        // Dashboard (protected)
         $router->addRoute($basePath, function (Request $request) {
             return $this->handle('dashboard', $request);
         });
 
-        // Rebuild action
+        // Rebuild action (protected)
         $router->addRoute($basePath . '/rebuild', function (Request $request) {
             return $this->handle('rebuild', $request);
         });
 
-        // Lint action
+        // Lint action (protected)
         $router->addRoute($basePath . '/lint', function (Request $request) {
             return $this->handle('lint', $request);
         });
@@ -56,12 +66,24 @@ final class AdminRouter
     /**
      * Handle an admin request.
      */
-    private function handle(string $action, Request $request): ?RouteMatch
+    private function handle(string $action, Request $request, bool $requireAuth = true): ?RouteMatch
     {
-        // Authentication check would go here
-        // For now, we trust the config check
+        $auth = $this->controller->auth();
+
+        // Check authentication for protected routes
+        if ($requireAuth && !$auth->check()) {
+            $loginUrl = $this->app->config('admin.path', '/admin') . '/login';
+            $response = Response::redirect($loginUrl);
+            return new RouteMatch(
+                type: 'admin',
+                template: '__raw__',
+                params: ['response' => $response]
+            );
+        }
 
         $response = match ($action) {
+            'login' => $this->controller->login($request),
+            'logout' => $this->controller->logout($request),
             'dashboard' => $this->controller->dashboard($request),
             'rebuild' => $this->controller->rebuild($request),
             'lint' => $this->controller->lint($request),
@@ -72,7 +94,6 @@ final class AdminRouter
             return null;
         }
 
-        // Return a special RouteMatch that carries the response
         return new RouteMatch(
             type: 'admin',
             template: '__raw__',
