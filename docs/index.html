@@ -7,15 +7,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --theme-color: #6366f1;
-      --theme-color-light: #818cf8;
-      --theme-color-dark: #4f46e5;
-      --theme-color-bg: rgba(99, 102, 241, 0.08);
+      --theme-color: #059669;
+      --theme-color-dark: #047857;
+      --base-font-size: 15px;
     }
 
     * {
@@ -24,174 +20,207 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 15px;
-      line-height: 1.7;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     }
 
     /* Sidebar */
     .sidebar {
-      background: #fafafa;
+      background: #f9fafb;
       border-right: 1px solid #e5e7eb;
     }
 
     .sidebar-nav {
-      padding: 1rem 0;
+      padding: 0.5rem 0;
     }
 
-    .sidebar-nav > ul > li > a {
-      font-weight: 600;
-      color: #6b7280;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .sidebar-nav ul {
+      padding-left: 0;
     }
 
-    .sidebar-nav > ul > li > ul > li > a {
-      font-weight: 500;
-      font-size: 0.875rem;
-      color: #374151;
-      text-transform: none;
-      letter-spacing: 0;
+    .sidebar-nav li {
+      list-style: none;
     }
 
-    .sidebar-nav a {
+    .sidebar-nav li a {
+      display: block;
+      padding: 0.4rem 1.5rem;
+      color: #4b5563;
+      font-size: 0.9rem;
       text-decoration: none;
+      border-left: 2px solid transparent;
       transition: all 0.15s;
     }
 
-    .sidebar-nav a:hover {
+    /* Remove hyphen markers from sub-sidebar */
+    .app-sub-sidebar li::before {
+      content: none !important;
+    }
+
+    .app-sub-sidebar {
+      padding-left: 0.75rem;
+    }
+
+    .app-sub-sidebar li a {
+      padding: 0.25rem 1rem;
+      font-size: 0.825rem;
+      color: #6b7280;
+    }
+
+    /* Section headers in sidebar - remove bold styling */
+    .sidebar-nav > ul > li > p {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 1rem 0 0.25rem 0;
+      padding: 0 1.5rem;
+    }
+
+    .sidebar-nav li a:hover {
       color: var(--theme-color);
+      background: rgba(5, 150, 105, 0.05);
     }
 
     .sidebar-nav li.active > a {
       color: var(--theme-color);
-      font-weight: 600;
+      background: rgba(5, 150, 105, 0.08);
+      border-left-color: var(--theme-color);
+      font-weight: 500;
+    }
+
+    .app-name {
+      padding: 1.25rem 1.5rem 1rem;
+      margin: 0;
     }
 
     .app-name-link {
-      font-size: 1.25rem;
-      font-weight: 700;
+      font-size: 1.1rem;
+      font-weight: 600;
       color: #111827 !important;
-    }
-
-    .app-name-link::before {
-      content: '✨ ';
+      text-decoration: none;
     }
 
     /* Main content */
     .markdown-section {
-      max-width: 800px;
-      padding: 2rem 3rem;
+      max-width: 780px;
+      padding: 2rem 2.5rem;
     }
 
     .markdown-section h1 {
-      font-size: 2.25rem;
-      font-weight: 700;
+      font-size: 2rem;
+      font-weight: 600;
       color: #111827;
+      margin: 0 0 1.5rem 0;
+      padding: 0;
+      border: none;
+    }
+
+    .markdown-section h1:first-child {
       margin-top: 0;
-      padding-bottom: 0.75rem;
-      border-bottom: 2px solid var(--theme-color);
     }
 
     .markdown-section h2 {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 600;
       color: #1f2937;
-      margin-top: 2.5rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid #e5e7eb;
+      margin: 2.5rem 0 1rem 0;
+      padding: 0;
+      border: none;
     }
 
     .markdown-section h3 {
-      font-size: 1.125rem;
+      font-size: 1.1rem;
       font-weight: 600;
       color: #374151;
-      margin-top: 1.75rem;
+      margin: 1.75rem 0 0.75rem 0;
     }
 
     .markdown-section a {
       color: var(--theme-color);
-      font-weight: 500;
+      text-decoration: none;
     }
 
     .markdown-section a:hover {
-      color: var(--theme-color-dark);
+      text-decoration: underline;
+    }
+
+    .markdown-section p {
+      margin: 0.75rem 0;
+    }
+
+    /* Inline code */
+    .markdown-section code {
+      font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+      font-size: 0.875em;
+      background: #f3f4f6;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      color: #374151;
     }
 
     /* Code blocks */
-    .markdown-section code {
-      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-      font-size: 13px;
-      background: #f3f4f6;
-      padding: 0.125rem 0.375rem;
-      border-radius: 4px;
-      color: #1f2937;
-    }
-
     .markdown-section pre {
-      background: #1e1e1e !important;
-      border-radius: 8px;
-      padding: 1.25rem;
+      background: #282c34 !important;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
       overflow-x: auto;
     }
 
     .markdown-section pre code {
       background: transparent;
       padding: 0;
-      color: #d4d4d4;
-      font-size: 13px;
-      line-height: 1.6;
+      color: #abb2bf;
+      font-size: 0.85rem;
+      line-height: 1.5;
     }
 
     /* Tables */
     .markdown-section table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.875rem;
-      margin: 1.5rem 0;
+      font-size: 0.9rem;
+      margin: 1.25rem 0;
     }
 
     .markdown-section th {
       background: #f9fafb;
       font-weight: 600;
       text-align: left;
-      padding: 0.75rem 1rem;
+      padding: 0.6rem 0.75rem;
       border: 1px solid #e5e7eb;
     }
 
     .markdown-section td {
-      padding: 0.75rem 1rem;
+      padding: 0.6rem 0.75rem;
       border: 1px solid #e5e7eb;
       vertical-align: top;
     }
 
-    .markdown-section tr:hover td {
-      background: #fafafa;
-    }
-
-    /* Blockquotes (tips/warnings) */
+    /* Blockquotes */
     .markdown-section blockquote {
-      margin: 1.5rem 0;
-      padding: 1rem 1.25rem;
-      border-left: 4px solid var(--theme-color);
-      background: var(--theme-color-bg);
-      border-radius: 0 8px 8px 0;
+      margin: 1.25rem 0;
+      padding: 0.75rem 1rem;
+      border-left: 3px solid #d1d5db;
+      background: #f9fafb;
+      border-radius: 0 4px 4px 0;
+      color: #4b5563;
     }
 
     .markdown-section blockquote p {
       margin: 0;
-      color: #374151;
     }
 
     /* Lists */
     .markdown-section ul,
     .markdown-section ol {
-      padding-left: 1.5rem;
+      padding-left: 1.25rem;
+      margin: 0.75rem 0;
     }
 
     .markdown-section li {
-      margin: 0.5rem 0;
+      margin: 0.35rem 0;
     }
 
     /* Horizontal rule */
@@ -204,44 +233,28 @@
     /* Search */
     .search {
       margin: 0;
-      padding: 1rem 1.5rem;
+      padding: 0.75rem 1.5rem;
       border-bottom: 1px solid #e5e7eb;
     }
 
     .search input {
       width: 100%;
-      padding: 0.625rem 1rem;
+      padding: 0.5rem 0.75rem;
       border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-family: var(--base-font-family);
+      border-radius: 4px;
       font-size: 0.875rem;
       outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
     }
 
     .search input:focus {
       border-color: var(--theme-color);
-      box-shadow: 0 0 0 3px var(--theme-color-bg);
-    }
-
-    .search input::placeholder {
-      color: #9ca3af;
     }
 
     .search .results-panel {
       background: white;
       border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-
-    .search .matching-post {
-      padding: 1rem;
-      border-bottom: 1px solid #f3f4f6;
-    }
-
-    .search .matching-post:hover {
-      background: #fafafa;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     /* GitHub corner */
@@ -249,30 +262,19 @@
       fill: var(--theme-color);
     }
 
-    /* Mobile */
-    @media (max-width: 768px) {
-      .markdown-section {
-        padding: 1.5rem 1rem;
-      }
-
-      .markdown-section h1 {
-        font-size: 1.75rem;
-      }
-
-      .sidebar {
-        background: white;
-      }
-    }
-
     /* Progress bar */
     .progress {
       background: var(--theme-color) !important;
     }
 
-    /* Copy button for code blocks */
-    .docsify-copy-code-button {
-      font-family: var(--base-font-family);
-      font-size: 0.75rem;
+    /* Mobile */
+    @media (max-width: 768px) {
+      .markdown-section {
+        padding: 1.5rem 1rem;
+      }
+      .sidebar {
+        background: white;
+      }
     }
   </style>
 </head>
@@ -280,13 +282,13 @@
   <div id="app"></div>
   <script>
     window.$docsify = {
-      name: 'Ava CMS',
+      name: '✨ Ava',
       repo: 'adamgreenough/ava',
       loadSidebar: true,
       subMaxLevel: 2,
       auto2top: true,
       search: {
-        placeholder: 'Search docs...',
+        placeholder: 'Search...',
         noData: 'No results',
         depth: 3
       }
