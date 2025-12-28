@@ -151,9 +151,13 @@ $ava->config('site.name')      // Config value
 php bin/ava status          # Show site status
 php bin/ava rebuild         # Rebuild cache
 php bin/ava lint            # Validate content
-php bin/ava make:page "X"   # Create page
-php bin/ava make:post "X"   # Create post
-php bin/ava make:type T "X" # Create custom type
+php bin/ava make <type> "X" # Create content of any type
+```
+
+Examples:
+```bash
+php bin/ava make pages "About Us"
+php bin/ava make posts "Hello World"
 ```
 
 ## Non-Goals (Do Not Add)

@@ -67,9 +67,7 @@ final class Application
         $this->commands['status'] = [$this, 'cmdStatus'];
         $this->commands['rebuild'] = [$this, 'cmdRebuild'];
         $this->commands['lint'] = [$this, 'cmdLint'];
-        $this->commands['make:page'] = [$this, 'cmdMakePage'];
-        $this->commands['make:post'] = [$this, 'cmdMakePost'];
-        $this->commands['make:type'] = [$this, 'cmdMakeType'];
+        $this->commands['make'] = [$this, 'cmdMake'];
     }
 
     // =========================================================================
@@ -174,45 +172,14 @@ final class Application
     }
 
     /**
-     * Create a new page.
-     */
-    private function cmdMakePage(array $args): int
-    {
-        $title = implode(' ', $args);
-        if (empty($title)) {
-            $this->error('Usage: ava make:page "Page Title"');
-            return 1;
-        }
-
-        return $this->createContent('pages', $title, [
-            'status' => 'draft',
-        ]);
-    }
-
-    /**
-     * Create a new post.
-     */
-    private function cmdMakePost(array $args): int
-    {
-        $title = implode(' ', $args);
-        if (empty($title)) {
-            $this->error('Usage: ava make:post "Post Title"');
-            return 1;
-        }
-
-        return $this->createContent('posts', $title, [
-            'status' => 'draft',
-            'date' => date('Y-m-d'),
-        ]);
-    }
-
-    /**
      * Create content of a specific type.
      */
-    private function cmdMakeType(array $args): int
+    private function cmdMake(array $args): int
     {
         if (count($args) < 2) {
-            $this->error('Usage: ava make:type <type> "Title"');
+            $this->error('Usage: ava make <type> "Title"');
+            $this->writeln('');
+            $this->showAvailableTypes();
             return 1;
         }
 
@@ -223,14 +190,32 @@ final class Application
         $contentTypes = require $this->app->path('app/config/content_types.php');
         if (!isset($contentTypes[$type])) {
             $this->error("Unknown content type: {$type}");
-            $this->writeln('Available types: ' . implode(', ', array_keys($contentTypes)));
+            $this->showAvailableTypes();
             return 1;
         }
 
-        return $this->createContent($type, $title, [
-            'status' => 'draft',
-            'date' => date('Y-m-d'),
-        ]);
+        $typeConfig = $contentTypes[$type];
+        $extra = ['status' => 'draft'];
+
+        // Add date for dated content types
+        if (($typeConfig['sorting'] ?? 'manual') === 'date_desc') {
+            $extra['date'] = date('Y-m-d');
+        }
+
+        return $this->createContent($type, $title, $extra);
+    }
+
+    /**
+     * Show available content types.
+     */
+    private function showAvailableTypes(): void
+    {
+        $contentTypes = require $this->app->path('app/config/content_types.php');
+        $this->writeln('Available types:');
+        foreach ($contentTypes as $name => $config) {
+            $label = $config['label'] ?? ucfirst($name);
+            $this->writeln("  {$name} - {$label}");
+        }
     }
 
     /**
@@ -309,16 +294,13 @@ final class Application
         $this->writeln('  status         Show site status and cache info');
         $this->writeln('  rebuild        Rebuild all cache files');
         $this->writeln('  lint           Validate content files');
-        $this->writeln('  make:page      Create a new page');
-        $this->writeln('  make:post      Create a new post');
-        $this->writeln('  make:type      Create content of a specific type');
+        $this->writeln('  make <type>    Create content of a specific type');
         $this->writeln('');
         $this->writeln('Examples:');
         $this->writeln('  php ava status');
         $this->writeln('  php ava rebuild');
-        $this->writeln('  php ava make:page "About Us"');
-        $this->writeln('  php ava make:post "Hello World"');
-        $this->writeln('  php ava make:type resources "PHP Tutorial"');
+        $this->writeln('  php ava make pages "About Us"');
+        $this->writeln('  php ava make posts "Hello World"');
         $this->writeln('');
     }
 

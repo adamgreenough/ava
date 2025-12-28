@@ -69,21 +69,35 @@ Checks for:
 - Duplicate slugs within content types
 - Duplicate IDs
 
-### `make:page`
+### `make`
 
-Create a new page.
+Create content of any type.
 
 ```bash
-php bin/ava make:page "About Us"
+php bin/ava make <type> "Title"
 ```
 
-Creates `content/pages/about-us.md` with:
+Examples:
+
+```bash
+# Create a page
+php bin/ava make pages "About Us"
+
+# Create a blog post (date auto-added for dated types)
+php bin/ava make posts "Hello World"
+
+# Create a custom type item
+php bin/ava make resources "PHP Tutorial"
+```
+
+Creates a file in the type's content directory with:
 ```yaml
 ---
 id: 01JGMK...
 title: About Us
 slug: about-us
 status: draft
+date: 2024-12-28  # Only for dated types
 ---
 
 # About Us
@@ -91,25 +105,12 @@ status: draft
 Your content here.
 ```
 
-### `make:post`
-
-Create a new blog post.
-
-```bash
-php bin/ava make:post "Hello World"
+If you run `make` without arguments, it shows available types:
 ```
-
-Creates `content/posts/hello-world.md` with date set to today.
-
-### `make:type`
-
-Create content of a custom type.
-
-```bash
-php bin/ava make:type resources "PHP Tutorial"
+Available types:
+  pages - Pages
+  posts - Posts
 ```
-
-Creates content in the specified type's directory.
 
 ## Exit Codes
 
