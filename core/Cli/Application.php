@@ -68,6 +68,7 @@ final class Application
         $this->commands['rebuild'] = [$this, 'cmdRebuild'];
         $this->commands['lint'] = [$this, 'cmdLint'];
         $this->commands['make'] = [$this, 'cmdMake'];
+        $this->commands['prefix'] = [$this, 'cmdPrefix'];
     }
 
     // =========================================================================
@@ -278,6 +279,140 @@ final class Application
         return 0;
     }
 
+    /**
+     * Toggle date prefix on content filenames.
+     */
+    private function cmdPrefix(array $args): int
+    {
+        $action = $args[0] ?? null;
+        $typeFilter = $args[1] ?? null;
+
+        if (!in_array($action, ['add', 'remove'], true)) {
+            $this->error('Usage: ava prefix <add|remove> [type]');
+            $this->writeln('');
+            $this->writeln('Examples:');
+            $this->writeln('  ava prefix add post      # Add date prefix to posts');
+            $this->writeln('  ava prefix remove post   # Remove date prefix from posts');
+            $this->writeln('  ava prefix add           # Add to all dated types');
+            return 1;
+        }
+
+        $contentTypes = require $this->app->path('app/config/content_types.php');
+        $parser = new \Ava\Content\Parser();
+        $renamed = 0;
+        $skipped = 0;
+
+        foreach ($contentTypes as $typeName => $typeConfig) {
+            // Filter by type if specified
+            if ($typeFilter !== null && $typeName !== $typeFilter) {
+                continue;
+            }
+
+            $contentDir = $this->app->path('content/' . ($typeConfig['content_dir'] ?? $typeName));
+            if (!is_dir($contentDir)) {
+                continue;
+            }
+
+            $files = $this->findMarkdownFiles($contentDir);
+
+            foreach ($files as $filePath) {
+                $result = $this->processFilePrefix($filePath, $typeName, $parser, $action);
+                if ($result === true) {
+                    $renamed++;
+                } elseif ($result === false) {
+                    $skipped++;
+                }
+            }
+        }
+
+        if ($renamed > 0) {
+            $this->success("Renamed {$renamed} file(s)");
+            $this->writeln('Run "ava rebuild" to update the cache.');
+        } else {
+            $this->writeln('No files needed renaming.');
+        }
+
+        return 0;
+    }
+
+    /**
+     * Process a single file for prefix add/remove.
+     *
+     * @return bool|null true=renamed, false=skipped, null=no action needed
+     */
+    private function processFilePrefix(string $filePath, string $type, \Ava\Content\Parser $parser, string $action): ?bool
+    {
+        try {
+            $item = $parser->parseFile($filePath, $type);
+        } catch (\Exception $e) {
+            $this->warning("Skipping {$filePath}: " . $e->getMessage());
+            return false;
+        }
+
+        $date = $item->date();
+        if ($date === null) {
+            // No date field, skip
+            return null;
+        }
+
+        $dir = dirname($filePath);
+        $filename = basename($filePath);
+        $datePrefix = $date->format('Y-m-d') . '-';
+
+        // Check current state
+        $hasPrefix = preg_match('/^\d{4}-\d{2}-\d{2}-/', $filename);
+
+        if ($action === 'add' && !$hasPrefix) {
+            // Add date prefix
+            $newFilename = $datePrefix . $filename;
+            $newPath = $dir . '/' . $newFilename;
+
+            if (file_exists($newPath)) {
+                $this->warning("Cannot rename {$filename}: {$newFilename} already exists");
+                return false;
+            }
+
+            rename($filePath, $newPath);
+            $this->writeln("  {$filename} → {$newFilename}");
+            return true;
+
+        } elseif ($action === 'remove' && $hasPrefix) {
+            // Remove date prefix
+            $newFilename = preg_replace('/^\d{4}-\d{2}-\d{2}-/', '', $filename);
+            $newPath = $dir . '/' . $newFilename;
+
+            if (file_exists($newPath)) {
+                $this->warning("Cannot rename {$filename}: {$newFilename} already exists");
+                return false;
+            }
+
+            rename($filePath, $newPath);
+            $this->writeln("  {$filename} → {$newFilename}");
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
+     * Find all markdown files in a directory recursively.
+     */
+    private function findMarkdownFiles(string $dir): array
+    {
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if ($file->isFile() && $file->getExtension() === 'md') {
+                $files[] = $file->getPathname();
+            }
+        }
+
+        return $files;
+    }
+
     // =========================================================================
     // Output helpers
     // =========================================================================
@@ -295,12 +430,14 @@ final class Application
         $this->writeln('  rebuild        Rebuild all cache files');
         $this->writeln('  lint           Validate content files');
         $this->writeln('  make <type>    Create content of a specific type');
+        $this->writeln('  prefix <add|remove> [type]  Toggle date prefix on filenames');
         $this->writeln('');
         $this->writeln('Examples:');
         $this->writeln('  php ava status');
         $this->writeln('  php ava rebuild');
-        $this->writeln('  php ava make pages "About Us"');
-        $this->writeln('  php ava make posts "Hello World"');
+        $this->writeln('  php ava make page "About Us"');
+        $this->writeln('  php ava make post "Hello World"');
+        $this->writeln('  php ava prefix add post');
         $this->writeln('');
     }
 

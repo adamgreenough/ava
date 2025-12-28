@@ -15,7 +15,7 @@ return [
         'name' => 'My Ava Site',
         'base_url' => 'http://localhost:8000',
         'timezone' => 'UTC',
-        'locale' => 'en_US',
+        'locale' => 'en_GB',
     ],
 
     // Paths (relative to AVA_ROOT)
@@ -73,7 +73,7 @@ return [
 
     // Admin settings (disabled by default)
     'admin' => [
-        'enabled' => false,
+        'enabled' => true,
         'path' => '/admin',
     ],
 
