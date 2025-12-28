@@ -15,8 +15,8 @@
             --text: #fafafa;
             --text-muted: #a1a1aa;
             --text-dim: #52525b;
-            --accent: #6366f1;
-            --accent-hover: #4f46e5;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
             --success: #22c55e;
             --danger: #ef4444;
         }
@@ -29,8 +29,8 @@
                 --text: #0f172a;
                 --text-muted: #64748b;
                 --text-dim: #94a3b8;
-                --accent: #6366f1;
-                --accent-hover: #4f46e5;
+                --accent: #3b82f6;
+                --accent-hover: #2563eb;
                 --success: #16a34a;
                 --danger: #dc2626;
             }
