@@ -8,6 +8,7 @@ use Ava\Application;
 use Ava\Content\Item;
 use Ava\Content\Query;
 use Ava\Http\Request;
+use Ava\Http\Response;
 
 /**
  * Route Match
@@ -24,6 +25,7 @@ final class RouteMatch
     private ?string $redirectUrl;
     private int $redirectCode;
     private array $params;
+    private ?Response $response;
 
     public function __construct(
         string $type,
@@ -33,7 +35,8 @@ final class RouteMatch
         string $template = 'index.php',
         ?string $redirectUrl = null,
         int $redirectCode = 302,
-        array $params = []
+        array $params = [],
+        ?Response $response = null
     ) {
         $this->type = $type;
         $this->contentItem = $contentItem;
@@ -43,6 +46,7 @@ final class RouteMatch
         $this->redirectUrl = $redirectUrl;
         $this->redirectCode = $redirectCode;
         $this->params = $params;
+        $this->response = $response;
     }
 
     public function getType(): string
@@ -93,5 +97,15 @@ final class RouteMatch
     public function getParam(string $key, mixed $default = null): mixed
     {
         return $this->params[$key] ?? $default;
+    }
+
+    public function getResponse(): ?Response
+    {
+        return $this->response;
+    }
+
+    public function hasResponse(): bool
+    {
+        return $this->response !== null;
     }
 }

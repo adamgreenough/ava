@@ -101,4 +101,24 @@ final class Hooks
         self::$filters = [];
         self::$actions = [];
     }
+
+    /**
+     * Get all registered filter hook names.
+     * 
+     * @return array<string>
+     */
+    public static function getRegisteredFilters(): array
+    {
+        return array_keys(self::$filters);
+    }
+
+    /**
+     * Get all registered action hook names.
+     * 
+     * @return array<string>
+     */
+    public static function getRegisteredActions(): array
+    {
+        return array_keys(self::$actions);
+    }
 }

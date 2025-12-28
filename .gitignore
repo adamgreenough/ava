@@ -1,9 +1,42 @@
 # Ava CMS
 
-/storage/
+# Dependencies
 /vendor/
+
+# Storage (regenerated at runtime)
+/storage/cache/
+/storage/logs/
+/storage/tmp/
+
+# Keep storage structure but ignore contents
+!/storage/
+!/storage/README.md
+!/storage/redirects.json
+
+# Environment and secrets
 .env
+.env.local
+.env.*.local
+
+# User credentials (sensitive)
+app/config/users.php
+
+# Logs
 *.log
+
+# OS files
 .DS_Store
 Thumbs.db
-app/config/users.php
+.directory
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# PHP
+*.phar
+.php-cs-fixer.cache
+.phpunit.result.cache

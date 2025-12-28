@@ -19,7 +19,11 @@ php bin/ava <command> [arguments]
 | `rebuild` | Rebuild all cache files |
 | `lint` | Validate all content files |
 | `make <type> "Title"` | Create new content |
-| `user:create` | Create admin user |
+| `prefix <add\|remove> [type]` | Toggle date prefix on filenames |
+| `user:add` | Create admin user |
+| `user:password` | Update user password |
+| `user:remove` | Remove a user |
+| `user:list` | List all users |
 
 ---
 
@@ -155,15 +159,68 @@ Run without arguments to see available types:
 
 ---
 
-## user:create
+## User Management
 
-Create an admin dashboard user.
+Manage admin dashboard users.
+
+### user:add
+
+Create a new admin user:
 
 ```bash
-./ava user:create
+./ava user:add <email> <password> [name]
 ```
 
-Prompts for email and password, then saves to `app/config/users.php` with bcrypt-hashed credentials.
+Example:
+```bash
+./ava user:add admin@example.com secretpass "Admin User"
+```
+
+### user:password
+
+Update an existing user's password:
+
+```bash
+./ava user:password <email> <new-password>
+```
+
+### user:remove
+
+Remove a user:
+
+```bash
+./ava user:remove <email>
+```
+
+### user:list
+
+List all configured users:
+
+```bash
+./ava user:list
+```
+
+---
+
+## prefix
+
+Toggle date prefixes on content filenames.
+
+```bash
+./ava prefix <add|remove> [type]
+```
+
+Examples:
+```bash
+# Add date prefix to all posts
+./ava prefix add post
+# → hello-world.md becomes 2024-12-28-hello-world.md
+
+# Remove date prefix from posts
+./ava prefix remove post
+```
+
+This reads the `date` field from frontmatter. Run `ava rebuild` after to update the cache.
 
 ## Exit Codes
 

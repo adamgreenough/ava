@@ -21,6 +21,9 @@ final class Indexer
     private Application $app;
     private Parser $parser;
 
+    /** @var array<string, string> Track IDs during indexing */
+    private array $seenIds = [];
+
     public function __construct(Application $app)
     {
         $this->app = $app;
@@ -53,6 +56,9 @@ final class Indexer
      */
     public function rebuild(): void
     {
+        // Reset seen IDs for duplicate detection
+        $this->seenIds = [];
+
         $contentTypes = $this->loadContentTypes();
         $taxonomies = $this->loadTaxonomies();
 
@@ -138,11 +144,10 @@ final class Indexer
                 // Check ID uniqueness (if IDs are used)
                 $id = $item->id();
                 if ($id !== null) {
-                    static $ids = [];
-                    if (isset($ids[$id])) {
-                        $errors[] = "{$filePath}: Duplicate ID '{$id}' (also in {$ids[$id]})";
+                    if (isset($this->seenIds[$id])) {
+                        $errors[] = "{$filePath}: Duplicate ID '{$id}' (also in {$this->seenIds[$id]})";
                     } else {
-                        $ids[$id] = $filePath;
+                        $this->seenIds[$id] = $filePath;
                     }
                 }
 

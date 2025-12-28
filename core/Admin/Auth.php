@@ -26,6 +26,14 @@ final class Auth
     public function startSession(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
+            // Set secure session cookie parameters
+            session_set_cookie_params([
+                'lifetime' => 0,          // Session cookie
+                'path' => '/',
+                'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+                'httponly' => true,       // Prevent JavaScript access
+                'samesite' => 'Lax',      // CSRF protection
+            ]);
             session_start();
         }
     }
@@ -86,6 +94,9 @@ final class Auth
         session_regenerate_id(true);
         $_SESSION[self::SESSION_KEY] = $email;
 
+        // Update last login time
+        $this->updateLastLogin($email);
+
         return true;
     }
 
@@ -129,6 +140,34 @@ final class Auth
     {
         $this->startSession();
         $_SESSION[self::CSRF_KEY] = bin2hex(random_bytes(32));
+    }
+
+    /**
+     * Get all users (for admin display).
+     */
+    public function allUsers(): array
+    {
+        return $this->loadUsers();
+    }
+
+    /**
+     * Update user's last login time.
+     */
+    private function updateLastLogin(string $email): void
+    {
+        $users = $this->loadUsers();
+        if (!isset($users[$email])) {
+            return;
+        }
+
+        $users[$email]['last_login'] = date('Y-m-d H:i:s');
+
+        // Write back to file
+        $content = "<?php\n\ndeclare(strict_types=1);\n\n/**\n * Users Configuration\n *\n * Managed by CLI. Do not edit manually.\n */\n\nreturn " . var_export($users, true) . ";\n";
+        file_put_contents($this->usersFile, $content);
+
+        // Update cache
+        $this->users = $users;
     }
 
     /**

@@ -113,8 +113,13 @@ final class Application
             return Response::redirect($match->getRedirectUrl(), $match->getRedirectCode());
         }
 
-        // Handle admin routes (return raw Response)
-        if ($match->getType() === 'admin') {
+        // Handle routes with embedded Response objects
+        if ($match->hasResponse()) {
+            return $match->getResponse();
+        }
+
+        // Handle routes that return raw Response (admin, plugin routes)
+        if (in_array($match->getType(), ['admin', 'plugin', 'response'], true)) {
             $response = $match->getParam('response');
             if ($response instanceof Response) {
                 return $response;
@@ -239,7 +244,10 @@ final class Application
         foreach ($plugins as $plugin) {
             $pluginFile = $pluginsPath . '/' . $plugin . '/plugin.php';
             if (file_exists($pluginFile)) {
-                require $pluginFile;
+                $manifest = require $pluginFile;
+                if (is_array($manifest) && isset($manifest['boot']) && is_callable($manifest['boot'])) {
+                    $manifest['boot']($this);
+                }
             }
         }
     }

@@ -7,6 +7,7 @@ namespace Ava\Admin;
 use Ava\Application;
 use Ava\Http\Request;
 use Ava\Http\Response;
+use Ava\Plugins\Hooks;
 
 /**
  * Admin Controller
@@ -50,16 +51,19 @@ final class Controller
             $csrf = $request->post('_csrf', '');
             if (!$this->auth->verifyCsrf($csrf)) {
                 $error = 'Invalid request. Please try again.';
+                $this->logAction('WARNING', 'Login failed: Invalid CSRF token');
             } else {
                 $email = $request->post('email', '');
                 $password = $request->post('password', '');
 
                 if ($this->auth->attempt($email, $password)) {
                     $this->auth->regenerateCsrf();
+                    $this->logAction('INFO', 'Login successful: ' . $email);
                     return Response::redirect($this->adminUrl());
                 }
 
                 $error = 'Invalid email or password.';
+                $this->logAction('WARNING', 'Login failed for: ' . $email);
             }
         }
 
@@ -76,7 +80,9 @@ final class Controller
      */
     public function logout(Request $request): Response
     {
+        $user = $this->auth->user();
         $this->auth->logout();
+        $this->logAction('INFO', 'Logout: ' . ($user ?? 'Unknown user'));
         return Response::redirect($this->adminUrl() . '/login');
     }
 
@@ -85,20 +91,36 @@ final class Controller
      */
     public function dashboard(Request $request): Response
     {
+        $repository = $this->app->repository();
+        
+        // Get custom admin pages registered by plugins
+        $customPages = Hooks::apply('admin.register_pages', [], $this->app);
+        
+        // Get custom sidebar items
+        $customSidebarItems = Hooks::apply('admin.sidebar_items', [], $this->app);
+        
         $data = [
             'site' => [
                 'name' => $this->app->config('site.name'),
                 'url' => $this->app->config('site.base_url'),
+                'timezone' => $this->app->config('site.timezone', 'UTC'),
             ],
             'cache' => $this->getCacheStatus(),
             'content' => $this->getContentStats(),
             'taxonomies' => $this->getTaxonomyStats(),
+            'taxonomyTerms' => $this->getTaxonomyTerms(),
+            'taxonomyConfig' => $this->getTaxonomyConfig(),
             'system' => $this->getSystemInfo(),
             'recentContent' => $this->getRecentContent(),
             'plugins' => $this->getActivePlugins(),
+            'users' => $this->auth->allUsers(),
             'theme' => $this->app->config('theme', 'default'),
             'csrf' => $this->auth->csrfToken(),
             'user' => $this->auth->user(),
+            'contentTypes' => $this->getContentTypeConfig(),
+            'routes' => $repository->routes(),
+            'customPages' => $customPages,
+            'customSidebarItems' => $customSidebarItems,
         ];
 
         return Response::html($this->render('dashboard', $data));
@@ -152,13 +174,98 @@ final class Controller
             return $bDate->getTimestamp() - $aDate->getTimestamp();
         });
 
+        $contentTypes = $this->getContentTypeConfig();
+        $typeConfig = $contentTypes[$type] ?? [];
+
+        // Calculate stats for items
+        $totalWords = 0;
+        $totalSize = 0;
+        foreach ($items as $item) {
+            $totalWords += str_word_count(strip_tags($item->rawContent()));
+            if (file_exists($item->filePath())) {
+                $totalSize += filesize($item->filePath());
+            }
+        }
+
         $data = [
             'type' => $type,
             'items' => $items,
             'allContent' => $this->getContentStats(),
+            'typeConfig' => $typeConfig,
+            'taxonomyConfig' => $this->getTaxonomyConfig(),
+            'taxonomyTerms' => $this->getTaxonomyTerms(),
+            'routes' => $repository->routes(),
+            'contentTypes' => $contentTypes,
+            'stats' => [
+                'totalWords' => $totalWords,
+                'totalSize' => $totalSize,
+            ],
+            'site' => [
+                'name' => $this->app->config('site.name'),
+                'url' => $this->app->config('site.base_url'),
+            ],
+            'user' => $this->auth->user(),
         ];
 
         return Response::html($this->render('content-list', $data));
+    }
+
+    /**
+     * Taxonomy detail page.
+     */
+    public function taxonomyDetail(Request $request, string $taxonomy): ?Response
+    {
+        $repository = $this->app->repository();
+        $taxonomies = $repository->taxonomies();
+
+        // Check if taxonomy exists
+        if (!in_array($taxonomy, $taxonomies)) {
+            return null; // 404
+        }
+
+        $terms = $repository->terms($taxonomy);
+        $taxonomyConfig = $this->getTaxonomyConfig();
+        $config = $taxonomyConfig[$taxonomy] ?? [];
+
+        // Get all content for calculating stats
+        $allContent = [];
+        foreach ($repository->types() as $type) {
+            foreach ($repository->all($type) as $item) {
+                $allContent[] = $item;
+            }
+        }
+
+        // Calculate stats for each term
+        $termStats = [];
+        foreach ($terms as $slug => $termData) {
+            $itemCount = count($termData['items'] ?? []);
+            $termStats[$slug] = [
+                'name' => $termData['name'] ?? $slug,
+                'slug' => $slug,
+                'count' => $itemCount,
+                'items' => $termData['items'] ?? [],
+            ];
+        }
+
+        // Sort terms by count descending
+        uasort($termStats, fn($a, $b) => $b['count'] - $a['count']);
+
+        $data = [
+            'taxonomy' => $taxonomy,
+            'terms' => $termStats,
+            'config' => $config,
+            'allContent' => $this->getContentStats(),
+            'taxonomies' => $this->getTaxonomyStats(),
+            'taxonomyConfig' => $taxonomyConfig,
+            'routes' => $repository->routes(),
+            'site' => [
+                'name' => $this->app->config('site.name'),
+                'url' => $this->app->config('site.base_url'),
+            ],
+            'user' => $this->auth->user(),
+        ];
+
+        return Response::html($this->render('taxonomy', $data));
     }
 
     /**
@@ -168,12 +275,115 @@ final class Controller
     {
         $errors = $this->app->indexer()->lint();
 
+        // Log lint errors if any
+        if (!empty($errors)) {
+            $errorCount = array_sum(array_map('count', $errors));
+            $this->logAction('WARNING', "Lint found {$errorCount} error(s) in " . count($errors) . ' file(s)');
+        } else {
+            $this->logAction('INFO', 'Lint check passed - no errors found');
+        }
+
         $data = [
             'errors' => $errors,
             'valid' => empty($errors),
+            'content' => $this->getContentStats(),
+            'taxonomies' => $this->getTaxonomyStats(),
+            'taxonomyConfig' => $this->getTaxonomyConfig(),
+            'site' => [
+                'name' => $this->app->config('site.name'),
+                'url' => $this->app->config('site.base_url'),
+                'timezone' => $this->app->config('site.timezone', 'UTC'),
+            ],
+            'user' => $this->auth->user(),
         ];
 
         return Response::html($this->render('lint', $data));
+    }
+
+    /**
+     * System info page.
+     */
+    public function system(Request $request): Response
+    {
+        $repository = $this->app->repository();
+        
+        $data = [
+            'system' => $this->getSystemInfo(),
+            'content' => $this->getContentStats(),
+            'taxonomies' => $this->getTaxonomyStats(),
+            'taxonomyConfig' => $this->getTaxonomyConfig(),
+            'cache' => $this->getCacheStatus(),
+            'plugins' => $this->getActivePlugins(),
+            'theme' => $this->app->config('theme', 'default'),
+            'routes' => $repository->routes(),
+            'avaConfig' => $this->getAvaConfig(),
+            'directories' => $this->getDirectoryStatus(),
+            'hooks' => $this->getHooksInfo(),
+            'pathAliases' => $this->getPathAliases(),
+            'site' => [
+                'name' => $this->app->config('site.name'),
+                'url' => $this->app->config('site.base_url'),
+                'timezone' => $this->app->config('site.timezone', 'UTC'),
+            ],
+            'csrf' => $this->auth->csrfToken(),
+            'user' => $this->auth->user(),
+        ];
+
+        return Response::html($this->render('system', $data));
+    }
+
+    /**
+     * Shortcodes reference page.
+     */
+    public function shortcodes(Request $request): Response
+    {
+        // Get registered shortcodes from the engine
+        $shortcodesEngine = $this->app->shortcodes();
+        $shortcodeTags = $shortcodesEngine->tags();
+
+        // Get available snippets
+        $snippets = $this->getAvailableSnippets();
+
+        $data = [
+            'shortcodes' => $shortcodeTags,
+            'snippets' => $snippets,
+            'content' => $this->getContentStats(),
+            'taxonomies' => $this->getTaxonomyStats(),
+            'taxonomyConfig' => $this->getTaxonomyConfig(),
+            'site' => [
+                'name' => $this->app->config('site.name'),
+                'url' => $this->app->config('site.base_url'),
+                'timezone' => $this->app->config('site.timezone', 'UTC'),
+            ],
+            'csrf' => $this->auth->csrfToken(),
+            'user' => $this->auth->user(),
+        ];
+
+        return Response::html($this->render('shortcodes', $data));
+    }
+
+    /**
+     * Admin logs page.
+     */
+    public function logs(Request $request): Response
+    {
+        $logs = $this->getAdminLogs();
+
+        $data = [
+            'logs' => $logs,
+            'content' => $this->getContentStats(),
+            'taxonomies' => $this->getTaxonomyStats(),
+            'taxonomyConfig' => $this->getTaxonomyConfig(),
+            'site' => [
+                'name' => $this->app->config('site.name'),
+                'url' => $this->app->config('site.base_url'),
+                'timezone' => $this->app->config('site.timezone', 'UTC'),
+            ],
+            'csrf' => $this->auth->csrfToken(),
+            'user' => $this->auth->user(),
+        ];
+
+        return Response::html($this->render('logs', $data));
     }
 
     // -------------------------------------------------------------------------
@@ -189,6 +399,8 @@ final class Controller
             'mode' => $this->app->config('cache.mode', 'auto'),
             'fresh' => false,
             'built_at' => null,
+            'size' => 0,
+            'files' => 0,
         ];
 
         if (file_exists($fingerprintPath)) {
@@ -197,6 +409,19 @@ final class Controller
 
         if (file_exists($cachePath . '/content_index.php')) {
             $status['built_at'] = date('Y-m-d H:i:s', filemtime($cachePath . '/content_index.php'));
+        }
+
+        // Calculate cache directory size and file count
+        if (is_dir($cachePath)) {
+            $files = glob($cachePath . '/*');
+            $status['files'] = count($files);
+            $totalSize = 0;
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    $totalSize += filesize($file);
+                }
+            }
+            $status['size'] = $totalSize;
         }
 
         return $status;
@@ -231,10 +456,68 @@ final class Controller
         return $stats;
     }
 
+    private function getTaxonomyTerms(): array
+    {
+        $repository = $this->app->repository();
+        $allTerms = [];
+
+        foreach ($repository->taxonomies() as $taxonomy) {
+            $allTerms[$taxonomy] = $repository->terms($taxonomy);
+        }
+
+        return $allTerms;
+    }
+
+    private function getContentTypeConfig(): array
+    {
+        $configPath = $this->app->path('app/config/content_types.php');
+        if (file_exists($configPath)) {
+            return require $configPath;
+        }
+        return [];
+    }
+
+    private function getTaxonomyConfig(): array
+    {
+        $configPath = $this->app->path('app/config/taxonomies.php');
+        if (file_exists($configPath)) {
+            return require $configPath;
+        }
+        return [];
+    }
+
+    private function getAvaConfig(): array
+    {
+        return [
+            'site_name' => $this->app->config('site.name'),
+            'base_url' => $this->app->config('site.base_url'),
+            'timezone' => $this->app->config('site.timezone', 'UTC'),
+            'theme' => $this->app->config('theme', 'default'),
+            'cache_mode' => $this->app->config('cache.mode', 'auto'),
+            'admin_enabled' => $this->app->config('admin.enabled', false),
+            'admin_path' => $this->app->config('admin.path', '/admin'),
+            'debug' => $this->app->config('debug', false),
+            'content_types' => count($this->getContentTypeConfig()),
+            'taxonomies' => count($this->getTaxonomyConfig()),
+            'plugins' => count($this->getActivePlugins()),
+        ];
+    }
+
     private function getSystemInfo(): array
     {
         $loadAvg = function_exists('sys_getloadavg') ? sys_getloadavg() : null;
         
+        // Get system uptime from /proc/uptime (Linux)
+        $uptime = null;
+        $uptimeFile = '/proc/uptime';
+        if (file_exists($uptimeFile) && is_readable($uptimeFile)) {
+            $content = @file_get_contents($uptimeFile);
+            if ($content !== false) {
+                $parts = explode(' ', trim($content));
+                $uptime = (float) ($parts[0] ?? 0);
+            }
+        }
+
         // Get network interfaces if available
         $networkInfo = [];
         if (function_exists('net_get_interfaces')) {
@@ -246,6 +529,27 @@ final class Controller
                             if (isset($addr['address']) && filter_var($addr['address'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                                 $networkInfo[$name] = $addr['address'];
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Get network transfer stats from /proc/net/dev (Linux)
+        $networkTransfer = [];
+        $netDevFile = '/proc/net/dev';
+        if (file_exists($netDevFile) && is_readable($netDevFile)) {
+            $lines = @file($netDevFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines) {
+                foreach ($lines as $line) {
+                    if (strpos($line, ':') !== false) {
+                        $parts = preg_split('/\s+/', trim($line));
+                        $iface = rtrim($parts[0], ':');
+                        if ($iface !== 'lo' && isset($parts[1], $parts[9])) {
+                            $networkTransfer[$iface] = [
+                                'rx_bytes' => (int) $parts[1],
+                                'tx_bytes' => (int) $parts[9],
+                            ];
                         }
                     }
                 }
@@ -269,11 +573,17 @@ final class Controller
             }
         }
 
-        // Disk usage for content directory
+        // Disk usage for various directories
         $contentPath = $this->app->configPath('content');
         $contentSize = $this->getDirectorySize($contentPath);
         $storagePath = $this->app->configPath('storage');
         $storageSize = $this->getDirectorySize($storagePath);
+        $themesPath = $this->app->configPath('themes');
+        $themesSize = $this->getDirectorySize($themesPath);
+        $snippetsPath = $this->app->configPath('snippets');
+        $snippetsSize = $this->getDirectorySize($snippetsPath);
+        $appPath = $this->app->path('app');
+        $appSize = $this->getDirectorySize($appPath);
 
         return [
             'php_version' => PHP_VERSION,
@@ -288,11 +598,16 @@ final class Controller
             'disk_total' => disk_total_space($this->app->path()),
             'content_size' => $contentSize,
             'storage_size' => $storageSize,
+            'themes_size' => $themesSize,
+            'snippets_size' => $snippetsSize,
+            'app_size' => $appSize,
             'server' => $_SERVER['SERVER_SOFTWARE'] ?? 'CLI',
             'os' => PHP_OS_FAMILY . ' ' . php_uname('r'),
             'hostname' => gethostname(),
+            'uptime' => $uptime,
             'load_avg' => $loadAvg,
             'network' => $networkInfo,
+            'network_transfer' => $networkTransfer,
             'opcache' => $opcacheStats,
             'extensions' => get_loaded_extensions(),
             'extensions_check' => [
@@ -353,10 +668,259 @@ final class Controller
         return array_slice($all, 0, $limit);
     }
 
+    private function getAvailableSnippets(): array
+    {
+        $snippetsPath = $this->app->configPath('snippets');
+        $snippets = [];
+
+        if (is_dir($snippetsPath)) {
+            $files = glob($snippetsPath . '/*.php');
+            foreach ($files as $file) {
+                $name = basename($file, '.php');
+                $snippets[$name] = [
+                    'name' => $name,
+                    'path' => $file,
+                    'size' => filesize($file),
+                    'modified' => filemtime($file),
+                ];
+            }
+        }
+
+        return $snippets;
+    }
+
+    private function getAdminLogs(int $limit = 100): array
+    {
+        $logsPath = $this->app->configPath('storage') . '/logs/admin.log';
+        $logs = [];
+
+        if (file_exists($logsPath)) {
+            $lines = file($logsPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            $lines = array_reverse($lines); // Most recent first
+            $lines = array_slice($lines, 0, $limit);
+
+            foreach ($lines as $line) {
+                // Parse log line: [YYYY-MM-DD HH:MM:SS] LEVEL: message | IP: x.x.x.x | UA: ...
+                if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+): (.+?)(?:\s*\|\s*IP:\s*([^\|]+))?(?:\s*\|\s*UA:\s*(.+))?$/', $line, $m)) {
+                    $logs[] = [
+                        'timestamp' => $m[1],
+                        'level' => $m[2],
+                        'message' => trim($m[3]),
+                        'ip' => isset($m[4]) ? trim($m[4]) : null,
+                        'user_agent' => isset($m[5]) ? trim($m[5]) : null,
+                    ];
+                } else {
+                    // Fallback for unstructured lines
+                    $logs[] = [
+                        'timestamp' => '',
+                        'level' => 'INFO',
+                        'message' => $line,
+                        'ip' => null,
+                        'user_agent' => null,
+                    ];
+                }
+            }
+        }
+
+        return $logs;
+    }
+
+    /**
+     * Log an admin action.
+     */
+    public function logAction(string $level, string $message, bool $includeClientInfo = true): void
+    {
+        $logsPath = $this->app->configPath('storage') . '/logs';
+        
+        if (!is_dir($logsPath)) {
+            @mkdir($logsPath, 0755, true);
+        }
+
+        $logFile = $logsPath . '/admin.log';
+        $timestamp = date('Y-m-d H:i:s');
+        
+        $logLine = "[{$timestamp}] {$level}: {$message}";
+        
+        if ($includeClientInfo) {
+            $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            // Take first IP if comma-separated (X-Forwarded-For)
+            if (str_contains($ip, ',')) {
+                $ip = trim(explode(',', $ip)[0]);
+            }
+            $ua = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+            $logLine .= " | IP: {$ip} | UA: {$ua}";
+        }
+        
+        $logLine .= "\n";
+
+        @file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+    }
+
     private function getActivePlugins(): array
     {
         $plugins = $this->app->config('plugins', []);
         return is_array($plugins) ? $plugins : [];
+    }
+
+    /**
+     * Get directory status information with permissions.
+     */
+    private function getDirectoryStatus(): array
+    {
+        $directories = [
+            'content' => [
+                'key' => 'content',
+                'description' => 'Content files (Markdown)',
+                'recommended' => '0755',
+                'writable_needed' => false,
+            ],
+            'themes' => [
+                'key' => 'themes',
+                'description' => 'Theme templates and assets',
+                'recommended' => '0755',
+                'writable_needed' => false,
+            ],
+            'plugins' => [
+                'key' => 'plugins',
+                'description' => 'Plugin extensions',
+                'recommended' => '0755',
+                'writable_needed' => false,
+            ],
+            'snippets' => [
+                'key' => 'snippets',
+                'description' => 'PHP snippets for shortcodes',
+                'recommended' => '0755',
+                'writable_needed' => false,
+            ],
+            'storage' => [
+                'key' => 'storage',
+                'description' => 'Cache, logs, temp files',
+                'recommended' => '0775',
+                'writable_needed' => true,
+            ],
+            'storage/cache' => [
+                'key' => 'storage',
+                'subdir' => 'cache',
+                'description' => 'Content index cache',
+                'recommended' => '0775',
+                'writable_needed' => true,
+            ],
+            'storage/logs' => [
+                'key' => 'storage',
+                'subdir' => 'logs',
+                'description' => 'Application logs',
+                'recommended' => '0775',
+                'writable_needed' => true,
+            ],
+            'public' => [
+                'path' => 'public',
+                'description' => 'Web root directory',
+                'recommended' => '0755',
+                'writable_needed' => false,
+            ],
+            'public/media' => [
+                'path' => 'public/media',
+                'description' => 'Media uploads',
+                'recommended' => '0775',
+                'writable_needed' => true,
+            ],
+            'app' => [
+                'path' => 'app',
+                'description' => 'Application hooks & config',
+                'recommended' => '0755',
+                'writable_needed' => false,
+            ],
+            'app/config' => [
+                'path' => 'app/config',
+                'description' => 'Configuration files',
+                'recommended' => '0755',
+                'writable_needed' => false,
+            ],
+        ];
+
+        $status = [];
+        foreach ($directories as $name => $info) {
+            // Determine path
+            if (isset($info['path'])) {
+                $path = $this->app->path($info['path']);
+            } else {
+                $basePath = $this->app->configPath($info['key']);
+                $path = isset($info['subdir']) ? $basePath . '/' . $info['subdir'] : $basePath;
+            }
+
+            $exists = file_exists($path);
+            $isDir = is_dir($path);
+            $isWritable = $exists && is_writable($path);
+            $isReadable = $exists && is_readable($path);
+            $perms = $exists ? substr(sprintf('%o', fileperms($path)), -4) : null;
+            $owner = $exists ? (function_exists('posix_getpwuid') ? posix_getpwuid(fileowner($path))['name'] ?? fileowner($path) : fileowner($path)) : null;
+            $group = $exists ? (function_exists('posix_getgrgid') ? posix_getgrgid(filegroup($path))['name'] ?? filegroup($path) : filegroup($path)) : null;
+
+            $status[$name] = [
+                'path' => $path,
+                'relative' => str_replace($this->app->path() . '/', '', $path),
+                'description' => $info['description'],
+                'exists' => $exists,
+                'is_dir' => $isDir,
+                'readable' => $isReadable,
+                'writable' => $isWritable,
+                'permissions' => $perms,
+                'recommended' => $info['recommended'],
+                'writable_needed' => $info['writable_needed'],
+                'owner' => $owner,
+                'group' => $group,
+                'ok' => $exists && $isDir && (!$info['writable_needed'] || $isWritable),
+            ];
+        }
+
+        return $status;
+    }
+
+    /**
+     * Get registered hooks information.
+     */
+    private function getHooksInfo(): array
+    {
+        // Available hooks documented in the system
+        $documented = [
+            'filters' => [
+                'content.before_parse' => 'Modify content before Markdown parsing',
+                'content.after_parse' => 'Modify Item after parsing',
+                'render.context' => 'Modify template context',
+                'render.after' => 'Modify final HTML output',
+                'markdown.before' => 'Modify Markdown before conversion',
+                'markdown.after' => 'Modify HTML after Markdown conversion',
+                'shortcode.before' => 'Modify shortcode before processing',
+                'shortcode.after' => 'Modify shortcode output',
+                'admin.register_pages' => 'Register custom admin pages',
+                'admin.sidebar_items' => 'Add custom sidebar items',
+            ],
+            'actions' => [
+                'content.after_index' => 'After all content is indexed',
+                'router.before_match' => 'Before route matching',
+                'router.after_match' => 'After route is matched',
+                'render.before' => 'Before template renders',
+            ],
+        ];
+
+        // Get currently registered hooks
+        $activeFilters = Hooks::getRegisteredFilters();
+        $activeActions = Hooks::getRegisteredActions();
+
+        return [
+            'filters' => $documented['filters'],
+            'actions' => $documented['actions'],
+            'active_filters' => $activeFilters,
+            'active_actions' => $activeActions,
+        ];
+    }
+
+    /**
+     * Get path aliases from config.
+     */
+    private function getPathAliases(): array
+    {
+        return $this->app->config('paths.aliases', []);
     }
 
     // -------------------------------------------------------------------------

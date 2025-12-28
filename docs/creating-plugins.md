@@ -1,4 +1,4 @@
-# Plugins
+# Creating Plugins
 
 Plugins extend Ava without modifying core files. They can add routes, shortcodes, content types, and hook into the rendering pipeline.
 
@@ -20,6 +20,7 @@ plugins/
 └── my-plugin/
     ├── plugin.php      # Required: Plugin manifest
     ├── src/            # Optional: Additional PHP files
+    ├── views/          # Optional: Admin views
     └── assets/         # Optional: CSS, JS, images
 ```
 
@@ -84,16 +85,26 @@ Plugins interact with Ava primarily through hooks. There are two types:
 use Ava\Plugins\Hooks;
 
 // Filter: Modify data and return it
-Hooks::add('render.context', function($context) {
+Hooks::addFilter('render.context', function($context) {
     $context['my_custom_var'] = 'Hello from plugin!';
     return $context;
 });
 
 // Action: Respond to events
-Hooks::add('content.after_index', function($items) {
+Hooks::addAction('content.after_index', function($items) {
     // Log, notify, or perform side effects
     error_log('Indexed ' . count($items) . ' items');
 });
+```
+
+To apply filters in your code:
+```php
+$context = Hooks::apply('render.context', $context);
+```
+
+To trigger actions:
+```php
+Hooks::doAction('content.after_index', $items);
 ```
 
 ### Available Hooks
@@ -130,6 +141,13 @@ Hooks::add('content.after_index', function($items) {
 | `shortcode.before` | Before shortcode processed | `$name`, `$attrs`, `$content` |
 | `shortcode.after` | After shortcode processed | `$output`, `$name` |
 
+#### Admin Hooks
+
+| Hook | Description | Parameters |
+|------|-------------|------------|
+| `admin.register_pages` | Register custom admin pages | `$pages[]`, `$app` |
+| `admin.sidebar_items` | Add custom sidebar items | `$items[]`, `$app` |
+
 ### Hook Priority
 
 Add a priority (lower runs first):
@@ -144,13 +162,81 @@ Hooks::add('render.context', $callback, 100);
 // Default priority is 10
 ```
 
+## Adding Routes
+
+Plugins can register custom routes that return Response objects directly:
+
+```php
+use Ava\Http\Request;
+use Ava\Http\Response;
+
+'boot' => function($app) {
+    $router = $app->router();
+    
+    // Route returning Response directly
+    $router->addRoute('/api/posts', function(Request $request) use ($app) {
+        $posts = $app->repository()->published('post');
+        
+        return Response::json(
+            array_map(fn($p) => [
+                'title' => $p->title(),
+                'slug' => $p->slug(),
+            ], $posts)
+        );
+    });
+    
+    // Route with parameters
+    $router->addRoute('/api/posts/{slug}', function(Request $request, array $params) use ($app) {
+        $post = $app->repository()->get('post', $params['slug']);
+        if (!$post) {
+            return new Response('Not found', 404);
+        }
+        return Response::json(['title' => $post->title()]);
+    });
+    
+    // Prefix route (matches anything under /api/*)
+    $router->addPrefixRoute('/api/', function(Request $request) {
+        // Handle all /api/* requests
+        return Response::json(['error' => 'Unknown endpoint'], 404);
+    });
+}
+```
+
+## Adding Admin Pages
+
+Plugins can add pages to the admin interface:
+
+```php
+use Ava\Plugins\Hooks;
+use Ava\Http\Request;
+use Ava\Http\Response;
+use Ava\Application;
+
+'boot' => function($app) {
+    Hooks::addFilter('admin.register_pages', function(array $pages) {
+        $pages['my-plugin'] = [
+            'label' => 'My Plugin',           // Sidebar label
+            'icon' => 'extension',            // Material icon name
+            'section' => 'Plugins',           // Sidebar section
+            'handler' => function(Request $request, Application $app, $controller) {
+                // Your admin page logic
+                ob_start();
+                include __DIR__ . '/views/admin.php';
+                $html = ob_get_clean();
+                
+                return Response::html($html);
+            },
+        ];
+        return $pages;
+    });
+}
+```
+
 ## Registering Shortcodes
 
 ```php
-use Ava\Shortcodes\Engine;
-
 'boot' => function($app) {
-    $shortcodes = $app->service('shortcodes');
+    $shortcodes = $app->shortcodes();
     
     $shortcodes->register('button', function($attrs, $content) {
         $href = $attrs['href'] ?? '#';
@@ -165,61 +251,6 @@ Usage in content:
 [button href="/contact" class="btn-primary"]Get in Touch[/button]
 ```
 
-## Adding Routes
-
-```php
-'boot' => function($app) {
-    $router = $app->router();
-    
-    // Simple route
-    $router->addRoute('/api/posts', function($request, $params) {
-        $repo = \Ava\Application::getInstance()->repository();
-        $posts = $repo->published('post');
-        
-        return new \Ava\Routing\RouteMatch(
-            type: 'api',
-            template: '__raw__',
-            params: [
-                'response' => \Ava\Http\Response::json(
-                    array_map(fn($p) => [
-                        'title' => $p->title(),
-                        'slug' => $p->slug(),
-                    ], $posts)
-                )
-            ]
-        );
-    });
-    
-    // Prefix route (matches anything under /api/*)
-    $router->addPrefixRoute('/api/', function($request, $params) {
-        // Handle all /api/* requests
-    });
-}
-```
-
-## Adding Content Types
-
-```php
-'boot' => function($app) {
-    Hooks::add('config.content_types', function($types) {
-        $types['product'] = [
-            'label' => 'Products',
-            'content_dir' => 'products',
-            'url' => [
-                'type' => 'pattern',
-                'pattern' => '/shop/{slug}',
-                'archive' => '/shop',
-            ],
-            'templates' => [
-                'single' => 'product.php',
-                'archive' => 'shop.php',
-            ],
-        ];
-        return $types;
-    });
-}
-```
-
 ## Enabling Plugins
 
 Add plugins to your `app/config/ava.php`:
@@ -229,11 +260,15 @@ return [
     // ...
     
     'plugins' => [
+        'sitemap',
+        'feed',
+        'redirects',
         'my-plugin',
-        'another-plugin',
     ],
 ];
 ```
+
+Plugins are loaded in the order listed.
 
 ## Example Plugin: Reading Time
 
@@ -253,7 +288,7 @@ return [
     
     'boot' => function($app) {
         // Add reading_time to template context
-        Hooks::add('render.context', function($context) {
+        Hooks::addFilter('render.context', function($context) {
             if (isset($context['page']) && $context['page'] instanceof \Ava\Content\Item) {
                 $content = $context['page']->rawContent();
                 $wordCount = str_word_count(strip_tags($content));
@@ -279,7 +314,7 @@ To include CSS or JS from your plugin:
 
 ```php
 'boot' => function($app) {
-    Hooks::add('render.context', function($context) {
+    Hooks::addFilter('render.context', function($context) {
         $context['plugin_assets'][] = '/plugins/my-plugin/assets/style.css';
         return $context;
     });

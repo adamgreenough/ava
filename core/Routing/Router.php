@@ -7,6 +7,7 @@ namespace Ava\Routing;
 use Ava\Application;
 use Ava\Content\Query;
 use Ava\Http\Request;
+use Ava\Http\Response;
 use Ava\Plugins\Hooks;
 
 /**
@@ -68,6 +69,13 @@ final class Router
         if ($match instanceof RouteMatch) {
             return $match;
         }
+        // Allow hooks to return Response objects directly
+        if ($match instanceof Response) {
+            return new RouteMatch(
+                type: 'response',
+                response: $match
+            );
+        }
 
         // 1. Check for trailing slash redirect
         $redirectMatch = $this->checkTrailingSlash($request);
@@ -96,6 +104,14 @@ final class Router
         // 4. Check exact routes (from cache)
         if (isset($routes['exact'][$path])) {
             return $this->handleExactRoute($routes['exact'][$path], $request);
+        }
+
+        // 4b. Preview mode: try to match unpublished content by URL pattern
+        if ($this->hasPreviewAccess($request)) {
+            $previewMatch = $this->tryPreviewMatch($path, $request);
+            if ($previewMatch !== null) {
+                return $previewMatch;
+            }
         }
 
         // 5. Check prefix routes
@@ -305,6 +321,60 @@ final class Router
 
         if ($result instanceof RouteMatch) {
             return $result;
+        }
+
+        // Handle direct Response objects from plugins
+        if ($result instanceof \Ava\Http\Response) {
+            return new RouteMatch(
+                type: 'plugin',
+                template: '__raw__',
+                params: ['response' => $result]
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Try to match a preview request against content type URL patterns.
+     * 
+     * This allows previewing draft content that isn't in the routes cache.
+     */
+    private function tryPreviewMatch(string $path, Request $request): ?RouteMatch
+    {
+        // Load content_types directly from file (not in main config)
+        $contentTypesFile = $this->app->path('app/config/content_types.php');
+        if (!file_exists($contentTypesFile)) {
+            return null;
+        }
+        $contentTypes = require $contentTypesFile;
+        $repository = $this->app->repository();
+
+        foreach ($contentTypes as $typeName => $typeConfig) {
+            $urlConfig = $typeConfig['url'] ?? [];
+            $pattern = $urlConfig['pattern'] ?? '/' . $typeName . '/{slug}';
+
+            // Convert pattern to regex
+            $regex = preg_replace('/\{slug\}/', '([^/]+)', $pattern);
+            $regex = '#^' . $regex . '$#';
+
+            if (preg_match($regex, $path, $matches)) {
+                $slug = $matches[1] ?? null;
+                if ($slug === null) {
+                    continue;
+                }
+
+                // Try to get the content item (including drafts)
+                $item = $repository->get($typeName, $slug);
+                if ($item !== null) {
+                    return new RouteMatch(
+                        type: 'single',
+                        contentItem: $item,
+                        template: $item->template() ?? $typeConfig['templates']['single'] ?? 'single.php',
+                        params: ['content_type' => $typeName]
+                    );
+                }
+            }
         }
 
         return null;

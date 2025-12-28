@@ -29,16 +29,15 @@ In `app/config/ava.php`:
 Run the CLI command to create your first user:
 
 ```bash
-./ava user:create
+./ava user:add admin@example.com yourpassword "Your Name"
 ```
-
-You'll be prompted for:
-- Email address
-- Password (min 8 characters)
 
 This creates `app/config/users.php` (gitignored by default) containing a bcrypt-hashed password.
 
-To add more users or reset passwords, edit `users.php` directly or run the command again.
+To manage users:
+- `./ava user:list` — List all users
+- `./ava user:password <email> <newpass>` — Reset password
+- `./ava user:remove <email>` — Remove a user
 
 ## Accessing the Dashboard
 
@@ -99,8 +98,9 @@ The admin dashboard includes several security measures:
 |---------|-------------|
 | **Bcrypt passwords** | Passwords are hashed with bcrypt, never stored in plain text |
 | **CSRF protection** | All forms include CSRF tokens to prevent cross-site attacks |
-| **Secure cookies** | Session cookies are HTTP-only and secure (on HTTPS) |
-| **Rate limiting** | Failed login attempts are tracked (basic protection) |
+| **Timing-safe comparison** | Token verification uses constant-time comparison |
+| **Session regeneration** | Session ID regenerated on login/logout to prevent fixation |
+| **Secure cookies** | Session cookies are HTTP-only with SameSite protection |
 | **No file writes** | Dashboard cannot modify content files |
 
 ### Recommendations

@@ -13,7 +13,7 @@ return [
     // Site settings
     'site' => [
         'name' => 'My Ava Site',
-        'base_url' => 'https://ava.addy.zone/',
+        'base_url' => 'https://ava.addy.zone',
         'timezone' => 'UTC',
         'locale' => 'en_GB',
     ],
@@ -69,6 +69,8 @@ return [
         'shortcodes' => [
             'allow_php_snippets' => true,
         ],
+        // Token for previewing draft content via ?preview=1&token=xxx
+        'preview_token' => 'ava-preview-secret',
     ],
 
     // Admin settings (disabled by default)
@@ -79,7 +81,8 @@ return [
 
     // Active plugins (in load order)
     'plugins' => [
-        // 'sitemap',
-        // 'feed',
+        'sitemap',
+        'feed',
+        'redirects',
     ],
 ];

@@ -440,6 +440,11 @@ final class Application
             return 1;
         }
 
+        if (strlen($password) < 8) {
+            $this->error('Password must be at least 8 characters.');
+            return 1;
+        }
+
         $usersFile = $this->app->path('app/config/users.php');
         $users = $this->loadUsers($usersFile);
 
@@ -472,6 +477,11 @@ final class Application
 
         $email = $args[0];
         $password = $args[1];
+
+        if (strlen($password) < 8) {
+            $this->error('Password must be at least 8 characters.');
+            return 1;
+        }
 
         $usersFile = $this->app->path('app/config/users.php');
         $users = $this->loadUsers($usersFile);

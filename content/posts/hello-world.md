@@ -2,7 +2,7 @@
 id: 01JGMK0000POST0000000000001
 title: Hello World
 slug: hello-world
-status: published
+status: draft
 date: 2024-12-28
 excerpt: Welcome to Ava CMS. This is your first post.
 category:

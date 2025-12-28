@@ -1,0 +1,1359 @@
+/**
+ * Ava Admin - Clean Design System
+ * A minimal, consistent stylesheet for the admin interface
+ */
+
+/* ============================================
+   1. CSS Variables (Design Tokens)
+   ============================================ */
+:root {
+    /* Colors */
+    --bg: #0a0a0b;
+    --bg-card: #141416;
+    --bg-surface: #1a1a1e;
+    --bg-hover: #222226;
+    --border: #2a2a2e;
+    --border-light: #333338;
+    
+    --text: #fafafa;
+    --text-secondary: #a0a0a8;
+    --text-tertiary: #606068;
+    
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-subtle: rgba(59, 130, 246, 0.12);
+    
+    --success: #22c55e;
+    --success-subtle: rgba(34, 197, 94, 0.12);
+    --warning: #f59e0b;
+    --warning-subtle: rgba(245, 158, 11, 0.12);
+    --danger: #ef4444;
+    --danger-subtle: rgba(239, 68, 68, 0.12);
+    --purple: #a855f7;
+    --purple-subtle: rgba(168, 85, 247, 0.12);
+    
+    /* Spacing (4px base) */
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.25rem;
+    --sp-6: 1.5rem;
+    --sp-8: 2rem;
+    
+    /* Typography */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    
+    --text-xs: 0.6875rem;
+    --text-sm: 0.75rem;
+    --text-base: 0.8125rem;
+    --text-md: 0.875rem;
+    --text-lg: 1rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    
+    /* Radii */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    
+    /* Sidebar width */
+    --sidebar-width: 240px;
+}
+
+/* Light mode */
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg: #f5f5f7;
+        --bg-card: #ffffff;
+        --bg-surface: #fafafa;
+        --bg-hover: #f0f0f2;
+        --border: #e5e5e8;
+        --border-light: #ebebee;
+        
+        --text: #111111;
+        --text-secondary: #555560;
+        --text-tertiary: #888898;
+        
+        --accent-subtle: rgba(59, 130, 246, 0.08);
+        --success-subtle: rgba(34, 197, 94, 0.08);
+        --warning-subtle: rgba(245, 158, 11, 0.08);
+        --danger-subtle: rgba(239, 68, 68, 0.08);
+        --purple-subtle: rgba(168, 85, 247, 0.08);
+    }
+}
+
+/* ============================================
+   2. Reset & Base
+   ============================================ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: var(--text-md);
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--accent-hover);
+}
+
+code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--bg-surface);
+    padding: 0.125em 0.375em;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+}
+
+.material-symbols-rounded {
+    font-size: 18px;
+    line-height: 1;
+    vertical-align: middle;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+}
+
+/* ============================================
+   3. Layout
+   ============================================ */
+.layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+    margin-left: var(--sidebar-width);
+    padding: var(--sp-6);
+}
+
+@media (max-width: 768px) {
+    .main {
+        margin-left: 0;
+        padding: var(--sp-4);
+        padding-top: calc(56px + var(--sp-4));
+    }
+}
+
+/* ============================================
+   4. Sidebar
+   ============================================ */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+}
+
+.sidebar-backdrop.open {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+}
+
+.logo {
+    padding: var(--sp-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.logo h1 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+.version-badge {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    background: var(--accent-subtle);
+    color: var(--accent);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+}
+
+.nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--sp-2) 0;
+}
+
+.nav-section {
+    padding: var(--sp-4) var(--sp-5) var(--sp-2);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-5);
+    color: var(--text-secondary);
+    font-size: var(--text-base);
+    transition: all 0.1s;
+}
+
+.nav-item:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+}
+
+.nav-item.active {
+    background: var(--accent-subtle);
+    color: var(--accent);
+}
+
+.nav-item .material-symbols-rounded {
+    font-size: 18px;
+    color: var(--text-tertiary);
+}
+
+.nav-item:hover .material-symbols-rounded,
+.nav-item.active .material-symbols-rounded {
+    color: inherit;
+}
+
+.nav-count {
+    margin-left: auto;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+    padding: 0.125rem 0.5rem;
+    border-radius: 10px;
+}
+
+.sidebar-footer {
+    padding: var(--sp-4) var(--sp-5);
+    border-top: 1px solid var(--border);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-tertiary);
+    font-size: var(--text-sm);
+    margin-bottom: var(--sp-2);
+}
+
+.sidebar-footer > a {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+
+.sidebar-footer > a:hover {
+    color: var(--text);
+}
+
+/* ============================================
+   5. Mobile Header
+   ============================================ */
+.mobile-header {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 var(--sp-4);
+    align-items: center;
+    gap: var(--sp-3);
+    z-index: 50;
+}
+
+@media (max-width: 768px) {
+    .mobile-header {
+        display: flex;
+    }
+}
+
+.mobile-header h1 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+}
+
+.menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: var(--radius-md);
+}
+
+.menu-btn:hover {
+    background: var(--bg-hover);
+}
+
+/* ============================================
+   6. Header
+   ============================================ */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-6);
+    flex-wrap: wrap;
+}
+
+.header h2 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+.header h2 .material-symbols-rounded {
+    font-size: 24px;
+    color: var(--text-tertiary);
+}
+
+.header-actions {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+
+/* ============================================
+   7. Cards
+   ============================================ */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+}
+
+.card-title .material-symbols-rounded {
+    font-size: 16px;
+}
+
+.card-header > .badge {
+    min-width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    padding: 0 var(--sp-2);
+    font-size: var(--text-xs);
+    font-weight: 600;
+}
+
+.card-body {
+    padding: var(--sp-5);
+}
+
+/* When card-body contains lists, use tighter spacing to match first/last item padding */
+.card-body:has(.list-item:first-child),
+.card-body:has(.progress-row:first-child) {
+    padding-top: var(--sp-3);
+    padding-bottom: var(--sp-3);
+}
+
+/* ============================================
+   8. Grids
+   ============================================ */
+.grid {
+    display: grid;
+    gap: var(--sp-4);
+}
+
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 1200px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+.mt-4 { margin-top: var(--sp-4); }
+.mt-6 { margin-top: var(--sp-6); }
+
+/* ============================================
+   9. Stat Cards
+   ============================================ */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-6);
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-5);
+}
+
+.stat-label {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--sp-1);
+}
+
+.stat-label .material-symbols-rounded {
+    font-size: 14px;
+}
+
+.stat-value {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.stat-meta {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    margin-top: var(--sp-1);
+}
+
+/* ============================================
+   10. Badges
+   ============================================ */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    padding: 0.1875rem 0.5rem;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    line-height: 1.4;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+}
+
+.badge-success { background: var(--success-subtle); color: var(--success); }
+.badge-warning { background: var(--warning-subtle); color: var(--warning); }
+.badge-danger { background: var(--danger-subtle); color: var(--danger); }
+.badge-accent { background: var(--accent-subtle); color: var(--accent); }
+.badge-purple { background: var(--purple-subtle); color: var(--purple); }
+.badge-muted { background: var(--bg-surface); color: var(--text-tertiary); }
+
+.badge .material-symbols-rounded {
+    font-size: 12px;
+}
+
+/* ============================================
+   11. Buttons
+   ============================================ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-5);
+    font-family: inherit;
+    font-size: var(--text-base);
+    font-weight: 500;
+    line-height: 1.4;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.1s;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.btn .material-symbols-rounded {
+    font-size: 16px;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--bg-surface);
+    color: var(--text);
+    border-color: var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+}
+
+.btn-sm {
+    padding: var(--sp-2) var(--sp-4);
+    font-size: var(--text-sm);
+}
+
+.btn-xs {
+    padding: 0.1875rem 0.5rem;
+    font-size: var(--text-xs);
+    gap: 0.25rem;
+}
+
+.btn-xs .material-symbols-rounded {
+    font-size: 14px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================
+   12. Lists
+   ============================================ */
+.list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) 0;
+    font-size: var(--text-sm);
+    border-bottom: 1px solid var(--border);
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+.list-item:last-child { border-bottom: none; }
+
+.list-label {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-secondary);
+}
+
+.list-label .material-symbols-rounded {
+    font-size: 16px;
+    color: var(--text-tertiary);
+}
+
+.list-value {
+    font-weight: 500;
+    text-align: right;
+}
+
+/* ============================================
+   13. Tables (Responsive)
+   ============================================ */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+    background: var(--bg-surface);
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border-radius: 3px;
+}
+
+.table-wrap::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-base);
+}
+
+.table th {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.table td {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover td { background: var(--bg-hover); }
+
+.table-title { font-weight: 500; }
+.table-title a { color: var(--text); }
+.table-title a:hover { color: var(--accent); }
+.table-meta { font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px; }
+
+/* ============================================
+   14. Progress Bars
+   ============================================ */
+.progress-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) 0;
+    font-size: var(--text-sm);
+    border-bottom: 1px solid var(--border);
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+.progress-row:last-child { border-bottom: none; }
+
+.progress-row .label {
+    flex: 0 0 70px;
+    color: var(--text-secondary);
+}
+
+.progress-row .bar { flex: 1; min-width: 0; }
+
+.progress-row .value {
+    flex: 0 0 80px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.progress-bar {
+    height: 6px;
+    background: var(--bg-surface);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.success { background: var(--success); }
+.progress-fill.warning { background: var(--warning); }
+.progress-fill.danger { background: var(--danger); }
+.progress-fill.accent { background: var(--accent); }
+
+/* ============================================
+   15. Alerts
+   ============================================ */
+.alert {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--sp-6);
+    font-size: var(--text-base);
+}
+
+.alert .material-symbols-rounded { font-size: 20px; }
+
+.alert-success {
+    background: var(--success-subtle);
+    color: var(--success);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+/* ============================================
+   16. Empty State
+   ============================================ */
+.card > .empty-state {
+    flex: 1;
+    margin: 0;
+}
+
+.card-body > .empty-state {
+    margin: calc(-1 * var(--sp-5));
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--sp-8);
+    min-height: 140px;
+    color: var(--text-tertiary);
+}
+
+.empty-state .material-symbols-rounded {
+    font-size: 48px;
+    margin-bottom: var(--sp-3);
+    opacity: 0.5;
+}
+
+.empty-state p { margin-bottom: var(--sp-2); }
+.empty-state code { display: inline-block; margin-top: var(--sp-2); }
+
+/* ============================================
+   17. Content Items (Recent Content)
+   ============================================ */
+.content-item {
+    border-bottom: 1px solid var(--border);
+}
+
+.content-item:last-child { border-bottom: none; }
+
+.content-item-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    color: inherit;
+    transition: background 0.1s;
+}
+
+.content-item-link:hover {
+    background: var(--bg-hover);
+    color: inherit;
+}
+
+.content-title { font-weight: 500; margin-bottom: 2px; }
+
+.content-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+}
+
+.preview-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--accent);
+}
+
+.preview-link .material-symbols-rounded { font-size: 12px; }
+
+/* ============================================
+   18. Config Sections (Dashboard Content Types)
+   ============================================ */
+.config-section {
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.config-section:last-child { border-bottom: none; }
+
+.config-section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-weight: 500;
+    font-size: var(--text-base);
+    margin-bottom: var(--sp-3);
+}
+
+.config-section-title .material-symbols-rounded {
+    font-size: 18px;
+    color: var(--text-tertiary);
+}
+
+.config-row {
+    display: flex;
+    align-items: center;
+    font-size: var(--text-sm);
+    padding: var(--sp-1) 0;
+}
+
+.config-row .label {
+    flex: 0 0 100px;
+    color: var(--text-tertiary);
+}
+
+.config-row .value {
+    flex: 1;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   19. Directory Table (System)
+   ============================================ */
+.dir-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.dir-table th {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.dir-table td {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.dir-table tr:last-child td { border-bottom: none; }
+.dir-table tr:hover td { background: var(--bg-hover); }
+
+.dir-path {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+.dir-path .material-symbols-rounded {
+    font-size: 16px;
+    color: var(--text-tertiary);
+}
+
+.perm-diff {
+    background: var(--warning-subtle) !important;
+    color: var(--warning) !important;
+}
+
+/* ============================================
+   20. Collapsible (Details/Summary)
+   ============================================ */
+details {
+    border-bottom: 1px solid var(--border);
+}
+
+details:last-child { border-bottom: none; }
+
+details summary {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-4) var(--sp-5);
+    cursor: pointer;
+    user-select: none;
+    font-size: var(--text-base);
+    font-weight: 500;
+    list-style: none;
+    transition: background 0.1s;
+}
+
+details summary::-webkit-details-marker { display: none; }
+
+details summary:hover { background: var(--bg-hover); }
+
+details summary .material-symbols-rounded {
+    font-size: 16px;
+    color: var(--text-tertiary);
+    transition: transform 0.2s;
+}
+
+details[open] summary .material-symbols-rounded:first-child {
+    transform: rotate(90deg);
+}
+
+details summary .count { margin-left: auto; }
+
+details .detail-content {
+    padding: 0 var(--sp-5) var(--sp-4);
+}
+
+.extensions-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+}
+
+.extensions-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+}
+
+.ext-pill {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+    background: var(--bg-surface);
+    border-radius: 10px;
+    color: var(--text-tertiary);
+}
+
+/* Copy button states */
+.copy-btn.copied {
+    background: var(--success-subtle);
+    border-color: var(--success);
+    color: var(--success);
+}
+
+/* ============================================
+   21. Hooks List (System)
+   ============================================ */
+.hook-list {
+    padding: var(--sp-3) 0;
+}
+
+.hook-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-sm);
+}
+
+.hook-item:last-child { border-bottom: none; }
+.hook-item code { font-size: var(--text-xs); }
+
+.hook-desc {
+    flex: 1 0 100%;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    margin-top: var(--sp-1);
+}
+
+/* ============================================
+   22. Shortcode Items
+   ============================================ */
+.shortcode-item {
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.shortcode-item:last-child { border-bottom: none; }
+
+.shortcode-name {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
+}
+
+.shortcode-name .material-symbols-rounded {
+    font-size: 16px;
+    color: var(--text-tertiary);
+}
+
+.shortcode-syntax { margin-bottom: var(--sp-1); }
+.shortcode-syntax code { font-size: var(--text-xs); }
+.shortcode-desc { font-size: var(--text-xs); color: var(--text-tertiary); }
+
+/* ============================================
+   23. Log Entries
+   ============================================ */
+.log-entry {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-5);
+    font-size: var(--text-sm);
+    border-bottom: 1px solid var(--border);
+}
+
+.log-entry:last-child { border-bottom: none; }
+.log-entry:hover { background: var(--bg-hover); }
+
+.log-timestamp {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+.log-message { min-width: 0; }
+
+.log-meta {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+    .log-entry {
+        grid-template-columns: 1fr;
+        gap: var(--sp-1);
+    }
+    .log-meta { text-align: left; }
+}
+
+/* ============================================
+   24. Content List Layout
+   ============================================ */
+.content-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: var(--sp-4);
+    align-items: start;
+}
+
+.content-main { min-width: 0; }
+
+.config-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+}
+
+.config-sidebar .list-value,
+.config-sidebar code {
+    white-space: nowrap;
+}
+
+.config-sidebar .card-body {
+    overflow-x: auto;
+}
+
+@media (max-width: 1000px) {
+    .content-layout { grid-template-columns: 1fr; }
+    .config-sidebar { order: -1; }
+}
+
+.view-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+}
+
+.view-link:hover { color: var(--accent); }
+.view-link .material-symbols-rounded { font-size: 14px; }
+
+/* ============================================
+   25. Lint Results
+   ============================================ */
+.lint-success {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    color: var(--success);
+}
+
+.lint-success .material-symbols-rounded {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.lint-success strong {
+    display: block;
+    font-size: var(--text-md);
+    margin-bottom: var(--sp-1);
+}
+
+.lint-success p {
+    font-size: var(--text-sm);
+    opacity: 0.8;
+}
+
+.lint-error-summary {
+    margin-bottom: var(--sp-4);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.lint-errors {
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    padding: var(--sp-3);
+}
+
+.lint-error-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: var(--sp-2);
+    color: var(--danger);
+    font-size: var(--text-sm);
+}
+
+.lint-error-item .material-symbols-rounded {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* ============================================
+   26. Login Page
+   ============================================ */
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: var(--sp-4);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 360px;
+    padding: var(--sp-8);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: var(--sp-6);
+}
+
+.login-header h1 {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    margin-bottom: var(--sp-1);
+}
+
+.login-header p { color: var(--text-secondary); }
+
+.login-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+}
+
+.login-notice .material-symbols-rounded {
+    font-size: 18px;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.login-notice strong {
+    display: block;
+    color: var(--text);
+    margin-bottom: var(--sp-2);
+}
+
+.login-notice code {
+    display: block;
+    font-size: var(--text-xs);
+    margin-top: var(--sp-2);
+}
+
+.login-error {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-4);
+    background: var(--danger-subtle);
+    border-radius: var(--radius-md);
+    color: var(--danger);
+    font-size: var(--text-sm);
+}
+
+.login-error .material-symbols-rounded { font-size: 18px; }
+
+.form-group { margin-bottom: var(--sp-4); }
+
+.form-group label {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-2);
+}
+
+.form-group label .material-symbols-rounded { font-size: 16px; }
+
+.form-group input {
+    width: 100%;
+    padding: var(--sp-3);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-family: inherit;
+    font-size: var(--text-md);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.form-group input::placeholder { color: var(--text-tertiary); }
+
+.login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    width: 100%;
+    padding: var(--sp-3);
+    margin-top: var(--sp-6);
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: var(--text-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.login-btn:hover { background: var(--accent-hover); }
+
+.login-btn .material-symbols-rounded { font-size: 18px; }
+
+/* ============================================
+   27. CLI Table (Dashboard)
+   ============================================ */
+.cli-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cli-table th {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-5);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.cli-table td {
+    padding: var(--sp-3) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-sm);
+}
+
+.cli-table tr:last-child td { border-bottom: none; }
+.cli-table td:first-child { white-space: nowrap; }
+.cli-table td:last-child { color: var(--text-secondary); }
+
+/* ============================================
+   28. Utility Classes
+   ============================================ */
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-danger { color: var(--danger); }
+.text-muted, .text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.text-sm { font-size: var(--text-sm); }
+.text-xs { font-size: var(--text-xs); }
+.font-mono { font-family: var(--font-mono); }
+.font-medium { font-weight: 500; }
+
+.mt-3 { margin-top: var(--sp-3); }
+.mt-4 { margin-top: var(--sp-4); }
+.mt-6 { margin-top: var(--sp-6); }
+
+/* Hide on mobile */
+@media (max-width: 768px) {
+    .hide-mobile { display: none !important; }
+}
