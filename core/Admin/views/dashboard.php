@@ -498,7 +498,10 @@ $renderTime = round((microtime(true) - $system['request_time']) * 1000, 2);
                     <div class="list-item">
                         <span class="list-label">
                             <span class="material-symbols-rounded"><?= $email === $user ? 'person' : 'person_outline' ?></span>
-                            <?= htmlspecialchars($userData['name'] ?? $email) ?>
+                            <span>
+                                <?= htmlspecialchars($userData['name'] ?? $email) ?>
+                                <span class="text-xs text-tertiary" style="display: block;"><?= htmlspecialchars($email) ?></span>
+                            </span>
                         </span>
                         <span class="list-value text-sm text-tertiary">
                             <?php if (!empty($userData['last_login'])): ?>
