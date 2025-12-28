@@ -1,0 +1,343 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Ava\Routing;
+
+use Ava\Application;
+use Ava\Content\Query;
+use Ava\Http\Request;
+use Ava\Plugins\Hooks;
+
+/**
+ * Router
+ *
+ * Matches incoming requests to routes.
+ *
+ * Matching order:
+ * 1. Redirects (from redirect_from)
+ * 2. Exact routes
+ * 3. System routes (registered by plugins/app)
+ * 4. Prefix routes
+ * 5. Type pattern routes
+ * 6. Taxonomy archive routes
+ * 7. 404
+ */
+final class Router
+{
+    private Application $app;
+
+    /** @var array<string, callable> System routes registered at runtime */
+    private array $systemRoutes = [];
+
+    /** @var array<string, callable> Prefix routes registered at runtime */
+    private array $prefixRoutes = [];
+
+    public function __construct(Application $app)
+    {
+        $this->app = $app;
+    }
+
+    /**
+     * Register a system route.
+     */
+    public function addRoute(string $path, callable $handler): void
+    {
+        $this->systemRoutes[$path] = $handler;
+    }
+
+    /**
+     * Register a prefix route.
+     */
+    public function addPrefixRoute(string $prefix, callable $handler): void
+    {
+        $this->prefixRoutes[$prefix] = $handler;
+    }
+
+    /**
+     * Match a request to a route.
+     */
+    public function match(Request $request): ?RouteMatch
+    {
+        $path = $this->normalizePath($request->path());
+        $repository = $this->app->repository();
+        $routes = $repository->routes();
+
+        // Allow hooks to intercept routing
+        $match = Hooks::apply('router.before_match', null, $request, $this);
+        if ($match instanceof RouteMatch) {
+            return $match;
+        }
+
+        // 1. Check for trailing slash redirect
+        $redirectMatch = $this->checkTrailingSlash($request);
+        if ($redirectMatch !== null) {
+            return $redirectMatch;
+        }
+
+        // 2. Check redirects
+        if (isset($routes['redirects'][$path])) {
+            $redirect = $routes['redirects'][$path];
+            return new RouteMatch(
+                type: 'redirect',
+                redirectUrl: $redirect['to'],
+                redirectCode: $redirect['code'] ?? 301
+            );
+        }
+
+        // 3. Check system routes (registered at runtime)
+        foreach ($this->systemRoutes as $routePath => $handler) {
+            if ($path === $routePath) {
+                return $this->invokeHandler($handler, $request);
+            }
+        }
+
+        // 4. Check exact routes (from cache)
+        if (isset($routes['exact'][$path])) {
+            return $this->handleExactRoute($routes['exact'][$path], $request);
+        }
+
+        // 5. Check prefix routes
+        foreach ($this->prefixRoutes as $prefix => $handler) {
+            if (str_starts_with($path, $prefix)) {
+                return $this->invokeHandler($handler, $request);
+            }
+        }
+
+        // 6. Check taxonomy routes
+        foreach ($routes['taxonomy'] ?? [] as $taxName => $taxRoute) {
+            $base = rtrim($taxRoute['base'], '/');
+
+            // Exact match to taxonomy base (index of all terms)
+            if ($path === $base) {
+                return $this->handleTaxonomyIndex($taxName, $request);
+            }
+
+            // Match term under taxonomy base
+            if (str_starts_with($path, $base . '/')) {
+                $termPath = substr($path, strlen($base) + 1);
+                return $this->handleTaxonomyTerm($taxName, $termPath, $request);
+            }
+        }
+
+        // 7. No match - 404
+        return null;
+    }
+
+    /**
+     * Normalize path for matching.
+     */
+    private function normalizePath(string $path): string
+    {
+        // Always compare without trailing slash (except for root)
+        if ($path !== '/') {
+            $path = rtrim($path, '/');
+        }
+
+        return $path;
+    }
+
+    /**
+     * Check for trailing slash redirect.
+     */
+    private function checkTrailingSlash(Request $request): ?RouteMatch
+    {
+        $path = $request->path();
+        $trailingSlash = $this->app->config('routing.trailing_slash', false);
+
+        // Root path is always fine
+        if ($path === '/') {
+            return null;
+        }
+
+        $hasTrailingSlash = str_ends_with($path, '/');
+
+        if ($trailingSlash && !$hasTrailingSlash) {
+            // Should have trailing slash, doesn't
+            return new RouteMatch(
+                type: 'redirect',
+                redirectUrl: $path . '/',
+                redirectCode: 301
+            );
+        }
+
+        if (!$trailingSlash && $hasTrailingSlash) {
+            // Should not have trailing slash, does
+            return new RouteMatch(
+                type: 'redirect',
+                redirectUrl: rtrim($path, '/'),
+                redirectCode: 301
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Handle an exact route match.
+     */
+    private function handleExactRoute(array $routeData, Request $request): RouteMatch
+    {
+        $type = $routeData['type'] ?? 'single';
+
+        if ($type === 'single') {
+            $repository = $this->app->repository();
+            $item = $repository->get($routeData['content_type'], $routeData['slug']);
+
+            if ($item === null) {
+                return null;
+            }
+
+            // Check preview access for non-published content
+            if (!$item->isPublished() && !$this->hasPreviewAccess($request)) {
+                return null;
+            }
+
+            return new RouteMatch(
+                type: 'single',
+                contentItem: $item,
+                template: $routeData['template'] ?? 'single.php',
+                params: ['content_type' => $routeData['content_type']]
+            );
+        }
+
+        if ($type === 'archive') {
+            $query = (new Query($this->app))
+                ->type($routeData['content_type'])
+                ->published()
+                ->fromParams($request->query());
+
+            return new RouteMatch(
+                type: 'archive',
+                query: $query,
+                template: $routeData['template'] ?? 'archive.php',
+                params: ['content_type' => $routeData['content_type']]
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Handle taxonomy index route.
+     */
+    private function handleTaxonomyIndex(string $taxonomy, Request $request): RouteMatch
+    {
+        $repository = $this->app->repository();
+        $terms = $repository->terms($taxonomy);
+        $config = $repository->taxonomyConfig($taxonomy);
+
+        return new RouteMatch(
+            type: 'taxonomy_index',
+            taxonomy: [
+                'name' => $taxonomy,
+                'config' => $config,
+                'terms' => $terms,
+            ],
+            template: 'taxonomy-index.php'
+        );
+    }
+
+    /**
+     * Handle taxonomy term route.
+     */
+    private function handleTaxonomyTerm(string $taxonomy, string $termPath, Request $request): ?RouteMatch
+    {
+        $repository = $this->app->repository();
+        $term = $repository->term($taxonomy, $termPath);
+
+        if ($term === null) {
+            return null;
+        }
+
+        $config = $repository->taxonomyConfig($taxonomy);
+
+        // Build query for items with this term
+        $query = (new Query($this->app))
+            ->published()
+            ->whereTax($taxonomy, $termPath)
+            ->fromParams($request->query());
+
+        return new RouteMatch(
+            type: 'taxonomy',
+            query: $query,
+            taxonomy: [
+                'name' => $taxonomy,
+                'config' => $config,
+                'term' => $term,
+            ],
+            template: 'taxonomy.php'
+        );
+    }
+
+    /**
+     * Invoke a route handler.
+     */
+    private function invokeHandler(callable $handler, Request $request): ?RouteMatch
+    {
+        $result = $handler($request, $this->app);
+
+        if ($result instanceof RouteMatch) {
+            return $result;
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if request has preview access.
+     */
+    private function hasPreviewAccess(Request $request): bool
+    {
+        if (!$request->query('preview')) {
+            return false;
+        }
+
+        $token = $request->query('token');
+        if (!$token) {
+            return false;
+        }
+
+        // Simple token validation - in production this should be more secure
+        $expectedToken = $this->app->config('security.preview_token');
+
+        return $expectedToken !== null && hash_equals($expectedToken, $token);
+    }
+
+    /**
+     * Generate URL for a content item.
+     */
+    public function urlFor(string $type, string $slug): ?string
+    {
+        $repository = $this->app->repository();
+        $routes = $repository->routes();
+
+        foreach ($routes['exact'] ?? [] as $url => $routeData) {
+            if (
+                ($routeData['content_type'] ?? '') === $type &&
+                ($routeData['slug'] ?? '') === $slug
+            ) {
+                return $url;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate URL for a taxonomy term.
+     */
+    public function urlForTerm(string $taxonomy, string $term): ?string
+    {
+        $repository = $this->app->repository();
+        $routes = $repository->routes();
+
+        $taxRoute = $routes['taxonomy'][$taxonomy] ?? null;
+        if ($taxRoute === null) {
+            return null;
+        }
+
+        $base = rtrim($taxRoute['base'], '/');
+        return $base . '/' . $term;
+    }
+}

@@ -1,0 +1,11 @@
+- slug: general
+  name: General
+  description: General posts and updates
+
+- slug: tutorials
+  name: Tutorials
+  description: How-to guides and tutorials
+
+- slug: news
+  name: News
+  description: News and announcements
