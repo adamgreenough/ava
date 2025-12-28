@@ -436,8 +436,8 @@ code {
     padding-bottom: var(--sp-3);
 }
 
-/* When card-body contains a table, remove padding for flush edges */
-.card-body:has(.table) {
+/* When card-body ONLY contains a table (table is first child), remove padding */
+.card-body:has(> .table:first-child:last-child) {
     padding: 0;
 }
 
