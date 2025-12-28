@@ -156,6 +156,18 @@ final class Request
     }
 
     /**
+     * Get a POST parameter.
+     */
+    public function post(?string $key = null, mixed $default = null): mixed
+    {
+        if ($key === null) {
+            return $_POST;
+        }
+
+        return $_POST[$key] ?? $default;
+    }
+
+    /**
      * Get the host.
      */
     public function host(): string

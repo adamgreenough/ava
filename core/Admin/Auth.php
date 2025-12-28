@@ -139,6 +139,9 @@ final class Auth
         if ($this->users === null) {
             if (file_exists($this->usersFile)) {
                 $this->users = require $this->usersFile;
+                if (!is_array($this->users)) {
+                    $this->users = [];
+                }
             } else {
                 $this->users = [];
             }
