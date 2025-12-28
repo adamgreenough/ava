@@ -22,6 +22,6 @@ $shortcodes = $app->shortcodes();
 // Example: [recent_posts count="5"]
 // $shortcodes->register('recent_posts', function (array $attrs) use ($app) {
 //     $count = (int) ($attrs['count'] ?? 5);
-//     $posts = $app->repository()->published('posts');
+//     $posts = $app->repository()->published('post');
 //     // ... render posts
 // });

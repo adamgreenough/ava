@@ -16,8 +16,8 @@ content/
 ├── posts/           # Posts (/blog/{slug})
 │   └── hello.md
 └── _taxonomies/     # Term registries (optional)
-    ├── categories.yml
-    └── tags.yml
+    ├── category.yml
+    └── tag.yml
 ```
 
 ## Frontmatter
@@ -32,9 +32,9 @@ slug: my-post-title
 status: published
 date: 2024-12-28
 excerpt: A brief summary
-categories:
+category:
   - tutorials
-tags:
+tag:
   - php
   - cms
 ---
@@ -95,14 +95,14 @@ Assign terms in frontmatter:
 
 ```yaml
 # Simple format
-categories:
+category:
   - tutorials
   - php
-tags:
+tag:
   - getting-started
 
 # Hierarchical paths
-topics:
+topic:
   - guides/basics
 ```
 

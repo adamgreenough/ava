@@ -5,9 +5,9 @@ slug: hello-world
 status: published
 date: 2024-12-28
 excerpt: Welcome to Ava CMS. This is your first post.
-categories:
+category:
   - general
-tags:
+tag:
   - welcome
   - getting-started
 ---
@@ -35,8 +35,8 @@ Site name: [site_name]
 ```php
 <?php
 // Ava is built with modern PHP
-$app = Ava\Application::getInstance();
-$items = $app->repository()->published('posts');
+$app = Ava\\Application::getInstance();
+$items = $app->repository()->published('post');
 ```
 
 Enjoy building with Ava!

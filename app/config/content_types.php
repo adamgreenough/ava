@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 return [
     // Pages - hierarchical, URL reflects folder structure
-    'pages' => [
+    'page' => [
         'label' => 'Pages',
         'content_dir' => 'pages',
         'url' => [
@@ -26,7 +26,7 @@ return [
     ],
 
     // Posts - dated content with pattern-based URLs
-    'posts' => [
+    'post' => [
         'label' => 'Posts',
         'content_dir' => 'posts',
         'url' => [
@@ -38,7 +38,7 @@ return [
             'single' => 'post.php',
             'archive' => 'archive.php',
         ],
-        'taxonomies' => ['categories', 'tags'],
+        'taxonomies' => ['category', 'tag'],
         'fields' => [],
         'sorting' => 'date_desc',
         'search' => [

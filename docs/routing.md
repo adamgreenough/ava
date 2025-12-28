@@ -19,7 +19,7 @@ Files map directly to URLs:
 
 ```yaml
 # content_types.php
-'pages' => [
+'page' => [
     'url' => [
         'type' => 'hierarchical',
         'base' => '/',
@@ -38,7 +38,7 @@ Files map directly to URLs:
 URLs built from a pattern:
 
 ```yaml
-'posts' => [
+'post' => [
     'url' => [
         'type' => 'pattern',
         'pattern' => '/blog/{slug}',
@@ -60,7 +60,7 @@ Configured per taxonomy:
 
 ```yaml
 # taxonomies.php
-'categories' => [
+'category' => [
     'rewrite' => [
         'base' => '/category',
     ],
@@ -112,14 +112,14 @@ return [
         '/old-url' => ['to' => '/new-url', 'code' => 301],
     ],
     'exact' => [
-        '/' => ['type' => 'single', 'content_type' => 'pages', 'slug' => 'index', ...],
-        '/about' => ['type' => 'single', 'content_type' => 'pages', 'slug' => 'about', ...],
-        '/blog' => ['type' => 'archive', 'content_type' => 'posts', ...],
-        '/blog/hello-world' => ['type' => 'single', 'content_type' => 'posts', ...],
+        '/' => ['type' => 'single', 'content_type' => 'page', 'slug' => 'index', ...],
+        '/about' => ['type' => 'single', 'content_type' => 'page', 'slug' => 'about', ...],
+        '/blog' => ['type' => 'archive', 'content_type' => 'post', ...],
+        '/blog/hello-world' => ['type' => 'single', 'content_type' => 'post', ...],
     ],
     'taxonomy' => [
-        'categories' => ['base' => '/category', 'hierarchical' => true],
-        'tags' => ['base' => '/tag', 'hierarchical' => false],
+        'category' => ['base' => '/category', 'hierarchical' => true],
+        'tag' => ['base' => '/tag', 'hierarchical' => false],
     ],
 ];
 ```

@@ -10,7 +10,7 @@ declare(strict_types=1);
  */
 
 return [
-    'categories' => [
+    'category' => [
         'label' => 'Categories',
         'hierarchical' => true,
         'public' => true,
@@ -28,7 +28,7 @@ return [
         ],
     ],
 
-    'tags' => [
+    'tag' => [
         'label' => 'Tags',
         'hierarchical' => false,
         'public' => true,

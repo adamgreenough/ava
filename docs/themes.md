@@ -60,10 +60,10 @@ Templates have access to `$ava` with these methods:
 
 ```php
 // URL for content item
-<?= $ava->url('posts', 'hello-world') ?>
+<?= $ava->url('post', 'hello-world') ?>
 
 // URL for taxonomy term
-<?= $ava->termUrl('categories', 'tutorials') ?>
+<?= $ava->termUrl('category', 'tutorials') ?>
 
 // Asset URL with cache busting
 <?= $ava->asset('/assets/style.css') ?>
@@ -77,20 +77,20 @@ Templates have access to `$ava` with these methods:
 ```php
 // New query
 $posts = $ava->query()
-    ->type('posts')
+    ->type('post')
     ->published()
     ->orderBy('date', 'desc')
     ->perPage(5)
     ->get();
 
 // Recent items shortcut
-$recent = $ava->recent('posts', 5);
+$recent = $ava->recent('post', 5);
 
 // Get specific item
-$about = $ava->get('pages', 'about');
+$about = $ava->get('page', 'about');
 
 // Get taxonomy terms
-$categories = $ava->terms('categories');
+$categories = $ava->terms('category');
 ```
 
 ### SEO

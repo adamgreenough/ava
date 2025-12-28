@@ -85,15 +85,15 @@ $shortcodes->register('greeting', function (array $attrs) {
 
 // Using the app
 $shortcodes->register('recent_posts', function (array $attrs) {
-    $app = \Ava\Application::getInstance();
+    $app = \\Ava\\Application::getInstance();
     $count = (int) ($attrs['count'] ?? 5);
     
-    $posts = $app->repository()->published('posts');
+    $posts = $app->repository()->published('post');
     $posts = array_slice($posts, 0, $count);
     
     $html = '<ul class="recent-posts">';
     foreach ($posts as $post) {
-        $url = $app->router()->urlFor('posts', $post->slug());
+        $url = $app->router()->urlFor('post', $post->slug());
         $html .= '<li><a href="' . $url . '">' . htmlspecialchars($post->title()) . '</a></li>';
     }
     $html .= '</ul>';

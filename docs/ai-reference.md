@@ -109,7 +109,7 @@ Expanded during rendering (simple string replace).
 
 ```php
 $query = (new Query($app))
-    ->type('posts')
+    ->type('post')
     ->published()
     ->whereTax('categories', 'tutorials')
     ->orderBy('date', 'desc')
@@ -135,11 +135,11 @@ $query = (new Query($app))
 
 ```php
 $ava->content($page)           // Render Markdown to HTML
-$ava->url('posts', 'slug')     // URL for item
-$ava->termUrl('tags', 'php')   // URL for term
+$ava->url('post', 'slug')      // URL for item
+$ava->termUrl('tag', 'php')    // URL for term
 $ava->metaTags($page)          // SEO meta tags
 $ava->pagination($query)       // Pagination HTML
-$ava->recent('posts', 5)       // Recent items
+$ava->recent('post', 5)        // Recent items
 $ava->e($string)               // HTML escape
 $ava->date($date, 'F j, Y')    // Format date
 $ava->config('site.name')      // Config value
@@ -156,8 +156,8 @@ php bin/ava make <type> "X" # Create content of any type
 
 Examples:
 ```bash
-php bin/ava make pages "About Us"
-php bin/ava make posts "Hello World"
+php bin/ava make page "About Us"
+php bin/ava make post "Hello World"
 ```
 
 ## Non-Goals (Do Not Add)

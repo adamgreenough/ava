@@ -31,12 +31,12 @@
                             </time>
                         <?php endif; ?>
 
-                        <?php $categories = $page->terms('categories'); ?>
+                        <?php $categories = $page->terms('category'); ?>
                         <?php if (!empty($categories)): ?>
                             <span class="categories">
                                 in
                                 <?php foreach ($categories as $cat): ?>
-                                    <a href="<?= $ava->termUrl('categories', $cat) ?>"><?= $ava->e($cat) ?></a>
+                                    <a href="<?= $ava->termUrl('category', $cat) ?>"><?= $ava->e($cat) ?></a>
                                 <?php endforeach; ?>
                             </span>
                         <?php endif; ?>
@@ -48,12 +48,12 @@
                 </div>
 
                 <footer class="entry-footer">
-                    <?php $tags = $page->terms('tags'); ?>
+                    <?php $tags = $page->terms('tag'); ?>
                     <?php if (!empty($tags)): ?>
                         <div class="tags">
                             Tags:
                             <?php foreach ($tags as $tag): ?>
-                                <a href="<?= $ava->termUrl('tags', $tag) ?>">#<?= $ava->e($tag) ?></a>
+                                <a href="<?= $ava->termUrl('tag', $tag) ?>">#<?= $ava->e($tag) ?></a>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>

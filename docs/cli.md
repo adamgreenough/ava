@@ -81,13 +81,13 @@ Examples:
 
 ```bash
 # Create a page
-php bin/ava make pages "About Us"
+php bin/ava make page "About Us"
 
 # Create a blog post (date auto-added for dated types)
-php bin/ava make posts "Hello World"
+php bin/ava make post "Hello World"
 
 # Create a custom type item
-php bin/ava make resources "PHP Tutorial"
+php bin/ava make resource "PHP Tutorial"
 ```
 
 Creates a file in the type's content directory with:
@@ -108,8 +108,8 @@ Your content here.
 If you run `make` without arguments, it shows available types:
 ```
 Available types:
-  pages - Pages
-  posts - Posts
+  page - Pages
+  post - Posts
 ```
 
 ## Exit Codes

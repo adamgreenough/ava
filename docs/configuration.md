@@ -79,7 +79,7 @@ return [
 <?php
 
 return [
-    'pages' => [
+    'page' => [
         'label' => 'Pages',
         'content_dir' => 'pages',
         'url' => [
@@ -93,7 +93,7 @@ return [
         'sorting' => 'manual',
     ],
 
-    'posts' => [
+    'post' => [
         'label' => 'Posts',
         'content_dir' => 'posts',
         'url' => [
@@ -105,7 +105,7 @@ return [
             'single' => 'post.php',
             'archive' => 'archive.php',
         ],
-        'taxonomies' => ['categories', 'tags'],
+        'taxonomies' => ['category', 'tag'],
         'sorting' => 'date_desc',
         'search' => [
             'enabled' => true,
