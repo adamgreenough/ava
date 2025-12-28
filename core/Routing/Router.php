@@ -87,8 +87,9 @@ final class Router
 
         // 3. Check system routes (registered at runtime)
         foreach ($this->systemRoutes as $routePath => $handler) {
-            if ($path === $routePath) {
-                return $this->invokeHandler($handler, $request);
+            $match = $this->matchSystemRoute($routePath, $path);
+            if ($match !== null) {
+                return $this->invokeHandler($handler, $request, $match);
             }
         }
 
@@ -135,6 +136,31 @@ final class Router
         }
 
         return $path;
+    }
+
+    /**
+     * Match a system route pattern against a path.
+     *
+     * Supports {param} placeholders.
+     * Returns array of matched params on success, null on failure.
+     */
+    private function matchSystemRoute(string $pattern, string $path): ?array
+    {
+        // Exact match (no placeholders)
+        if (!str_contains($pattern, '{')) {
+            return $pattern === $path ? [] : null;
+        }
+
+        // Convert {param} to regex
+        $regex = preg_replace('/\{([^}]+)\}/', '(?P<$1>[^/]+)', $pattern);
+        $regex = '#^' . $regex . '$#';
+
+        if (preg_match($regex, $path, $matches)) {
+            // Filter to only named captures
+            return array_filter($matches, fn($key) => is_string($key), ARRAY_FILTER_USE_KEY);
+        }
+
+        return null;
     }
 
     /**
@@ -273,9 +299,9 @@ final class Router
     /**
      * Invoke a route handler.
      */
-    private function invokeHandler(callable $handler, Request $request): ?RouteMatch
+    private function invokeHandler(callable $handler, Request $request, array $params = []): ?RouteMatch
     {
-        $result = $handler($request, $this->app);
+        $result = $handler($request, $params);
 
         if ($result instanceof RouteMatch) {
             return $result;

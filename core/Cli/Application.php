@@ -257,7 +257,7 @@ final class Application
             }
         }
         $yaml .= "---\n\n";
-        $yaml .= "# {$title}\n\nYour content here.\n";
+        $yaml .= "Your content here.\n";
 
         // Determine file path
         $basePath = $this->app->configPath('content') . '/' . $contentDir;
