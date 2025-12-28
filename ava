@@ -1,0 +1,4 @@
+#!/usr/bin/env php
+<?php
+// Shortcut to bin/ava
+require __DIR__ . '/bin/ava';

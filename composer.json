@@ -3,6 +3,7 @@
     "description": "Addy's Very Adaptable CMS - A flat-file PHP CMS",
     "type": "project",
     "license": "MIT",
+    "bin": ["bin/ava"],
     "require": {
         "php": "^8.3",
         "league/commonmark": "^2.6",
