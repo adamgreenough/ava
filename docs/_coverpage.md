@@ -12,7 +12,7 @@
   </div>
   <div class="feature">
     <div class="feature-icon">⚡</div>
-    <div class="feature-title">Edit live</div>
+    <div class="feature-title">No build step</div>
     <div class="feature-desc">Change a file, see it immediately</div>
   </div>
   <div class="feature">
