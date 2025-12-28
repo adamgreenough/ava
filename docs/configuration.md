@@ -78,11 +78,13 @@ The active theme name. Must match a folder in `themes/`.
 
 | Mode | Behavior | Best For |
 |------|----------|----------|
-| `'auto'` | Rebuild when content files change (fingerprint check) | Development, staging |
-| `'always'` | Rebuild on every request | Active development |
-| `'never'` | Only rebuild via `./ava rebuild` | Production |
+| `'auto'` | Rebuild when content files change (fingerprint check) | Development, production |
+| `'always'` | Rebuild on every request | Active development only |
+| `'never'` | Only rebuild via `./ava rebuild` | High-traffic production |
 
-> **Tip**: In production, use `'never'` and trigger rebuilds via deployment scripts or webhooks.
+Ava is designed to be edited live — not a static site generator. The `'auto'` mode is recommended for most production sites. It checks a lightweight fingerprint of your content files and only rebuilds the cache when something changes. The overhead is negligible for most sites.
+
+Use `'never'` only if you need maximum performance on high-traffic sites, and trigger rebuilds via deployment scripts, webhooks, or the CLI.
 
 ### Routing
 
