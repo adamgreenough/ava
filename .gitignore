@@ -6,3 +6,4 @@
 *.log
 .DS_Store
 Thumbs.db
+app/config/users.php
