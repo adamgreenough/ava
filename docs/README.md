@@ -11,6 +11,7 @@ Ava is designed for people who love the web. It sits in the sweet spot between a
 - **No Database Required.** Ava indexes your content into fast PHP arrays. You get the speed of a static site with the dynamic power of PHP.
 - **Edit Live.** Change a file, hit refresh, and see it instantly. No build steps, no waiting for deploys.
 - **Bespoke by Design.** Don't fight a platform. Create any content type you want—blogs, portfolios, recipe collections, changelogs—without plugins or hacks.
+- **AI Friendly.** The clean, file-based structure makes it trivial for AI assistants to read your content, understand your config, and help you build features.
 
 ## Core Features
 
