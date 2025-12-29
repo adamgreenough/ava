@@ -1,11 +1,11 @@
-# Ava CMS — AI Reference Sheet
+# Ava — AI Reference Sheet
 
-> Quick reference for AI assistants working with Ava CMS.
+> Quick reference for AI assistants working with Ava.
 > Use this to stay aligned with decisions and avoid re-deriving.
 
 ## What Ava Is
 
-- **Flat-file CMS** for developers
+- **Flat-file content engine** for developers
 - **PHP 8.4+**, strict types, no frameworks
 - **Markdown + YAML frontmatter** for content
 - **Cache-first** — indexes compiled to PHP, not a static generator
@@ -13,7 +13,7 @@
 
 ## What Ava Is NOT
 
-- Not a database-backed CMS
+- Not a database-backed system
 - Not a static site generator
 - Not a visual builder / WYSIWYG
 - Not a media manager
