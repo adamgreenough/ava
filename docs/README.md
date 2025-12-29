@@ -112,7 +112,7 @@ In plain English, that means you can:
 
 The main thing the license asks is that you keep the MIT license text and copyright notice with the software.
 
-Also worth knowing: the MIT license comes with a standard “no warranty” clause. Ava is provided as-is, so you’re responsible for how you deploy and run it.
+Also worth knowing: the MIT license comes with a standard “no warranty” clause. Ava is provided as-is, so you’re responsible for how you deploy and run it. As with all open source software, there's no guarantees that it's fit-for-purpose or impenetrably secure. 
 
 ## Contributing
 
