@@ -71,6 +71,8 @@ If `igbinary` isn't available, Ava automatically falls back to PHP's built-in `s
 
 ## Quick Start
 
+Getting started with Ava is incredibly simple and the default set-up can be put live in just a minute. You have two main options:
+
 ### Clone from GitHub
 
 ```bash
@@ -103,6 +105,16 @@ php -S localhost:8000 -t public
 4. Configure your site by editing `app/config/ava.php`
 5. Run `./ava rebuild` to build the cache
 6. (Optional) If you're running Ava locally, run `php -S localhost:8000 -t public` to start the development server and visit [http://localhost:8000](http://localhost:8000) to see your site
+
+### Default Site
+
+By default, Ava comes with a simple example site. You can replace the content in the `content/` folder and your theme in the `themes/default/` folder to start building your site.
+
+## Default Theme
+
+<img src="/themes/default/assets/default.webp" alt="Default theme preview" style="border: 1px solid #e5e5e5; border-radius: 4px; max-width: 100%;" />
+
+The default theme provides a clean, minimal starting point for your site. Customize it with your own styles, scripts and templates to match your vibe.
 
 ## Project Structure
 
