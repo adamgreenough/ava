@@ -48,6 +48,6 @@
   </div>
 </div>
 
-[Get Started](#main)
+[Get&nbsp;Started](#main)
 [Discord](https://discord.gg/Z7bF9YeK)
 [GitHub](https://github.com/adamgreenough/ava)
