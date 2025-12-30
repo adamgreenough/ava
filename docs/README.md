@@ -110,8 +110,6 @@ php -S localhost:8000 -t public
 
 By default, Ava comes with a simple example site. You can replace the content in the `content/` folder and your theme in the `themes/default/` folder to start building your site.
 
-## Default Theme
-
 <img src="images/default.webp" alt="Default theme preview" style="border: 1px solid #e5e5e5;" />
 
 The default theme provides a clean, minimal starting point for your site. Customize it with your own styles, scripts and templates to match your vibe.
