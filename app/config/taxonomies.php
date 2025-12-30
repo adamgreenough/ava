@@ -7,6 +7,7 @@ declare(strict_types=1);
  *
  * Taxonomies allow content classification.
  * Hierarchical taxonomies support parent/child relationships.
+ * Docs: https://ava.addy.zone/#/configuration?id=taxonomies-taxonomiesphp
  */
 
 return [

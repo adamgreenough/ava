@@ -6,6 +6,7 @@ declare(strict_types=1);
  * Content Type Definitions
  *
  * Each content type defines how content is organized, routed, and rendered.
+ * Docs: https://ava.addy.zone/#/configuration?id=content-types-content_typesphp
  */
 
 return [

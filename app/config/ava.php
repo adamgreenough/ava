@@ -7,13 +7,14 @@ declare(strict_types=1);
  *
  * This file returns the core configuration array.
  * All paths are relative to AVA_ROOT unless otherwise noted.
+ * Docs: https://ava.addy.zone/#/configuration?id=main-settings-avaphp
  */
 
 return [
     // Site settings
     'site' => [
         'name' => 'My Ava Site',
-        'base_url' => 'https://ava-dev.addy.zone',
+        'base_url' => 'http://localhost:8000',
         'timezone' => 'UTC',
         'locale' => 'en_GB',
     ],
