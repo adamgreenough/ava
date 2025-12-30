@@ -4,9 +4,14 @@ This guide walks you through getting Ava live on the internet. Whether you're ho
 
 ## Before You Start
 
-Ava needs one thing: **PHP 8.3 or later**. That's it. No database, no special server software, no complex stack to configure. If your host runs PHP, you can run Ava.
+Ava needs two things:
 
-Most modern hosting providers include PHP. When signing up, just check that PHP 8.3+ is available (some budget hosts are stuck on older versions).
+1. **PHP 8.3 or later**
+2. **Composer** (PHP's package manager)
+
+That's it. No database, no special server software, no complex stack to configure.
+
+> **What's Composer?** [Composer](https://getcomposer.org/) manages PHP dependencies (the libraries Ava uses). Most hosts have it pre-installed. You only need to run `composer install` once after uploading Ava—it downloads everything into the `vendor/` folder.
 
 ---
 
@@ -55,7 +60,7 @@ Open `http://localhost:8000` in your browser. You're running Ava!
 
 ## Shared Hosting
 
-Shared hosting is the easiest and most affordable way to get Ava live. You share a server with other websites, but the hosting company handles all the technical stuff.
+Shared hosting is the easiest and most affordable way to get Ava live. You get some of your own protected space on a server, but the hosting company handles all the technical stuff. This is a very common way for small to medium-sized websites to get online.
 
 ### What You Get
 
@@ -66,7 +71,7 @@ Shared hosting is the easiest and most affordable way to get Ava live. You share
 
 ### What You Need
 
-- **SSH access** — Essential for running Ava's CLI commands (most good hosts include this, you may have to ask for it to be enabled)
+- **SSH access** — Essential for running Ava's basic CLI commands (most good hosts include this, you may have to ask for it to be enabled)
 - **PHP 8.3+** — Check before signing up
 
 ### Recommended Providers
@@ -74,9 +79,11 @@ Shared hosting is the easiest and most affordable way to get Ava live. You share
 | Provider | Starting Price | Notes |
 |----------|----------------|-------|
 | [Krystal Hosting](https://krystal.uk/web-hosting) | From £7/month | Premium UK host, vastly scalable without moving hosts, excellent support, 100% renewable energy |
-| [Porkbun Managed PHP](https://porkbun.com/products/webhosting/managedPHP) | From $10/month (with discounts often available) | Simple, great domain provider, good for getting started in one place |
+| [Porkbun Easy PHP](https://porkbun.com/products/webhosting/managedPHP) | From $10/month (with discounts often available) | Simple, great domain provider, good for getting started in one place |
 
 Both include SSH access and modern PHP versions.
+
+Had a good experience with Ava on another host? Let us know in the [Discord community](https://discord.gg/Z7bF9YeK) so we can update this list!
 
 ### File Structure on Shared Hosting
 
@@ -188,6 +195,32 @@ Look in your hosting control panel for:
 - A section about "SSH Keys"
 
 If you can't find it, ask support: "Do you offer SSH access?" Most quality hosts do.
+
+### Troubleshooting: "composer: command not found"
+
+If you get this error, Composer isn't installed on your server. Most quality shared hosts include Composer, but if yours doesn't:
+
+**Option 1: Install Composer locally** (recommended for shared hosting)
+
+```bash
+# Download Composer to your Ava folder
+curl -sS https://getcomposer.org/installer | php
+
+# Now use it with php composer.phar instead of composer
+php composer.phar install
+```
+
+This installs Composer just for your project—no server-wide installation needed.
+
+**Option 2: Ask your host**
+
+Contact support and ask: "Can you enable Composer for my account?" Many hosts can enable it on request.
+
+**Option 3: Install dependencies locally**
+
+Run `composer install` on your local computer, then upload the entire `vendor/` folder along with your Ava files. This works but makes updates slightly more manual.
+
+> **Stuck?** Join the [Discord community](https://discord.gg/Z7bF9YeK)—we're happy to help you get set up, even if you're brand new to all this!
 
 ---
 

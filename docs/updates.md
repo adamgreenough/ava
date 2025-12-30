@@ -169,3 +169,9 @@ Your content and configuration are in separate directories from core files, so t
 1. Run `composer install` to update dependencies
 2. Run `php bin/ava rebuild` to rebuild the content index
 3. Check the changelog for breaking changes
+
+---
+
+## Need Help?
+
+Updates not working? Something broken? Join the [Discord community](https://discord.gg/Z7bF9YeK)—we're happy to help troubleshoot and get you back on track.
