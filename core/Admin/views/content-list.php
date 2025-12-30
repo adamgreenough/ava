@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= ucfirst($type) ?>s · Ava Admin</title>
+    <title><?= htmlspecialchars($typeConfig['label'] ?? ucfirst($type)) ?> · Ava Admin</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
     <link rel="stylesheet" href="/assets/admin.css">
@@ -83,13 +83,13 @@ $activePage = 'content-' . $type;
             <button class="menu-btn" onclick="toggleSidebar()">
                 <span class="material-symbols-rounded">menu</span>
             </button>
-            <h1><?= ucfirst($type) ?>s</h1>
+            <h1><?= htmlspecialchars($typeConfig['label'] ?? ucfirst($type)) ?></h1>
         </div>
 
         <div class="header">
             <h2>
                 <span class="material-symbols-rounded"><?= $type === 'page' ? 'description' : 'article' ?></span>
-                <?= ucfirst($type) ?>s
+                <?= htmlspecialchars($typeConfig['label'] ?? ucfirst($type)) ?>
             </h2>
             <div class="header-actions">
                 <?php if ($archiveUrl): ?>
