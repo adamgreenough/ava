@@ -26,7 +26,11 @@ Syntax highlighting works automatically:
 
 ```php
 // Query recent posts in your templates
-$posts = $ava->query('post')->limit(5)->get();
+$posts = $ava->query()
+    ->type('post')
+    ->published()
+    ->perPage(5)
+    ->get();
 ```
 
 ### Lists and Structure

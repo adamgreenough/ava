@@ -121,18 +121,14 @@ Show RSS feed statistics and configuration.
 
 ## Redirects
 
-Manage custom URL redirects through the admin interface.
-
-<a href="images/plugin-redirects.webp" target="_blank" rel="noopener">
-  <img src="images/plugin-redirects.webp" alt="Redirects plugin screen" />
-</a>
+Manage custom URL redirects through the CLI.
 
 - **What it does:** Redirects old URLs to new ones.
 - **How to use:** Add a `redirects.json` file to your `storage/` folder, or use the admin dashboard if you have the plugin enabled.
 
 ### Features
 
-- **Admin UI** — Add and remove redirects without editing files
+- **CLI management** — Add and remove redirects via command line
 - **301 and 302** — Support for permanent and temporary redirects
 - **High priority** — Processed before content routing
 - **Persistent storage** — Saved to `storage/redirects.json`
@@ -146,14 +142,6 @@ Manage custom URL redirects through the admin interface.
     'redirects',
 ],
 ```
-
-### Usage
-
-1. Navigate to Plugins → Redirects in the admin
-2. Enter the source URL (e.g., `/old-page`)
-3. Enter the destination URL (e.g., `/new-page` or `https://example.com`)
-4. Select redirect type (301 permanent or 302 temporary)
-5. Click "Add Redirect"
 
 ### When to Use
 

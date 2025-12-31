@@ -70,9 +70,10 @@ if (is_readable('/proc/cpuinfo')) {
 $uptime = $system['uptime'] ?? null;
 $uptimeFormatted = 'Unknown';
 if ($uptime !== null) {
-    $days = floor($uptime / 86400);
-    $hours = floor(($uptime % 86400) / 3600);
-    $mins = floor(($uptime % 3600) / 60);
+    $uptime = (int) $uptime; // Cast to int first to avoid float operations
+    $days = (int) floor($uptime / 86400);
+    $hours = (int) floor(($uptime % 86400) / 3600);
+    $mins = (int) floor(($uptime % 3600) / 60);
     if ($days > 0) {
         $uptimeFormatted = $days . 'd ' . $hours . 'h';
     } elseif ($hours > 0) {
@@ -489,52 +490,62 @@ $activePage = 'system';
         </div>
 
         <?php if (!empty($debugInfo['recent_errors'])): ?>
-        <!-- Recent Errors -->
         <div class="card mt-4">
             <div class="card-header">
                 <span class="card-title"><span class="material-symbols-rounded">error</span> Recent Errors</span>
-                <span class="badge badge-error"><?= count($debugInfo['recent_errors']) ?></span>
+                <div style="display: flex; gap: var(--sp-2);">
+                    <span class="badge badge-error"><?= count($debugInfo['recent_errors']) ?></span>
+                    <button class="btn btn-sm btn-secondary" onclick="clearErrorLog()" id="clearBtn"><span class="material-symbols-rounded">delete_sweep</span> Clear</button>
+                </div>
             </div>
-            <div class="table-wrap">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th width="160">Time</th>
-                            <th width="80">Level</th>
-                            <th>Message</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($debugInfo['recent_errors'] as $error): 
-                            $hasTrace = str_contains($error['message'], "\n");
-                            $mainMessage = $hasTrace ? explode("\n", $error['message'])[0] : $error['message'];
-                            $trace = $hasTrace ? implode("\n", array_slice(explode("\n", $error['message']), 1)) : '';
-                        ?>
-                        <tr>
-                            <td><code class="text-xs"><?= htmlspecialchars($error['time']) ?></code></td>
-                            <td>
-                                <span class="badge <?= match($error['level']) {
-                                    'ERROR', 'EXCEPTION' => 'badge-error',
-                                    'WARNING' => 'badge-warning',
-                                    'NOTICE', 'DEPRECATED' => 'badge-muted',
-                                    default => 'badge-muted',
-                                } ?>"><?= htmlspecialchars($error['level']) ?></span>
-                            </td>
-                            <td>
-                                <code class="text-xs" style="word-break: break-all;"><?= htmlspecialchars($mainMessage) ?></code>
-                                <?php if ($hasTrace): ?>
-                                <details style="margin-top: var(--sp-2);">
-                                    <summary class="text-xs text-tertiary" style="cursor: pointer;">Stack trace</summary>
-                                    <pre class="text-xs text-tertiary" style="margin-top: var(--sp-1); white-space: pre-wrap; font-size: 10px;"><?= htmlspecialchars($trace) ?></pre>
-                                </details>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+            <pre class="card-body" style="max-height: 500px; overflow: auto; margin: 0; padding: var(--sp-3); font-size: 11px; line-height: 1.5; white-space: pre-wrap; font-family: monospace;"><?php foreach ($debugInfo['recent_errors'] as $error): 
+echo htmlspecialchars('[' . $error['level'] . '] ' . $error['time'] . "\n");
+echo htmlspecialchars($error['message']) . "\n\n";
+endforeach; ?></pre>
         </div>
+        <script>
+        function clearErrorLog() {
+            if (!confirm('Clear error log?')) return;
+            var btn = document.getElementById('clearBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-rounded">hourglass_empty</span> Clearing...';
+            console.log('Fetching:', '<?= htmlspecialchars($admin_url) ?>/clear-errors');
+            fetch('<?= htmlspecialchars($admin_url) ?>/clear-errors', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: '_csrf=<?= htmlspecialchars($csrf) ?>'
+            })
+            .then(function(r) {
+                console.log('Response status:', r.status);
+                console.log('Response headers:', r.headers.get('content-type'));
+                return r.text().then(function(text) {
+                    console.log('Response text:', text);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('JSON parse error:', e);
+                        throw new Error('Invalid JSON response: ' + text.substring(0, 100));
+                    }
+                });
+            })
+            .then(function(d) {
+                console.log('Parsed data:', d);
+                if (d.success) {
+                    location.reload();
+                } else {
+                    alert('Failed: ' + (d.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-rounded">delete_sweep</span> Clear';
+                }
+            })
+            .catch(function(e) {
+                console.error('Fetch error:', e);
+                alert('Error: ' + e.message);
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-rounded">delete_sweep</span> Clear';
+            });
+        }
+        </script>
         <?php endif; ?>
 
         <!-- Directory Status -->
@@ -628,50 +639,33 @@ $activePage = 'system';
 
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title"><span class="material-symbols-rounded">webhook</span> Plugin Hooks</span>
+                    <span class="card-title"><span class="material-symbols-rounded">webhook</span> Active Hooks</span>
                     <?php $activeHooks = count($hooks['active_filters']) + count($hooks['active_actions']); ?>
-                    <span class="badge <?= $activeHooks > 0 ? 'badge-success' : 'badge-muted' ?>"><?= $activeHooks ?> active</span>
+                    <span class="badge <?= $activeHooks > 0 ? 'badge-success' : 'badge-muted' ?>"><?= $activeHooks ?> registered</span>
                 </div>
-                <details>
-                    <summary>
-                        <span class="material-symbols-rounded">chevron_right</span>
-                        Filters
-                        <span class="badge badge-muted count"><?= count($hooks['filters']) ?></span>
-                    </summary>
-                    <div class="detail-content">
-                        <div class="hook-list">
-                            <?php foreach ($hooks['filters'] as $hook => $desc): 
-                                $isActive = in_array($hook, $hooks['active_filters']);
-                            ?>
-                            <div class="hook-item">
-                                <code><?= htmlspecialchars($hook) ?></code>
-                                <?php if ($isActive): ?><span class="badge badge-success">active</span><?php endif; ?>
-                                <span class="hook-desc"><?= htmlspecialchars($desc) ?></span>
-                            </div>
+                <div class="card-body">
+                    <?php if ($activeHooks > 0): ?>
+                        <?php if (!empty($hooks['active_filters'])): ?>
+                        <div style="margin-bottom: var(--sp-3);">
+                            <div class="text-xs text-tertiary" style="margin-bottom: var(--sp-1);">Filters</div>
+                            <?php foreach ($hooks['active_filters'] as $hook): ?>
+                            <code class="text-xs" style="display: inline-block; margin-right: var(--sp-1); margin-bottom: var(--sp-1);"><?= htmlspecialchars($hook) ?></code>
                             <?php endforeach; ?>
                         </div>
-                    </div>
-                </details>
-                <details>
-                    <summary>
-                        <span class="material-symbols-rounded">chevron_right</span>
-                        Actions
-                        <span class="badge badge-muted count"><?= count($hooks['actions']) ?></span>
-                    </summary>
-                    <div class="detail-content">
-                        <div class="hook-list">
-                            <?php foreach ($hooks['actions'] as $hook => $desc): 
-                                $isActive = in_array($hook, $hooks['active_actions']);
-                            ?>
-                            <div class="hook-item">
-                                <code><?= htmlspecialchars($hook) ?></code>
-                                <?php if ($isActive): ?><span class="badge badge-success">active</span><?php endif; ?>
-                                <span class="hook-desc"><?= htmlspecialchars($desc) ?></span>
-                            </div>
+                        <?php endif; ?>
+                        <?php if (!empty($hooks['active_actions'])): ?>
+                        <div>
+                            <div class="text-xs text-tertiary" style="margin-bottom: var(--sp-1);">Actions</div>
+                            <?php foreach ($hooks['active_actions'] as $hook): ?>
+                            <code class="text-xs" style="display: inline-block; margin-right: var(--sp-1); margin-bottom: var(--sp-1);"><?= htmlspecialchars($hook) ?></code>
                             <?php endforeach; ?>
                         </div>
-                    </div>
-                </details>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p class="text-dim text-sm">No hooks registered by plugins or theme.</p>
+                    <?php endif; ?>
+                    <p class="text-tertiary text-xs" style="margin-top: var(--sp-3);"><a href="https://ava.addy.zone/#/creating-plugins?id=available-hooks-reference" target="_blank">View hook documentation →</a></p>
+                </div>
             </div>
         </div>
     </main>

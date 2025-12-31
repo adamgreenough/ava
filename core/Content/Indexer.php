@@ -490,7 +490,8 @@ final class Indexer
         foreach ($taxonomies as $taxName => $taxConfig) {
             $registryPath = $taxonomiesPath . '/' . $taxName . '.yml';
             if (file_exists($registryPath)) {
-                $registry = \Symfony\Component\Yaml\Yaml::parseFile($registryPath);
+                // Use PARSE_EXCEPTION_ON_INVALID_TYPE for defense-in-depth against object injection
+                $registry = \Symfony\Component\Yaml\Yaml::parseFile($registryPath, \Symfony\Component\Yaml\Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
                 if (is_array($registry)) {
                     foreach ($registry as $termData) {
                         $slug = $termData['slug'] ?? '';

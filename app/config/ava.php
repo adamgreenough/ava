@@ -103,9 +103,9 @@ return [
     ],
 
     'debug' => [
-        'enabled' => false,
+        'enabled' => true,
         'display_errors' => false,  // NEVER true in production!
         'log_errors' => true,
-        'level' => 'errors',        // all/errors/none
+        'level' => 'all',        // all/errors/none
     ],
 ];

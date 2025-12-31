@@ -21,8 +21,6 @@ When rendered, `[year]` becomes `2025`, `[site_name]` becomes your site name, an
 | Shortcode | Output |
 |-----------|--------|
 | `[year]` | Current year |
-| `[date]` | Current date (Y-m-d) |
-| `[date format="M j, Y"]` | Current date with custom format |
 | `[site_name]` | Site name from config |
 | `[site_url]` | Site URL from config |
 | `[email]you@example.com[/email]` | Obfuscated mailto link |

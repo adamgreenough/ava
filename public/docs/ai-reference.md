@@ -260,30 +260,41 @@ Defined in `app/config/content_types.php`:
 return [
     'post' => [
         'label' => 'Posts',
-        'directory' => 'posts',
-        'url' => '/blog/{slug}',
-        'template' => 'post',
-        'archive_template' => 'archive',
-        'taxonomies' => ['categories', 'tags'],
-        'date_based' => true,
-        'sort' => ['date', 'desc'],
+        'content_dir' => 'posts',
+        'url' => [
+            'type' => 'pattern',
+            'pattern' => '/blog/{slug}',
+            'archive' => '/blog',
+        ],
+        'templates' => [
+            'single' => 'post.php',
+            'archive' => 'archive.php',
+        ],
+        'taxonomies' => ['category', 'tag'],
+        'sorting' => 'date_desc',
     ],
     'page' => [
         'label' => 'Pages',
-        'directory' => 'pages',
-        'url' => 'hierarchical',
-        'template' => 'page',
+        'content_dir' => 'pages',
+        'url' => [
+            'type' => 'hierarchical',
+            'base' => '/',
+        ],
+        'templates' => [
+            'single' => 'page.php',
+        ],
         'taxonomies' => [],
-        'date_based' => false,
-        'sort' => ['title', 'asc'],
+        'sorting' => 'manual',
     ],
 ];
 ```
 
 **URL types:**
 - `hierarchical` — Nested paths from directory structure (`/about/team`)
-- Pattern — Template with tokens (`/blog/{slug}`, `/blog/{yyyy}/{mm}/{slug}`)
+- `pattern` — Template with tokens (`/blog/{slug}`, `/blog/{yyyy}/{mm}/{slug}`)
 - Tokens: `{slug}`, `{yyyy}`, `{mm}`, `{dd}`, `{id}`
+
+**Sorting options:** `date_desc`, `date_asc`, `title_asc`, `title_desc`, `manual`
 
 ---
 
@@ -293,12 +304,29 @@ Defined in `app/config/taxonomies.php`:
 
 ```php
 return [
-    'categories' => [
+    'category' => [
         'label' => 'Categories',
-        'singular' => 'Category',
+        'hierarchical' => true,
+        'public' => true,
+        'rewrite' => [
+            'base' => '/category',       // /category/tutorials
+            'separator' => '/',          // /category/tutorials/php
+        ],
+        'behaviour' => [
+            'allow_unknown_terms' => true,   // Auto-create terms from content
+            'hierarchy_rollup' => true,      // Include child terms when filtering parent
+        ],
+    ],
+    'tag' => [
+        'label' => 'Tags',
         'hierarchical' => false,
-        'registry_path' => 'content/_taxonomies/category.yml',
-        'url' => '/category/{slug}',
+        'public' => true,
+        'rewrite' => [
+            'base' => '/tag',            // /tag/php
+        ],
+        'behaviour' => [
+            'allow_unknown_terms' => true,
+        ],
     ],
 ];
 ```
@@ -593,7 +621,9 @@ Hooks::doAction('hook_name', $arg1, $arg2);
 | Hook | Type | Description |
 |------|------|-------------|
 | `router.before_match` | Filter | Before route matching (return RouteMatch to override) |
+| `content.loaded` | Filter | Modify content item after loading from repository |
 | `render.context` | Filter | Modify template context before rendering |
+| `render.output` | Filter | Modify final HTML output after template rendering |
 | `markdown.configure` | Action | Configure CommonMark environment |
 | `admin.register_pages` | Filter | Register custom admin pages |
 | `admin.sidebar_items` | Filter | Add items to admin sidebar |
@@ -603,9 +633,15 @@ Hooks::doAction('hook_name', $arg1, $arg2);
 ```php
 use Ava\Plugins\Hooks;
 
-Hooks::addFilter('content.after_parse', function($html, $item) {
-    // Modify rendered HTML
-    return $html;
+// Add variables to all templates
+Hooks::addFilter('render.context', function($context) {
+    $context['analytics_id'] = 'UA-12345';
+    return $context;
+});
+
+// Configure Markdown extensions
+Hooks::addAction('markdown.configure', function($environment) {
+    $environment->addExtension(new \League\CommonMark\Extension\Table\TableExtension());
 });
 ```
 
@@ -613,49 +649,63 @@ Hooks::addFilter('content.after_parse', function($html, $item) {
 
 ## CLI Commands
 
-Ava includes a command-line tool at `bin/ava`:
+Ava includes a command-line tool at `./ava` (or `php bin/ava`):
 
-**Content management:**
+**Site management:**
 ```bash
-php bin/ava status                   # Site overview and stats
-php bin/ava lint                     # Validate content files
-php bin/ava make post "Post Title"   # Create new content
+./ava status                   # Site overview and stats
+./ava rebuild                  # Rebuild content index
+./ava lint                     # Validate content files
+./ava benchmark                # Test content index performance
+./ava benchmark --compare      # Compare all backends
 ```
 
-**Cache management:**
+**Content creation:**
 ```bash
-php bin/ava rebuild                  # Rebuild content index
-php bin/ava pages:stats              # Page cache statistics
-php bin/ava pages:clear [pattern]    # Clear page cache
+./ava make post "Post Title"   # Create new content
+./ava make page "Page Title"   # Create page
+./ava prefix add post          # Add date prefixes to filenames
+./ava prefix remove post       # Remove date prefixes
+```
+
+**Page cache:**
+```bash
+./ava pages:stats              # Page cache statistics (alias: pages)
+./ava pages:clear              # Clear all cached pages
+./ava pages:clear /blog/*      # Clear matching pattern
 ```
 
 **Logs:**
 ```bash
-php bin/ava logs:stats               # Log file statistics
-php bin/ava logs:tail                # Tail log files
-php bin/ava logs:clear               # Clear log files
+./ava logs:stats               # Log file statistics (alias: logs)
+./ava logs:tail                # Tail indexer.log (default)
+./ava logs:tail admin -n 50    # Tail admin.log, 50 lines
+./ava logs:clear               # Clear all log files
 ```
 
 **User management:**
 ```bash
-php bin/ava user:add                 # Create admin user
-php bin/ava user:password            # Update user password
-php bin/ava user:remove              # Remove admin user
-php bin/ava user:list                # List all users
+./ava user:add email pass      # Create admin user (alias: user:add)
+./ava user:password email pass # Update password
+./ava user:remove email        # Remove admin user
+./ava user:list                # List all users (alias: user)
 ```
 
 **Updates:**
 ```bash
-php bin/ava update:check             # Check for updates
-php bin/ava update:apply             # Apply available update
+./ava update:check             # Check for updates (alias: update)
+./ava update:check --force     # Force fresh check (bypass cache)
+./ava update:apply             # Download and apply update
+./ava update:apply -y          # Skip confirmation prompts
 ```
 
 **Testing:**
 ```bash
-php bin/ava test                     # Run the test suite
-php bin/ava test [filter]            # Run tests matching filter
-php bin/ava stress:generate post 100 # Generate test content
-php bin/ava stress:clean post        # Remove test content
+./ava test                     # Run the test suite
+./ava test Str                 # Filter by class name
+./ava test -q                  # Quiet mode (summary only)
+./ava stress:generate post 100 # Generate test content
+./ava stress:clean post        # Remove test content
 ```
 
 ---
@@ -668,7 +718,7 @@ Ava includes a lightweight, zero-dependency test framework:
 ```bash
 ./ava test                  # Run all tests
 ./ava test Str              # Filter by class name
-./ava test -v               # Verbose output
+./ava test -q               # Quiet output
 ```
 
 **Test structure:**

@@ -307,14 +307,26 @@ final class Application
             // Remove /theme/ prefix
             $assetPath = substr($path, 7);
 
-            // Security: prevent directory traversal
-            $assetPath = str_replace(['..', "\0"], '', $assetPath);
+            // Security: prevent directory traversal using realpath validation
+            // Note: str_replace('..', '') is insufficient as '....//etc/passwd' becomes '../etc/passwd'
+            $assetsDir = realpath($themesPath . '/' . $theme . '/assets');
+            if ($assetsDir === false) {
+                return null;
+            }
 
-            $fullPath = $themesPath . '/' . $theme . '/assets/' . $assetPath;
+            $fullPath = $assetsDir . '/' . $assetPath;
+            $realPath = realpath($fullPath);
 
-            if (!file_exists($fullPath) || !is_file($fullPath)) {
+            // Ensure the resolved path is within the assets directory
+            if ($realPath === false || !str_starts_with($realPath, $assetsDir . '/')) {
                 return null; // Let it 404
             }
+
+            if (!is_file($realPath)) {
+                return null; // Let it 404
+            }
+
+            $fullPath = $realPath;
 
             // Determine content type
             $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));

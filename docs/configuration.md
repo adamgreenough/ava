@@ -235,7 +235,7 @@ For details, see [Performance](performance.md).
 | `enabled` | bool | `false` | Enable the admin dashboard |
 | `path` | string | `'/admin'` | URL path for admin (e.g., `/admin`, `/dashboard`, `/_ava`) |
 
-!> **Important**: Create admin users with `./ava user:create` before enabling.
+!> **Important**: Create admin users with `./ava user:add` before enabling.
 
 ### Debug Mode
 

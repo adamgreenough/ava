@@ -94,14 +94,6 @@ Run `./ava` or `./ava --help` to see all available commands:
 ./ava --help
 ```
 
-<div class="beginner-box">
-
-### Why do commands start with <code>./</code>?
-
-`./ava` means “run the ava script in this folder.” The `./` tells your computer to look for the command right here, not somewhere else on your system. This is common for project tools in PHP, Node, Python, and more. If you just type `ava`, it only works if you’ve installed it globally (which is not recommended for project scripts).
-
-</div>
-
 **Shortcuts:** Several commands have convenient aliases:
 - `./ava pages` → `pages:stats`
 - `./ava logs` → `logs:stats`
@@ -126,6 +118,14 @@ Run `./ava` or `./ava --help` to see all available commands:
 
     <span class="t-cyan">make &lt;type&gt; "Title"</span>           Create new content
     ...</samp></pre>
+
+<div class="beginner-box">
+
+### Why do commands start with <code>./</code>?
+
+`./ava` means “run the ava script in this folder.” The `./` tells your computer to look for the command right here, not somewhere else on your system. This is common for project tools in PHP, Node, Python, and more. If you just type `ava`, it only works if you’ve installed it globally (which is not recommended for project scripts).
+
+</div>
 
 ---
 
@@ -223,7 +223,7 @@ Checks for:
 |-------|---------------|
 | YAML syntax | Frontmatter must parse correctly |
 | Required fields | `title`, `slug`, `status` are present |
-| Status values | Must be `draft`, `published`, or `private` |
+| Status values | Must be `draft`, `published`, or `unlisted` |
 | Slug format | Lowercase, alphanumeric, hyphens only |
 | Duplicate slugs | Within the same content type |
 | Duplicate IDs | Across all content |

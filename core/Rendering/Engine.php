@@ -154,7 +154,10 @@ final class Engine
 
         try {
             include $templatePath;
-            return ob_get_clean();
+            $output = ob_get_clean();
+            
+            // Allow hooks to modify final output
+            return Hooks::apply('render.output', $output, $templatePath, $context);
         } catch (\Throwable $e) {
             ob_end_clean();
             throw $e;

@@ -23,7 +23,7 @@ final class Controller
     public function __construct(Application $app)
     {
         $this->app = $app;
-        $this->auth = new Auth($app->path('app/config/users.php'));
+        $this->auth = new Auth($app->path('app/config/users.php'), $app->path('storage'));
     }
 
     /**
@@ -46,6 +46,21 @@ final class Controller
 
         $error = null;
 
+        // Check if IP is locked out
+        if ($this->auth->isLockedOut()) {
+            $remaining = $this->auth->getLockoutRemaining();
+            $minutes = (int) ceil($remaining / 60);
+            $error = "Too many login attempts. Please try again in {$minutes} minute(s).";
+
+            return Response::html($this->render('login', [
+                'error' => $error,
+                'csrf' => $this->auth->csrfToken(),
+                'loginUrl' => $this->adminUrl() . '/login',
+                'hasUsers' => $this->auth->hasUsers(),
+                'isLockedOut' => true,
+            ]));
+        }
+
         // Handle login attempt
         if ($request->isMethod('POST')) {
             $csrf = $request->post('_csrf', '');
@@ -62,7 +77,14 @@ final class Controller
                     return Response::redirect($this->adminUrl());
                 }
 
-                $error = 'Invalid email or password.';
+                // Check if now locked out after this failed attempt
+                if ($this->auth->isLockedOut()) {
+                    $remaining = $this->auth->getLockoutRemaining();
+                    $minutes = (int) ceil($remaining / 60);
+                    $error = "Too many login attempts. Please try again in {$minutes} minute(s).";
+                } else {
+                    $error = 'Invalid email or password.';
+                }
                 $this->logAction('WARNING', 'Login failed for: ' . $email);
             }
         }
@@ -72,6 +94,7 @@ final class Controller
             'csrf' => $this->auth->csrfToken(),
             'loginUrl' => $this->adminUrl() . '/login',
             'hasUsers' => $this->auth->hasUsers(),
+            'isLockedOut' => false,
         ]));
     }
 
@@ -108,6 +131,9 @@ final class Controller
             // Silently ignore update check failures
         }
         
+        // Check for recent errors (last 24 hours)
+        $recentErrorCount = $this->getRecentErrorCount();
+        
         $data = [
             'site' => [
                 'name' => $this->app->config('site.name'),
@@ -133,6 +159,7 @@ final class Controller
             'customSidebarItems' => $customSidebarItems,
             'version' => AVA_VERSION,
             'updateCheck' => $updateCheck,
+            'recentErrorCount' => $recentErrorCount,
         ];
 
         return Response::html($this->render('dashboard', $data));
@@ -1079,35 +1106,11 @@ JS;
      */
     private function getHooksInfo(): array
     {
-        // Available hooks documented in the system
-        $documented = [
-            'filters' => [
-                'content.before_parse' => 'Modify content before Markdown parsing',
-                'content.after_parse' => 'Modify Item after parsing',
-                'render.context' => 'Modify template context',
-                'render.after' => 'Modify final HTML output',
-                'markdown.before' => 'Modify Markdown before conversion',
-                'markdown.after' => 'Modify HTML after Markdown conversion',
-                'shortcode.before' => 'Modify shortcode before processing',
-                'shortcode.after' => 'Modify shortcode output',
-                'admin.register_pages' => 'Register custom admin pages',
-                'admin.sidebar_items' => 'Add custom sidebar items',
-            ],
-            'actions' => [
-                'content.after_index' => 'After all content is indexed',
-                'router.before_match' => 'Before route matching',
-                'router.after_match' => 'After route is matched',
-                'render.before' => 'Before template renders',
-            ],
-        ];
-
-        // Get currently registered hooks
+        // Get currently registered hooks from plugins/themes
         $activeFilters = Hooks::getRegisteredFilters();
         $activeActions = Hooks::getRegisteredActions();
 
         return [
-            'filters' => $documented['filters'],
-            'actions' => $documented['actions'],
             'active_filters' => $activeFilters,
             'active_actions' => $activeActions,
         ];
@@ -1180,8 +1183,8 @@ JS;
                     $allErrors[] = $currentError;
                 }
                 
-                // Take the last 15 errors (most recent)
-                $recentErrors = array_slice(array_reverse($allErrors), 0, 15);
+                // Take the last 10 errors (most recent)
+                $recentErrors = array_slice(array_reverse($allErrors), 0, 10);
             }
         }
 
@@ -1447,6 +1450,64 @@ JS;
         $html = ob_get_clean();
 
         return Response::html($html);
+    }
+
+    /**
+     * Clear error log.
+     */
+    public function clearErrorLog(Request $request): Response
+    {
+        if (!$request->isMethod('POST')) {
+            return Response::json(['success' => false, 'error' => 'Method not allowed'], 405);
+        }
+
+        // Verify CSRF
+        $csrf = $request->post('_csrf', '');
+        if (!$this->auth->verifyCsrf($csrf)) {
+            return Response::json(['success' => false, 'error' => 'Invalid request'], 400);
+        }
+
+        $logFile = $this->app->path('storage/logs/error.log');
+        
+        if (file_exists($logFile)) {
+            file_put_contents($logFile, '');
+            $this->logAction('INFO', 'Error log cleared');
+        }
+
+        return Response::json(['success' => true]);
+    }
+
+    /**
+     * Get count of errors in the last 24 hours.
+     */
+    private function getRecentErrorCount(): int
+    {
+        $errorLogPath = $this->app->path('storage/logs/error.log');
+        
+        if (!file_exists($errorLogPath)) {
+            return 0;
+        }
+        
+        $cutoff = time() - 86400; // 24 hours ago
+        $count = 0;
+        
+        $fp = @fopen($errorLogPath, 'r');
+        if (!$fp) {
+            return 0;
+        }
+        
+        while (($line = fgets($fp)) !== false) {
+            // Parse log line: [timestamp] LEVEL: message
+            if (preg_match('/^\[([^\]]+)\]\s+(\w+):/', $line, $m)) {
+                $timestamp = strtotime($m[1]);
+                if ($timestamp !== false && $timestamp >= $cutoff) {
+                    $count++;
+                }
+            }
+        }
+        
+        fclose($fp);
+        return $count;
     }
 
     /**

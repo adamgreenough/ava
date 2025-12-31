@@ -41,7 +41,8 @@ final class Parser
         $meta = [];
         if ($frontmatter !== '') {
             try {
-                $meta = Yaml::parse($frontmatter) ?? [];
+                // Use PARSE_EXCEPTION_ON_INVALID_TYPE for defense-in-depth against object injection
+                $meta = Yaml::parse($frontmatter, Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE) ?? [];
             } catch (\Exception $e) {
                 throw new \RuntimeException(
                     "Invalid YAML frontmatter in {$filePath}: " . $e->getMessage()

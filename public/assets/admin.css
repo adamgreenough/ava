@@ -155,6 +155,30 @@ body {
     background: var(--bg);
 }
 
+/* Custom Scrollbars */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-light) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--border);
+}
+
 a {
     color: var(--accent);
     text-decoration: none;
@@ -601,9 +625,10 @@ code {
 .badge-success { background: var(--success-subtle); color: var(--success); }
 .badge-warning { background: var(--warning-subtle); color: var(--warning); }
 .badge-danger { background: var(--danger-subtle); color: var(--danger); }
+.badge-error { background: var(--danger-subtle); color: var(--danger); }
 .badge-accent { background: var(--accent-subtle); color: var(--accent); }
 .badge-purple { background: var(--purple-subtle); color: var(--purple); }
-.badge-muted { background: var(--bg-surface); color: var(--text-tertiary); }
+.badge-muted { background: var(--border); color: var(--text-tertiary); }
 
 .badge .material-symbols-rounded {
     font-size: 12px;

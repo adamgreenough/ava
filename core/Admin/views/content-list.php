@@ -63,6 +63,7 @@ $contentDir = $typeConfig['content_dir'] ?? $type . 's';
 $taxonomiesForType = $typeConfig['taxonomies'] ?? [];
 
 $formatBytes = function($bytes) {
+    $bytes = $bytes ?? 0;
     $units = ['B', 'KB', 'MB'];
     $i = 0;
     while ($bytes >= 1024 && $i < 2) { $bytes /= 1024; $i++; }
@@ -231,7 +232,7 @@ $activePage = 'content-' . $type;
                         <div class="list-item"><span class="list-label">Total</span><span class="list-value"><?= count($items) ?></span></div>
                         <div class="list-item"><span class="list-label">Published</span><span class="list-value text-success"><?= $allContent[$type]['published'] ?? 0 ?></span></div>
                         <div class="list-item"><span class="list-label">Drafts</span><span class="list-value text-warning"><?= $allContent[$type]['draft'] ?? 0 ?></span></div>
-                        <div class="list-item"><span class="list-label">Total Size</span><span class="list-value"><?= $formatBytes($stats['totalSize']) ?></span></div>
+                        <div class="list-item"><span class="list-label">Total Size</span><span class="list-value"><?= $formatBytes($stats['totalSize'] ?? 0) ?></span></div>
                     </div>
                 </div>
 

@@ -12,12 +12,19 @@ final class Auth
     private const SESSION_KEY = 'ava_admin_user';
     private const CSRF_KEY = 'ava_csrf_token';
 
+    // Rate limiting constants
+    private const MAX_ATTEMPTS = 5;           // Max attempts before lockout
+    private const LOCKOUT_DURATION = 900;     // 15 minutes in seconds
+    private const ATTEMPT_WINDOW = 3600;      // Clear attempts after 1 hour
+
     private string $usersFile;
+    private string $storagePath;
     private ?array $users = null;
 
-    public function __construct(string $usersFile)
+    public function __construct(string $usersFile, ?string $storagePath = null)
     {
         $this->usersFile = $usersFile;
+        $this->storagePath = $storagePath ?? dirname($usersFile, 2) . '/storage';
     }
 
     /**
@@ -72,22 +79,34 @@ final class Auth
 
     /**
      * Attempt to log in with email and password.
+     * Includes rate limiting to prevent brute-force attacks.
      */
     public function attempt(string $email, string $password): bool
     {
+        // Check rate limiting
+        $ip = $this->getClientIp();
+        if ($this->isLockedOut($ip)) {
+            return false;
+        }
+
         $users = $this->loadUsers();
 
         if (!isset($users[$email])) {
             // Prevent timing attacks
             password_verify($password, '$2y$10$dummyhashtopreventtimingattacks');
+            $this->recordFailedAttempt($ip);
             return false;
         }
 
         $user = $users[$email];
 
         if (!password_verify($password, $user['password'])) {
+            $this->recordFailedAttempt($ip);
             return false;
         }
+
+        // Clear failed attempts on successful login
+        $this->clearFailedAttempts($ip);
 
         // Regenerate session ID to prevent fixation
         $this->startSession();
@@ -98,6 +117,39 @@ final class Auth
         $this->updateLastLogin($email);
 
         return true;
+    }
+
+    /**
+     * Check if IP is locked out due to too many failed attempts.
+     */
+    public function isLockedOut(?string $ip = null): bool
+    {
+        $ip = $ip ?? $this->getClientIp();
+        $attempts = $this->getFailedAttempts($ip);
+
+        if ($attempts['count'] >= self::MAX_ATTEMPTS) {
+            $lockoutEnd = $attempts['last_attempt'] + self::LOCKOUT_DURATION;
+            return time() < $lockoutEnd;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get remaining lockout time in seconds.
+     */
+    public function getLockoutRemaining(?string $ip = null): int
+    {
+        $ip = $ip ?? $this->getClientIp();
+        $attempts = $this->getFailedAttempts($ip);
+
+        if ($attempts['count'] >= self::MAX_ATTEMPTS) {
+            $lockoutEnd = $attempts['last_attempt'] + self::LOCKOUT_DURATION;
+            $remaining = $lockoutEnd - time();
+            return max(0, $remaining);
+        }
+
+        return 0;
     }
 
     /**
@@ -195,5 +247,133 @@ final class Auth
     public function hasUsers(): bool
     {
         return count($this->loadUsers()) > 0;
+    }
+
+    /**
+     * Get the client IP address.
+     */
+    private function getClientIp(): string
+    {
+        // Check common proxy headers
+        $headers = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'];
+
+        foreach ($headers as $header) {
+            if (!empty($_SERVER[$header])) {
+                // X-Forwarded-For may contain multiple IPs, take the first one
+                $ip = explode(',', $_SERVER[$header])[0];
+                $ip = trim($ip);
+
+                // Validate IP
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return '0.0.0.0';
+    }
+
+    /**
+     * Get the path to the rate limiting data file.
+     */
+    private function getRateLimitPath(): string
+    {
+        return $this->storagePath . '/auth_attempts.json';
+    }
+
+    /**
+     * Get failed login attempts for an IP.
+     *
+     * @return array{count: int, last_attempt: int}
+     */
+    private function getFailedAttempts(string $ip): array
+    {
+        $path = $this->getRateLimitPath();
+        $data = [];
+
+        if (file_exists($path)) {
+            $content = file_get_contents($path);
+            $data = json_decode($content, true) ?? [];
+        }
+
+        $ipHash = hash('sha256', $ip);
+
+        if (!isset($data[$ipHash])) {
+            return ['count' => 0, 'last_attempt' => 0];
+        }
+
+        $attempts = $data[$ipHash];
+
+        // Clear if attempt window expired
+        if (time() - $attempts['last_attempt'] > self::ATTEMPT_WINDOW) {
+            $this->clearFailedAttempts($ip);
+            return ['count' => 0, 'last_attempt' => 0];
+        }
+
+        return $attempts;
+    }
+
+    /**
+     * Record a failed login attempt.
+     */
+    private function recordFailedAttempt(string $ip): void
+    {
+        $path = $this->getRateLimitPath();
+        $data = [];
+
+        if (file_exists($path)) {
+            $content = file_get_contents($path);
+            $data = json_decode($content, true) ?? [];
+        }
+
+        $ipHash = hash('sha256', $ip);
+        $current = $data[$ipHash] ?? ['count' => 0, 'last_attempt' => 0];
+
+        // Reset if window expired
+        if (time() - $current['last_attempt'] > self::ATTEMPT_WINDOW) {
+            $current = ['count' => 0, 'last_attempt' => 0];
+        }
+
+        $current['count']++;
+        $current['last_attempt'] = time();
+        $data[$ipHash] = $current;
+
+        // Clean up old entries
+        $this->cleanupOldAttempts($data);
+
+        file_put_contents($path, json_encode($data), LOCK_EX);
+    }
+
+    /**
+     * Clear failed attempts for an IP.
+     */
+    private function clearFailedAttempts(string $ip): void
+    {
+        $path = $this->getRateLimitPath();
+
+        if (!file_exists($path)) {
+            return;
+        }
+
+        $content = file_get_contents($path);
+        $data = json_decode($content, true) ?? [];
+
+        $ipHash = hash('sha256', $ip);
+        unset($data[$ipHash]);
+
+        file_put_contents($path, json_encode($data), LOCK_EX);
+    }
+
+    /**
+     * Clean up old attempt records.
+     */
+    private function cleanupOldAttempts(array &$data): void
+    {
+        $now = time();
+        foreach ($data as $ip => $attempts) {
+            if ($now - $attempts['last_attempt'] > self::ATTEMPT_WINDOW) {
+                unset($data[$ip]);
+            }
+        }
     }
 }

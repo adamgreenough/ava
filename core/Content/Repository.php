@@ -8,6 +8,7 @@ use Ava\Application;
 use Ava\Content\Backends\BackendInterface;
 use Ava\Content\Backends\ArrayBackend;
 use Ava\Content\Backends\SqliteBackend;
+use Ava\Plugins\Hooks;
 
 /**
  * Content Repository
@@ -137,7 +138,10 @@ final class Repository
             return null;
         }
 
-        return $this->parser->parseFile($filePath, $type);
+        $item = $this->parser->parseFile($filePath, $type);
+
+        // Allow hooks to modify the loaded item
+        return Hooks::apply('content.loaded', $item);
     }
 
     /**

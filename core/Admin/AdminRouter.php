@@ -93,6 +93,11 @@ final class AdminRouter
             return $this->handle('system', $request);
         });
 
+        // Clear error log (protected)
+        $router->addRoute($basePath . '/clear-errors', function (Request $request) {
+            return $this->handle('clearErrorLog', $request);
+        });
+
         // Themes (protected)
         $router->addRoute($basePath . '/themes', function (Request $request) {
             return $this->handle('themes', $request);
@@ -175,6 +180,8 @@ final class AdminRouter
             'logout' => $this->controller->logout($request),
             'dashboard' => $this->controller->dashboard($request),
             'rebuild' => $this->controller->rebuild($request),
+            'flushPageCache' => $this->controller->flushPageCache($request),
+            'clearErrorLog' => $this->controller->clearErrorLog($request),
             'lint' => $this->controller->lint($request),
             'system' => $this->controller->system($request),
             'themes' => $this->controller->themes($request),

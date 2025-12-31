@@ -106,6 +106,19 @@ $activePage = 'dashboard';
         </div>
         <?php endif; ?>
 
+        <?php if (isset($recentErrorCount) && $recentErrorCount > 0): ?>
+        <div class="alert alert-warning">
+            <span class="material-symbols-rounded">warning</span>
+            <div style="flex: 1;">
+                <strong><?= $recentErrorCount ?> error<?= $recentErrorCount !== 1 ? 's' : '' ?> logged in the last 24 hours</strong>
+                <br>
+                <span class="text-xs" style="opacity: 0.8;">
+                    <a href="<?= htmlspecialchars($admin_url) ?>/system" style="color: inherit; text-decoration: underline;">View errors in System Info</a>
+                </span>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="header">
             <h2>
                 <span class="material-symbols-rounded">dashboard</span>
@@ -492,34 +505,6 @@ $activePage = 'dashboard';
                     <p>No users</p>
                 </div>
                 <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- CLI Reference -->
-        <div class="card mt-4">
-            <div class="card-header">
-                <span class="card-title">
-                    <span class="material-symbols-rounded">terminal</span>
-                    CLI Reference
-                </span>
-            </div>
-            <div class="table-wrap">
-                <table class="cli-table">
-                    <thead>
-                        <tr>
-                            <th>Command</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td><code>./ava status</code></td><td>Show site status and content counts</td></tr>
-                        <tr><td><code>./ava rebuild</code></td><td>Rebuild the content index</td></tr>
-                        <tr><td><code>./ava lint</code></td><td>Validate all content files</td></tr>
-                        <tr><td><code>./ava make &lt;type&gt; "Title"</code></td><td>Create new content</td></tr>
-                        <tr><td><code>./ava user:add &lt;email&gt; &lt;pass&gt;</code></td><td>Create admin user</td></tr>
-                        <tr><td><code>./ava help</code></td><td>Show all commands</td></tr>
-                    </tbody>
-                </table>
             </div>
         </div>
     </main>
