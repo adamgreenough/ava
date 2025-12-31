@@ -156,6 +156,36 @@ On-demand HTML file cache in `storage/cache/pages/`:
 
 ---
 
+## Debug Mode
+
+Debug configuration in `app/config/ava.php`:
+
+```php
+'debug' => [
+    'enabled' => false,        // Master switch
+    'display_errors' => false, // Show in browser (dev only!)
+    'log_errors' => true,      // Write to storage/logs/error.log
+    'level' => 'errors',       // 'all', 'errors', 'none'
+],
+```
+
+**Error levels:**
+- `all` — All errors, warnings, notices, deprecations
+- `errors` — Fatal errors and exceptions only
+- `none` — Suppress all error reporting
+
+**Log files:**
+- `storage/logs/error.log` — PHP errors and exceptions
+- `storage/logs/admin.log` — Admin login attempts and actions
+- `storage/logs/indexer.log` — Content indexing errors
+
+**Debug features when enabled:**
+- Custom error/exception handlers with enhanced logging
+- Request timing and memory usage tracking
+- Error log viewer in admin System page
+
+---
+
 ## Routing System
 
 Routes are resolved in this order:

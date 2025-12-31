@@ -776,7 +776,45 @@ code {
 .table-meta { font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px; }
 
 /* ============================================
-   14. Progress Bars
+   14. Pagination
+   ============================================ */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-4);
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface);
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+}
+
+.pagination-info {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+.pagination-current {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    padding: 0 var(--sp-3);
+    white-space: nowrap;
+}
+
+.btn-disabled {
+    opacity: 0.4;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+/* ============================================
+   15. Progress Bars
    ============================================ */
 .progress-row {
     display: flex;

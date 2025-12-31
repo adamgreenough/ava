@@ -210,6 +210,58 @@ For details, see [Performance](performance.md).
 
 !> **Important**: Create admin users with `./ava user:create` before enabling.
 
+### Debug Mode
+
+Control error visibility and logging for development and troubleshooting.
+
+```php
+'debug' => [
+    'enabled' => false,
+    'display_errors' => false,
+    'log_errors' => true,
+    'level' => 'errors',
+],
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | bool | `false` | Master switch for debug features |
+| `display_errors` | bool | `false` | Show PHP errors in browser (**never enable in production!**) |
+| `log_errors` | bool | `true` | Write errors to `storage/logs/error.log` |
+| `level` | string | `'errors'` | Error reporting level |
+
+**Error levels:**
+
+| Level | What's reported |
+|-------|-----------------|
+| `all` | All errors, warnings, notices, and deprecations |
+| `errors` | Only fatal errors and exceptions (default) |
+| `none` | Suppress all error reporting |
+
+**Recommended settings:**
+
+```php
+// Development - see everything
+'debug' => [
+    'enabled' => true,
+    'display_errors' => true,
+    'log_errors' => true,
+    'level' => 'all',
+],
+
+// Production - log only, never display
+'debug' => [
+    'enabled' => false,
+    'display_errors' => false,
+    'log_errors' => true,
+    'level' => 'errors',
+],
+```
+
+!> **Security Warning**: Never enable `display_errors` in production—it can expose sensitive information like file paths, database details, and stack traces.
+
+The admin System page shows debug status, performance metrics, and recent error log entries when enabled.
+
 ### Plugins
 
 ```php

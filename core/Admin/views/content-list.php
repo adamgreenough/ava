@@ -172,6 +172,42 @@ $activePage = 'content-' . $type;
                         </tbody>
                     </table>
                 </div>
+
+                <?php if ($pagination['totalPages'] > 1): ?>
+                <div class="pagination">
+                    <div class="pagination-info">
+                        Showing <?= (($pagination['page'] - 1) * $pagination['perPage']) + 1 ?>–<?= min($pagination['page'] * $pagination['perPage'], $pagination['totalItems']) ?> of <?= number_format($pagination['totalItems']) ?>
+                    </div>
+                    <div class="pagination-controls">
+                        <?php if ($pagination['hasPrev']): ?>
+                        <a href="?page=1" class="btn btn-xs btn-secondary" title="First page">
+                            <span class="material-symbols-rounded">first_page</span>
+                        </a>
+                        <a href="?page=<?= $pagination['page'] - 1 ?>" class="btn btn-xs btn-secondary" title="Previous page">
+                            <span class="material-symbols-rounded">chevron_left</span>
+                        </a>
+                        <?php else: ?>
+                        <span class="btn btn-xs btn-secondary btn-disabled"><span class="material-symbols-rounded">first_page</span></span>
+                        <span class="btn btn-xs btn-secondary btn-disabled"><span class="material-symbols-rounded">chevron_left</span></span>
+                        <?php endif; ?>
+
+                        <span class="pagination-current">Page <?= $pagination['page'] ?> of <?= $pagination['totalPages'] ?></span>
+
+                        <?php if ($pagination['hasMore']): ?>
+                        <a href="?page=<?= $pagination['page'] + 1 ?>" class="btn btn-xs btn-secondary" title="Next page">
+                            <span class="material-symbols-rounded">chevron_right</span>
+                        </a>
+                        <a href="?page=<?= $pagination['totalPages'] ?>" class="btn btn-xs btn-secondary" title="Last page">
+                            <span class="material-symbols-rounded">last_page</span>
+                        </a>
+                        <?php else: ?>
+                        <span class="btn btn-xs btn-secondary btn-disabled"><span class="material-symbols-rounded">chevron_right</span></span>
+                        <span class="btn btn-xs btn-secondary btn-disabled"><span class="material-symbols-rounded">last_page</span></span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <?php else: ?>
                 <div class="empty-state">
                     <span class="material-symbols-rounded"><?= $type === 'page' ? 'description' : 'article' ?></span>

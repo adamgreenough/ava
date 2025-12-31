@@ -360,7 +360,6 @@ $activePage = 'system';
                     <div class="list-item"><span class="list-label">Site Name</span><span class="list-value"><?= htmlspecialchars($avaConfig['site_name'] ?? 'Untitled') ?></span></div>
                     <div class="list-item"><span class="list-label">Theme</span><span class="badge badge-accent"><?= htmlspecialchars($avaConfig['theme']) ?></span></div>
                     <div class="list-item"><span class="list-label">Cache Mode</span><code><?= htmlspecialchars($avaConfig['cache_mode']) ?></code></div>
-                    <div class="list-item"><span class="list-label">Debug</span><span class="badge <?= $avaConfig['debug'] ? 'badge-warning' : 'badge-success' ?>"><?= $avaConfig['debug'] ? 'On' : 'Off' ?></span></div>
                     <div class="list-item"><span class="list-label">Admin Path</span><code><?= htmlspecialchars($avaConfig['admin_path']) ?></code></div>
                 </div>
             </div>
@@ -378,6 +377,76 @@ $activePage = 'system';
                 </div>
             </div>
         </div>
+
+        <!-- Debug & Performance -->
+        <div class="grid grid-2 mt-4">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="material-symbols-rounded">bug_report</span> Debug Mode</span>
+                    <span class="badge <?= $debugInfo['enabled'] ? 'badge-warning' : 'badge-success' ?>"><?= $debugInfo['enabled'] ? 'Enabled' : 'Disabled' ?></span>
+                </div>
+                <div class="card-body">
+                    <div class="list-item"><span class="list-label">Display Errors</span><span class="badge <?= $debugInfo['display_errors'] ? 'badge-error' : 'badge-success' ?>"><?= $debugInfo['display_errors'] ? 'Yes' : 'No' ?></span></div>
+                    <div class="list-item"><span class="list-label">Log Errors</span><span class="badge <?= $debugInfo['log_errors'] ? 'badge-success' : 'badge-muted' ?>"><?= $debugInfo['log_errors'] ? 'Yes' : 'No' ?></span></div>
+                    <div class="list-item"><span class="list-label">Error Level</span><code><?= htmlspecialchars($debugInfo['level']) ?></code></div>
+                    <div class="list-item"><span class="list-label">Error Log</span><code class="text-xs"><?= htmlspecialchars($debugInfo['error_log_path']) ?></code></div>
+                    <?php if ($debugInfo['error_log_size'] > 0): ?>
+                    <div class="list-item"><span class="list-label">Log Size</span><span class="list-value"><?= number_format($debugInfo['error_log_size'] / 1024, 1) ?> KB (<?= number_format($debugInfo['error_log_lines']) ?> lines)</span></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="material-symbols-rounded">speed</span> Request Performance</span>
+                </div>
+                <div class="card-body">
+                    <?php if ($debugInfo['request_time'] !== null): ?>
+                    <div class="list-item"><span class="list-label">Request Time</span><span class="list-value"><?= $debugInfo['request_time'] ?> ms</span></div>
+                    <?php endif; ?>
+                    <div class="list-item"><span class="list-label">Memory Used</span><span class="list-value"><?= number_format($debugInfo['memory_usage'] / 1024 / 1024, 2) ?> MB</span></div>
+                    <div class="list-item"><span class="list-label">Memory Peak</span><span class="list-value"><?= number_format($debugInfo['memory_peak'] / 1024 / 1024, 2) ?> MB</span></div>
+                    <div class="list-item"><span class="list-label">PHP Error Reporting</span><code class="text-xs"><?= $debugInfo['php_error_reporting'] ?></code></div>
+                </div>
+            </div>
+        </div>
+
+        <?php if (!empty($debugInfo['recent_errors'])): ?>
+        <!-- Recent Errors -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <span class="card-title"><span class="material-symbols-rounded">error</span> Recent Errors</span>
+                <span class="badge badge-error"><?= count($debugInfo['recent_errors']) ?></span>
+            </div>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th width="160">Time</th>
+                            <th width="80">Level</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($debugInfo['recent_errors'] as $error): ?>
+                        <tr>
+                            <td><code class="text-xs"><?= htmlspecialchars($error['time']) ?></code></td>
+                            <td>
+                                <span class="badge <?= match($error['level']) {
+                                    'ERROR', 'EXCEPTION' => 'badge-error',
+                                    'WARNING' => 'badge-warning',
+                                    'NOTICE', 'DEPRECATED' => 'badge-muted',
+                                    default => 'badge-muted',
+                                } ?>"><?= htmlspecialchars($error['level']) ?></span>
+                            </td>
+                            <td><code class="text-xs" style="word-break: break-all;"><?= htmlspecialchars($error['message']) ?></code></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Directory Status -->
         <div class="card mt-4">

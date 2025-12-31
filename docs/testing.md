@@ -41,6 +41,22 @@ Run only tests matching a pattern:
 
 The filter matches against class names, so `Str` matches `StrTest`, `Request` matches `RequestTest`, etc.
 
+### Quiet Mode
+
+Run tests with minimal output (header + summary only):
+
+```bash
+./ava test --quiet
+./ava test -q
+```
+
+<pre><samp>  <span class="t-bold">Ava CMS Test Suite</span>
+  <span class="t-dim">──────────────────────────────────────────────────</span>
+  <span class="t-dim">──────────────────────────────────────────────────</span>
+  <span class="t-bold">Tests:</span> <span class="t-green">355 passed</span> <span class="t-dim">(60ms)</span></samp></pre>
+
+Useful for CI/CD pipelines or when you just want to know if tests pass.
+
 ---
 
 ## Test Structure

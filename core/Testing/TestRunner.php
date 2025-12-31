@@ -19,7 +19,7 @@ final class TestRunner
     private const RED = "\033[31m";
     private const GREEN = "\033[32m";
     private const YELLOW = "\033[33m";
-    private const CYAN = "\033[36m";
+    private const MAGENTA = "\033[35m";
     private const DIM = "\033[90m";
     private const BOLD = "\033[1m";
 
@@ -28,12 +28,14 @@ final class TestRunner
     private int $skipped = 0;
     private array $failures = [];
     private bool $verbose = false;
+    private bool $quiet = false;
     private ?string $filter = null;
 
-    public function __construct(bool $verbose = false, ?string $filter = null)
+    public function __construct(bool $verbose = false, ?string $filter = null, bool $quiet = false)
     {
         $this->verbose = $verbose;
         $this->filter = $filter;
+        $this->quiet = $quiet;
     }
 
     /**
@@ -43,8 +45,12 @@ final class TestRunner
     {
         $startTime = microtime(true);
 
-        echo $this->color("\n  Ava CMS Test Suite\n", self::CYAN, self::BOLD);
-        echo $this->color("  " . str_repeat('─', 50) . "\n\n", self::DIM);
+        echo $this->color("\n  Ava CMS Test Suite\n", self::MAGENTA, self::BOLD);
+        echo $this->color("  " . str_repeat('─', 50) . "\n", self::DIM);
+        
+        if (!$this->quiet) {
+            echo "\n";
+        }
 
         // Discover test files
         $testFiles = $this->discoverTests($testsPath);
@@ -54,16 +60,37 @@ final class TestRunner
             return 1;
         }
 
-        // Load and run each test file
+        // Collect test class names for sorting
+        $testClasses = [];
         foreach ($testFiles as $file) {
+            require_once $file;
+            $className = $this->getClassNameFromFile($file);
+            if ($className !== null) {
+                $testClasses[$className] = $file;
+            }
+        }
+
+        // Sort by class short name
+        uasort($testClasses, function($a, $b) {
+            $classA = $this->getClassNameFromFile($a);
+            $classB = $this->getClassNameFromFile($b);
+            $shortNameA = (new \ReflectionClass($classA))->getShortName();
+            $shortNameB = (new \ReflectionClass($classB))->getShortName();
+            return strcmp($shortNameA, $shortNameB);
+        });
+
+        // Load and run each test file in alphabetical order
+        foreach ($testClasses as $file) {
             $this->runTestFile($file);
         }
 
         // Summary
         $elapsed = round((microtime(true) - $startTime) * 1000);
 
-        echo "\n";
-        echo $this->color("  " . str_repeat('─', 50) . "\n", self::DIM);
+        if (!$this->quiet) {
+            echo "\n";
+            echo $this->color("  " . str_repeat('─', 50) . "\n", self::DIM);
+        }
 
         $summary = "  Tests: ";
         if ($this->passed > 0) {
@@ -165,10 +192,12 @@ final class TestRunner
             return;
         }
 
-        // Show class name
-        $shortName = $reflection->getShortName();
-        echo $this->color("  {$shortName}\n", self::BOLD);
-        echo "\n";
+        // Show class name (unless quiet mode)
+        if (!$this->quiet) {
+            $shortName = $reflection->getShortName();
+            echo $this->color("  {$shortName}\n", self::BOLD);
+            echo "\n";
+        }
 
         // Run setUp if exists
         $hasSetUp = $reflection->hasMethod('setUp');
@@ -196,21 +225,29 @@ final class TestRunner
             try {
                 $instance->{$methodName}();
                 $this->passed++;
-                echo "    " . $this->color('✓', self::GREEN) . " ";
-                echo $this->color($this->humanize($methodName), self::DIM) . "\n";
+                if (!$this->quiet) {
+                    echo "    " . $this->color('✓', self::GREEN) . " ";
+                    echo $this->color($this->humanize($methodName), self::DIM) . "\n";
+                }
             } catch (SkippedException $e) {
                 $this->skipped++;
-                echo "    " . $this->color('○', self::YELLOW) . " ";
-                echo $this->color($this->humanize($methodName), self::YELLOW);
-                echo $this->color(" (skipped: {$e->getMessage()})", self::DIM) . "\n";
+                if (!$this->quiet) {
+                    echo "    " . $this->color('○', self::YELLOW) . " ";
+                    echo $this->color($this->humanize($methodName), self::YELLOW);
+                    echo $this->color(" (skipped: {$e->getMessage()})", self::DIM) . "\n";
+                }
             } catch (AssertionFailedException $e) {
                 $this->recordFailure($className, $methodName, $e);
-                echo "    " . $this->color('✗', self::RED) . " ";
-                echo $this->color($this->humanize($methodName), self::RED) . "\n";
+                if (!$this->quiet) {
+                    echo "    " . $this->color('✗', self::RED) . " ";
+                    echo $this->color($this->humanize($methodName), self::RED) . "\n";
+                }
             } catch (\Throwable $e) {
                 $this->recordFailure($className, $methodName, $e);
-                echo "    " . $this->color('✗', self::RED) . " ";
-                echo $this->color($this->humanize($methodName), self::RED) . "\n";
+                if (!$this->quiet) {
+                    echo "    " . $this->color('✗', self::RED) . " ";
+                    echo $this->color($this->humanize($methodName), self::RED) . "\n";
+                }
             }
 
             // Run tearDown
@@ -223,7 +260,10 @@ final class TestRunner
             }
         }
 
-        echo "\n";
+        // Add spacing after test class output (unless quiet mode)
+        if (!$this->quiet) {
+            echo "\n";
+        }
     }
 
     /**

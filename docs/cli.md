@@ -77,7 +77,7 @@ If you’re used to FTP, think of **SFTP** as the safer modern version. Popular 
 | `pages:clear` | Clear page cache |
 | `stress:generate` | Generate test content |
 | `stress:clean` | Remove test content |
-| `test [filter]` | Run the [test suite](testing.md) |
+| `test [filter] [-q]` | Run the [test suite](testing.md) |
 
 ---
 
@@ -563,6 +563,18 @@ Filter tests by class name:
 ./ava test Parser        # Run ParserTest only
 ./ava test Request       # Run RequestTest only
 ```
+
+Run tests with minimal output (useful for CI/CD):
+
+```bash
+./ava test --quiet       # Long form
+./ava test -q            # Short form
+```
+
+<pre><samp>  <span class="t-bold">Ava CMS Test Suite</span>
+  <span class="t-dim">──────────────────────────────────────────────────</span>
+  <span class="t-dim">──────────────────────────────────────────────────</span>
+  <span class="t-bold">Tests:</span> <span class="t-green">355 passed</span> <span class="t-dim">(60ms)</span></samp></pre>
 
 See [Testing](testing.md) for details on writing tests and available assertions.
 

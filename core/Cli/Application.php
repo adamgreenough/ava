@@ -956,6 +956,7 @@ ASCII;
     {
         // Parse arguments
         $verbose = in_array('-v', $args, true) || in_array('--verbose', $args, true);
+        $quiet = in_array('-q', $args, true) || in_array('--quiet', $args, true);
         $filter = null;
 
         // Get filter (first non-flag argument)
@@ -980,7 +981,7 @@ ASCII;
         require_once $this->app->path('core/Testing/TestCase.php');
         require_once $this->app->path('core/Testing/TestRunner.php');
 
-        $runner = new \Ava\Testing\TestRunner($verbose, $filter);
+        $runner = new \Ava\Testing\TestRunner($verbose, $filter, $quiet);
         return $runner->run($testsPath);
     }
 

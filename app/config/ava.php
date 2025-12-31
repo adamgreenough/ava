@@ -141,4 +141,25 @@ return [
         // Set to false for accessibility or if your terminal doesn't support colors
         'colors' => true,
     ],
+
+    // Debug Mode
+    // Controls error visibility and logging for development and troubleshooting.
+    'debug' => [
+        // Master switch - enables all debug features
+        'enabled' => false,
+
+        // Display PHP errors in the browser (NEVER enable in production!)
+        // When true: errors show on screen
+        // When false: errors are hidden from visitors
+        'display_errors' => false,
+
+        // Log errors to storage/logs/error.log
+        'log_errors' => true,
+
+        // Error level: 'all', 'errors', 'none'
+        // 'all'    - Notices, warnings, and errors
+        // 'errors' - Only fatal errors and exceptions
+        // 'none'   - Suppress all error reporting
+        'level' => 'errors',
+    ],
 ];

@@ -196,10 +196,10 @@ final class Controller
         }
 
         // Use allMeta() - no file content loading needed
-        $items = $repository->allMeta($type);
+        $allItems = $repository->allMeta($type);
 
         // Sort by date descending
-        usort($items, function($a, $b) {
+        usort($allItems, function($a, $b) {
             $aDate = $a->date();
             $bDate = $b->date();
             if (!$aDate && !$bDate) return 0;
@@ -211,9 +211,18 @@ final class Controller
         $contentTypes = $this->getContentTypeConfig();
         $typeConfig = $contentTypes[$type] ?? [];
 
+        // Pagination
+        $perPage = 50;
+        $page = max(1, (int) $request->query('page', 1));
+        $totalItems = count($allItems);
+        $totalPages = max(1, (int) ceil($totalItems / $perPage));
+        $page = min($page, $totalPages);
+        $offset = ($page - 1) * $perPage;
+        $items = array_slice($allItems, $offset, $perPage);
+
         // Calculate total file size (filesystem metadata only, no content reading)
         $totalSize = 0;
-        foreach ($items as $item) {
+        foreach ($allItems as $item) {
             if (file_exists($item->filePath())) {
                 $totalSize += filesize($item->filePath());
             }
@@ -230,6 +239,14 @@ final class Controller
             'contentTypes' => $contentTypes,
             'stats' => [
                 'totalSize' => $totalSize,
+            ],
+            'pagination' => [
+                'page' => $page,
+                'perPage' => $perPage,
+                'totalItems' => $totalItems,
+                'totalPages' => $totalPages,
+                'hasMore' => $page < $totalPages,
+                'hasPrev' => $page > 1,
             ],
             'site' => [
                 'name' => $this->app->config('site.name'),
@@ -343,6 +360,7 @@ final class Controller
             'directories' => $this->getDirectoryStatus(),
             'hooks' => $this->getHooksInfo(),
             'pathAliases' => $this->getPathAliases(),
+            'debugInfo' => $this->getDebugInfo(),
             'site' => [
                 'name' => $this->app->config('site.name'),
                 'url' => $this->app->config('site.base_url'),
@@ -555,15 +573,19 @@ final class Controller
 
     private function getAvaConfig(): array
     {
+        $debug = $this->app->config('debug', []);
         return [
             'site_name' => $this->app->config('site.name'),
             'base_url' => $this->app->config('site.base_url'),
             'timezone' => $this->app->config('site.timezone', 'UTC'),
             'theme' => $this->app->config('theme', 'default'),
-            'content_index_mode' => $this->app->config('content_index.mode', 'auto'),
+            'cache_mode' => $this->app->config('content_index.mode', 'auto'),
             'admin_enabled' => $this->app->config('admin.enabled', false),
             'admin_path' => $this->app->config('admin.path', '/admin'),
-            'debug' => $this->app->config('debug', false),
+            'debug' => is_array($debug) ? ($debug['enabled'] ?? false) : (bool) $debug,
+            'debug_display' => is_array($debug) ? ($debug['display_errors'] ?? false) : false,
+            'debug_log' => is_array($debug) ? ($debug['log_errors'] ?? true) : true,
+            'debug_level' => is_array($debug) ? ($debug['level'] ?? 'errors') : 'errors',
             'content_types' => count($this->getContentTypeConfig()),
             'taxonomies' => count($this->getTaxonomyConfig()),
             'plugins' => count($this->getActivePlugins()),
@@ -998,6 +1020,79 @@ final class Controller
     private function getPathAliases(): array
     {
         return $this->app->config('paths.aliases', []);
+    }
+
+    /**
+     * Get debug information including recent error log entries.
+     */
+    private function getDebugInfo(): array
+    {
+        $debug = $this->app->config('debug', []);
+        $enabled = is_array($debug) ? ($debug['enabled'] ?? false) : (bool) $debug;
+        $displayErrors = is_array($debug) ? ($debug['display_errors'] ?? false) : false;
+        $logErrors = is_array($debug) ? ($debug['log_errors'] ?? true) : true;
+        $level = is_array($debug) ? ($debug['level'] ?? 'errors') : 'errors';
+
+        $errorLogPath = $this->app->path('storage/logs/error.log');
+        $recentErrors = [];
+        $errorLogSize = 0;
+        $errorLogLines = 0;
+
+        if (file_exists($errorLogPath)) {
+            $errorLogSize = filesize($errorLogPath);
+            
+            // Read last 20 lines of error log
+            $lines = [];
+            $fp = @fopen($errorLogPath, 'r');
+            if ($fp) {
+                // Seek to end and read backwards
+                fseek($fp, -min($errorLogSize, 8192), SEEK_END);
+                $chunk = fread($fp, 8192);
+                fclose($fp);
+                
+                $lines = explode("\n", trim($chunk));
+                $lines = array_slice($lines, -20);
+                $errorLogLines = count(file($errorLogPath));
+                
+                foreach (array_reverse($lines) as $line) {
+                    if (empty(trim($line))) continue;
+                    
+                    // Parse log line: [timestamp] LEVEL: message
+                    if (preg_match('/^\[([^\]]+)\]\s+(\w+):\s*(.*)$/', $line, $m)) {
+                        $recentErrors[] = [
+                            'time' => $m[1],
+                            'level' => $m[2],
+                            'message' => $m[3],
+                        ];
+                    } else {
+                        // Stack trace line or other
+                        $recentErrors[] = [
+                            'time' => '',
+                            'level' => 'TRACE',
+                            'message' => $line,
+                        ];
+                    }
+                    
+                    if (count($recentErrors) >= 15) break;
+                }
+            }
+        }
+
+        return [
+            'enabled' => $enabled,
+            'display_errors' => $displayErrors,
+            'log_errors' => $logErrors,
+            'level' => $level,
+            'error_log_path' => 'storage/logs/error.log',
+            'error_log_size' => $errorLogSize,
+            'error_log_lines' => $errorLogLines,
+            'recent_errors' => $recentErrors,
+            'php_error_reporting' => error_reporting(),
+            'php_display_errors' => ini_get('display_errors'),
+            'request_time' => defined('AVA_START') ? round((microtime(true) - AVA_START) * 1000, 2) : null,
+            'memory_usage' => memory_get_usage(true),
+            'memory_peak' => memory_get_peak_usage(true),
+        ];
     }
 
     // -------------------------------------------------------------------------
