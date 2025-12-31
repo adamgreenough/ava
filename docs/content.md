@@ -55,7 +55,7 @@ Each content file has:
 - **Frontmatter (YAML)** between `---` lines: structured metadata
 - **Body (Markdown)**: the actual writing
 
-**Note:** YAML is sensitive to indentation. If something breaks, it’s often a missing space or an unclosed quote in frontmatter. Running `./ava lint` is the fastest way to get a clear error message.
+**Note:** YAML is sensitive to indentation. If something breaks, it’s often a missing space or an unclosed quote in frontmatter. Running [`./ava lint`](cli.md?id=lint) is the fastest way to get a clear error message.
 
 </div>
 
@@ -85,6 +85,7 @@ This is my first post. I can use **bold**, *italics*, and [links](https://exampl
 
 ### Via CLI (Recommended)
 
+Use the [`make`](cli.md?id=make) command:
 
 ```bash
 ./ava make <type> "Title"

@@ -62,9 +62,9 @@ If you’re used to FTP, think of **SFTP** as the safer modern version. Popular 
 | Command | Description |
 |---------|-------------|
 | `status` | Show site overview and health |
-| `rebuild` | Rebuild the content index |
-| `lint` | Validate content files |
-| `benchmark` | Test content index performance |
+| `rebuild` | Rebuild the [content index](performance.md#content-indexing) |
+| `lint` | Validate [content files](content.md) |
+| `benchmark` | Test content index [performance](performance.md#benchmark-comparison) |
 | `make <type> "Title"` | Create new content |
 | `prefix <add\|remove> [type]` | Toggle date prefixes on filenames |
 | `user:add` | Create admin user |
@@ -283,7 +283,7 @@ This reads the `date` field from frontmatter.
 
 ## User Management
 
-Manage admin dashboard users. Users are stored in `app/config/users.php`.
+Manage admin dashboard users. Users are stored in [`app/config/users.php`](configuration.md).
 
 ### user:add
 

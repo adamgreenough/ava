@@ -94,7 +94,7 @@ The cache contains:
 4. Try taxonomy routes (`/category/tutorials`)
 5. 404 if nothing matches
 
-Routes are rebuilt automatically when content changes (with `content_index.mode = 'auto'`) or manually via `./ava rebuild`.
+Routes are rebuilt automatically when content changes (with `content_index.mode = 'auto'`) or manually via [`./ava rebuild`](cli.md?id=rebuild).
 
 For more on performance, see [Performance](performance.md).
 

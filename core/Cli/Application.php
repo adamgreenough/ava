@@ -20,8 +20,9 @@ final class Application
 
     // ANSI color codes
     private const RESET = "\033[0m";
+    private const PRIMARY = "\033[38;2;142;88;243m";
     private const BOLD = "\033[1m";
-    private const DIM = "\033[2m";
+    private const DIM = "\033[90m";
     private const ITALIC = "\033[3m";
 
     // Colors
@@ -135,7 +136,7 @@ ASCII;
         // Site info
         $this->sectionHeader('Site');
         $this->keyValue('Name', $this->color($this->app->config('site.name'), self::BOLD));
-        $this->keyValue('URL', $this->color($this->app->config('site.base_url'), self::BRIGHT_CYAN));
+        $this->keyValue('URL', $this->color($this->app->config('site.base_url'), self::PRIMARY));
 
         // PHP environment
         $this->sectionHeader('Environment');
@@ -168,7 +169,7 @@ ASCII;
             $repository = $this->app->repository();
             $backendName = ucfirst($repository->backendName());
             $configBackend = $this->app->config('content_index.backend', 'auto');
-            $backendInfo = $this->color($backendName, self::CYAN);
+            $backendInfo = $this->color($backendName, self::PRIMARY);
             if ($configBackend === 'auto') {
                 $backendInfo .= $this->color(' (auto-detected)', self::DIM);
             }
@@ -239,10 +240,10 @@ ASCII;
             $count = count($terms);
             $this->labeledItem(
                 ucfirst($taxonomy),
-                $this->color((string) $count, self::CYAN, self::BOLD) .
+                $this->color((string) $count, self::PRIMARY, self::BOLD) .
                     $this->color(' terms', self::DIM),
                 '◆',
-                self::CYAN
+                self::PRIMARY
             );
         }
 
@@ -258,7 +259,7 @@ ASCII;
         if ($stats['enabled']) {
             $ttl = $stats['ttl'] ?? null;
             $this->keyValue('TTL', $ttl ? "{$ttl}s" : 'Forever');
-            $this->keyValue('Cached', $this->color((string) $stats['count'], self::CYAN, self::BOLD) . ' pages');
+            $this->keyValue('Cached', $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' pages');
             if ($stats['count'] > 0) {
                 $this->keyValue('Size', $this->formatBytes($stats['size']));
             }
@@ -326,7 +327,7 @@ ASCII;
             $this->showAvailableTypes();
             $this->writeln('');
             $this->writeln($this->color('  Example:', self::BOLD));
-            $this->writeln('    ' . $this->color('./ava make post "My New Post"', self::BRIGHT_CYAN));
+            $this->writeln('    ' . $this->color('./ava make post "My New Post"', self::PRIMARY));
             $this->writeln('');
             return 1;
         }
@@ -364,8 +365,8 @@ ASCII;
         $this->writeln('');
         foreach ($contentTypes as $name => $config) {
             $label = $config['label'] ?? ucfirst($name);
-            echo '    ' . $this->color('▸ ', self::CYAN);
-            echo $this->color($name, self::BRIGHT_CYAN);
+            echo '    ' . $this->color('▸ ', self::PRIMARY);
+            echo $this->color($name, self::PRIMARY);
             echo $this->color(" — {$label}", self::DIM) . "\n";
         }
     }
@@ -428,7 +429,7 @@ ASCII;
         $this->writeln('');
         $this->box("Created new {$type}!", 'success');
         $this->writeln('');
-        $this->keyValue('File', $this->color($relativePath, self::BRIGHT_CYAN));
+        $this->keyValue('File', $this->color($relativePath, self::PRIMARY));
         $this->keyValue('ID', $this->color($id, self::DIM));
         $this->keyValue('Slug', $slug);
         $this->keyValue('Status', $this->color('draft', self::YELLOW));
@@ -452,8 +453,8 @@ ASCII;
             $this->error('Usage: ./ava prefix <add|remove> [type]');
             $this->writeln('');
             $this->writeln($this->color('  Examples:', self::BOLD));
-            $this->writeln('    ' . $this->color('./ava prefix add post', self::BRIGHT_CYAN) . $this->color('      # Add date prefix to posts', self::DIM));
-            $this->writeln('    ' . $this->color('./ava prefix remove post', self::BRIGHT_CYAN) . $this->color('   # Remove date prefix', self::DIM));
+            $this->writeln('    ' . $this->color('./ava prefix add post', self::PRIMARY) . $this->color('      # Add date prefix to posts', self::DIM));
+            $this->writeln('    ' . $this->color('./ava prefix remove post', self::PRIMARY) . $this->color('   # Remove date prefix', self::DIM));
             $this->writeln('');
             return 1;
         }
@@ -496,7 +497,7 @@ ASCII;
             $this->writeln('');
             $this->nextStep('./ava rebuild', 'Update the content index');
         } else {
-            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' No files needed renaming.');
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' No files needed renaming.');
         }
 
         $this->writeln('');
@@ -542,7 +543,7 @@ ASCII;
 
             rename($filePath, $newPath);
             echo "    " . $this->color('→', self::GREEN) . " ";
-            echo $this->color($filename, self::DIM) . " → " . $this->color($newFilename, self::BRIGHT_CYAN) . "\n";
+            echo $this->color($filename, self::DIM) . " → " . $this->color($newFilename, self::PRIMARY) . "\n";
             return true;
 
         } elseif ($action === 'remove' && $hasPrefix) {
@@ -557,7 +558,7 @@ ASCII;
 
             rename($filePath, $newPath);
             echo "    " . $this->color('→', self::GREEN) . " ";
-            echo $this->color($filename, self::DIM) . " → " . $this->color($newFilename, self::BRIGHT_CYAN) . "\n";
+            echo $this->color($filename, self::DIM) . " → " . $this->color($newFilename, self::PRIMARY) . "\n";
             return true;
         }
 
@@ -597,7 +598,7 @@ ASCII;
             $this->error('Usage: ./ava user:add <email> <password> [name]');
             $this->writeln('');
             $this->writeln($this->color('  Example:', self::BOLD));
-            $this->writeln('    ' . $this->color('./ava user:add admin@example.com mypassword "Admin"', self::BRIGHT_CYAN));
+            $this->writeln('    ' . $this->color('./ava user:add admin@example.com mypassword "Admin"', self::PRIMARY));
             $this->writeln('');
             return 1;
         }
@@ -636,7 +637,7 @@ ASCII;
         $this->writeln('');
         $this->box("User created successfully!", 'success');
         $this->writeln('');
-        $this->keyValue('Email', $this->color($email, self::BRIGHT_CYAN));
+        $this->keyValue('Email', $this->color($email, self::PRIMARY));
         $this->keyValue('Name', $userName);
         $this->writeln('');
         $this->nextStep('/admin', 'Login at your admin dashboard');
@@ -734,16 +735,16 @@ ASCII;
             return 0;
         }
 
-        echo $this->color('  ─── Users ', self::CYAN, self::BOLD);
-        echo $this->color(str_repeat('─', 45), self::DIM) . "\n";
+        echo $this->color('  ─── Users ', self::PRIMARY, self::BOLD);
+        echo $this->color(str_repeat('─', 45), self::PRIMARY, self::BOLD) . "\n";
         $this->writeln('');
 
         foreach ($users as $email => $data) {
             $name = $data['name'] ?? '';
             $created = $data['created'] ?? '';
 
-            echo "    " . $this->color('◆', self::CYAN) . " ";
-            echo $this->color($email, self::BRIGHT_CYAN, self::BOLD) . "\n";
+            echo "    " . $this->color('◆', self::PRIMARY) . " ";
+            echo $this->color($email, self::PRIMARY, self::BOLD) . "\n";
             echo "      " . $this->color("Name: {$name}", self::DIM) . "\n";
             echo "      " . $this->color("Created: {$created}", self::DIM) . "\n";
             $this->writeln('');
@@ -813,8 +814,8 @@ ASCII;
                 }
                 if ($result['release']['body']) {
                     $this->writeln('');
-                    echo $this->color('  ─── Changelog ', self::CYAN, self::BOLD);
-                    echo $this->color(str_repeat('─', 42), self::DIM) . "\n";
+                    echo $this->color('  ─── Changelog ', self::PRIMARY, self::BOLD);
+                    echo $this->color(str_repeat('─', 42), self::PRIMARY, self::BOLD) . "\n";
                     $this->writeln('');
                     // Show first 15 lines of changelog
                     $lines = explode("\n", $result['release']['body']);
@@ -837,7 +838,7 @@ ASCII;
 
         if (isset($result['from_cache']) && $result['from_cache']) {
             $this->writeln('');
-            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' ' . $this->color('Cached result — use --force to refresh', self::DIM));
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' ' . $this->color('Cached result — use --force to refresh', self::DIM));
         }
 
         $this->writeln('');
@@ -866,8 +867,8 @@ ASCII;
             return 0;
         }
 
-        echo $this->color('  ─── Update Available ', self::CYAN, self::BOLD);
-        echo $this->color(str_repeat('─', 35), self::DIM) . "\n";
+        echo $this->color('  ─── Update Available ', self::PRIMARY, self::BOLD);
+        echo $this->color(str_repeat('─', 35), self::PRIMARY, self::BOLD) . "\n";
         $this->writeln('');
         $this->keyValue('From', $check['current']);
         $this->keyValue('To', $this->color($check['latest'], self::GREEN, self::BOLD));
@@ -894,7 +895,7 @@ ASCII;
             $backupAnswer = trim(fgets(STDIN));
             if (strtolower($backupAnswer) !== 'y') {
                 $this->writeln('');
-                $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' Please backup your site before updating.');
+                $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Please backup your site before updating.');
                 $this->writeln('');
                 return 0;
             }
@@ -904,7 +905,7 @@ ASCII;
             $answer = trim(fgets(STDIN));
             if (strtolower($answer) !== 'y') {
                 $this->writeln('');
-                $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' Update cancelled.');
+                $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Update cancelled.');
                 $this->writeln('');
                 return 0;
             }
@@ -926,7 +927,7 @@ ASCII;
             $this->writeln('');
             echo $this->color('  New bundled plugins available:', self::BOLD) . "\n";
             foreach ($result['new_plugins'] as $plugin) {
-                echo "    " . $this->color('•', self::CYAN) . " {$plugin}\n";
+                echo "    " . $this->color('•', self::PRIMARY) . " {$plugin}\n";
             }
             $this->writeln('');
             $this->tip('Add them to your plugins array in app/config/ava.php to activate');
@@ -974,8 +975,8 @@ ASCII;
             $this->error('Usage: ./ava stress:generate <type> <count>');
             $this->writeln('');
             $this->writeln($this->color('  Examples:', self::BOLD));
-            $this->writeln('    ' . $this->color('./ava stress:generate post 100', self::BRIGHT_CYAN) . $this->color('    # Generate 100 posts', self::DIM));
-            $this->writeln('    ' . $this->color('./ava stress:generate post 1000', self::BRIGHT_CYAN) . $this->color('   # Generate 1000 posts', self::DIM));
+            $this->writeln('    ' . $this->color('./ava stress:generate post 100', self::PRIMARY) . $this->color('    # Generate 100 posts', self::DIM));
+            $this->writeln('    ' . $this->color('./ava stress:generate post 1000', self::PRIMARY) . $this->color('   # Generate 1000 posts', self::DIM));
             $this->writeln('');
             $this->showAvailableTypes();
             $this->writeln('');
@@ -1014,7 +1015,7 @@ ASCII;
         $isDated = ($typeConfig['sorting'] ?? 'manual') === 'date_desc';
 
         $this->writeln('');
-        echo $this->color("  🧪 Generating {$count} dummy {$type}(s)...", self::CYAN) . "\n";
+        echo $this->color("  🧪 Generating {$count} dummy {$type}(s)...", self::PRIMARY) . "\n";
         $this->writeln('');
 
         $start = microtime(true);
@@ -1076,7 +1077,7 @@ ASCII;
 
         if (!is_dir($basePath)) {
             $this->writeln('');
-            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' No content directory found.');
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' No content directory found.');
             $this->writeln('');
             return 0;
         }
@@ -1087,7 +1088,7 @@ ASCII;
 
         if (empty($files)) {
             $this->writeln('');
-            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' No dummy content files found.');
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' No dummy content files found.');
             $this->writeln('');
             return 0;
         }
@@ -1101,7 +1102,7 @@ ASCII;
 
         if (strtolower($answer) !== 'y') {
             $this->writeln('');
-            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' Cancelled.');
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Cancelled.');
             $this->writeln('');
             return 0;
         }
@@ -1185,7 +1186,7 @@ ASCII;
         if ($totalItems === 0) {
             $this->error('No content found. Generate test content with:');
             $this->writeln('');
-            $this->writeln('    ' . $this->color('./ava stress:generate post 1000', self::BRIGHT_CYAN));
+            $this->writeln('    ' . $this->color('./ava stress:generate post 1000', self::PRIMARY));
             $this->writeln('');
             return 1;
         }
@@ -1205,7 +1206,7 @@ ASCII;
                 $backendDisplay .= ' + serialize';
             }
         }
-        $this->keyValue('Backend', $this->color($backendDisplay, self::CYAN, self::BOLD));
+        $this->keyValue('Backend', $this->color($backendDisplay, self::PRIMARY, self::BOLD));
 
         if ($currentBackend === 'array') {
             $igStatus = $igbinaryAvailable
@@ -1235,7 +1236,7 @@ ASCII;
 
         // Check if we need to rebuild for comparison
         if ($compareMode) {
-            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' Comparison mode requires rebuilding indexes for each backend.');
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Comparison mode requires rebuilding indexes for each backend.');
             $this->writeln('    This may take a moment for large sites.');
             $this->writeln('');
         }
@@ -1267,9 +1268,21 @@ ASCII;
             $repository->setBackendOverride($backendName);
             $repository->clearCache();
 
+            // Get a sample slug for testing
+            $sampleSlug = 'test';
+            try {
+                $allItems = $repository->allRaw('post');
+                if (!empty($allItems)) {
+                    $firstItem = reset($allItems);
+                    $sampleSlug = $firstItem['slug'] ?? 'test';
+                }
+            } catch (\Throwable $e) {
+                // Ignore errors if content not found
+            }
+
             $tests = [
                 'Count' => fn() => $repository->count('post'),
-                'Get by slug' => fn() => $repository->getFromIndex('post', array_key_first($repository->allRaw('post')) ?? 'test'),
+                'Get by slug' => fn() => $repository->getFromIndex('post', $sampleSlug),
                 'Recent (page 1)' => fn() => $repository->getRecentItems('post', 1, 10),
                 'Archive (page 50)' => fn() => (new \Ava\Content\Query($this->app))->type('post')->orderBy('date', 'desc')->perPage(10)->page(50)->get(),
                 'Sort by date' => fn() => (new \Ava\Content\Query($this->app))->type('post')->orderBy('date', 'asc')->perPage(10)->get(),
@@ -1338,8 +1351,8 @@ ASCII;
 
         // Display results
         $this->writeln('');
-        echo $this->color('  ─── Results ', self::CYAN, self::BOLD);
-        echo $this->color(str_repeat('─', 45), self::DIM) . "\n";
+        echo $this->color('  ─── Results ', self::PRIMARY, self::BOLD);
+        echo $this->color(str_repeat('─', 45), self::PRIMARY, self::BOLD) . "\n";
         $this->writeln('');
 
         $backendLabels = array_keys($results);
@@ -1351,7 +1364,7 @@ ASCII;
             $header .= str_pad($label, 18);
         }
         $this->writeln('  ' . $this->color($header, self::BOLD));
-        $this->writeln('  ' . str_repeat('─', 20 + 18 * count($backendLabels)));
+        $this->writeln('  ' . $this->color(str_repeat('─', 20 + 18 * count($backendLabels)), self::DIM));
 
         // Rows
         foreach ($testNames as $testName) {
@@ -1369,7 +1382,7 @@ ASCII;
         }
 
         // Memory and cache size
-        $this->writeln('  ' . str_repeat('─', 20 + 18 * count($backendLabels)));
+        $this->writeln('  ' . $this->color(str_repeat('─', 20 + 18 * count($backendLabels)), self::DIM));
 
         $memRow = str_pad('Memory', 20);
         foreach ($backendLabels as $label) {
@@ -1386,7 +1399,7 @@ ASCII;
         $this->writeln('');
 
         if (!$compareMode) {
-            $this->writeln('  ' . $this->color('💡 Tip:', self::YELLOW) . ' Run with ' . $this->color('--compare', self::CYAN) . ' to test all backends.');
+            $this->writeln('  ' . $this->color('💡 Tip:', self::YELLOW) . ' Run with ' . $this->color('--compare', self::PRIMARY) . ' to test all backends.');
         }
 
         $this->writeln('  ' . $this->color('📚 Docs:', self::BLUE) . ' https://ava.addy.zone/#/performance');
@@ -1428,12 +1441,12 @@ ASCII;
 
         $stats = $pageCache->stats();
         if ($stats['count'] === 0) {
-            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' Page cache is empty.');
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Page cache is empty.');
             $this->writeln('');
             return 0;
         }
 
-        $this->writeln('  Found ' . $this->color((string) $stats['count'], self::CYAN, self::BOLD) . ' cached page(s).');
+        $this->writeln('  Found ' . $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' cached page(s).');
         $this->writeln('');
 
         // Check for pattern argument
@@ -1447,7 +1460,7 @@ ASCII;
 
             if (strtolower($answer) !== 'y') {
                 $this->writeln('');
-                $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' Cancelled.');
+                $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Cancelled.');
                 $this->writeln('');
                 return 0;
             }
@@ -1469,8 +1482,8 @@ ASCII;
         $stats = $pageCache->stats();
 
         $this->writeln('');
-        echo $this->color('  ─── Page Cache ', self::CYAN, self::BOLD);
-        echo $this->color(str_repeat('─', 41), self::DIM) . "\n";
+        echo $this->color('  ─── Page Cache ', self::PRIMARY, self::BOLD);
+        echo $this->color(str_repeat('─', 41), self::PRIMARY, self::BOLD) . "\n";
         $this->writeln('');
 
         $status = $stats['enabled']
@@ -1487,7 +1500,7 @@ ASCII;
 
         $this->keyValue('TTL', $stats['ttl'] ? $stats['ttl'] . ' seconds' : 'Forever (until cleared)');
         $this->writeln('');
-        $this->keyValue('Cached', $this->color((string) $stats['count'], self::CYAN, self::BOLD) . ' pages');
+        $this->keyValue('Cached', $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' pages');
         $this->keyValue('Size', $this->formatBytes($stats['size']));
 
         if ($stats['oldest']) {
@@ -1655,6 +1668,11 @@ ASCII;
      */
     private function supportsColors(): bool
     {
+        // Check config first
+        if ($this->app->config('cli.colors') === false) {
+            return false;
+        }
+
         if (DIRECTORY_SEPARATOR === '\\') {
             return getenv('ANSICON') !== false
                 || getenv('ConEmuANSI') === 'ON'
@@ -1680,7 +1698,7 @@ ASCII;
      */
     private function showBanner(): void
     {
-        echo $this->color(self::BANNER, self::CYAN, self::BOLD);
+        echo $this->color(self::BANNER, self::PRIMARY, self::BOLD);
     }
 
     /**
@@ -1689,8 +1707,8 @@ ASCII;
     private function sectionHeader(string $title): void
     {
         $this->writeln('');
-        echo $this->color("  ─── {$title} ", self::CYAN, self::BOLD);
-        echo $this->color(str_repeat('─', max(0, 50 - strlen($title))), self::DIM);
+        echo $this->color("  ─── {$title} ", self::PRIMARY, self::BOLD);
+        echo $this->color(str_repeat('─', max(0, 50 - strlen($title))), self::PRIMARY, self::BOLD);
         $this->writeln('');
         $this->writeln('');
     }
@@ -1743,7 +1761,7 @@ ASCII;
         }
 
         // Show initial frame
-        echo "  " . $this->color($frames[0], self::CYAN) . " {$message}...";
+        echo "  " . $this->color($frames[0], self::PRIMARY) . " {$message}...";
 
         // Run operation (synchronous, but gives visual feedback)
         $start = microtime(true);
@@ -1772,7 +1790,7 @@ ASCII;
             'success' => self::GREEN,
             'error' => self::RED,
             'warning' => self::YELLOW,
-            default => self::CYAN,
+            default => self::PRIMARY,
         };
 
         // Top border
@@ -1876,8 +1894,8 @@ ASCII;
      */
     private function nextStep(string $command, string $description = ''): void
     {
-        echo "  " . $this->color('→', self::CYAN) . " ";
-        echo $this->color($command, self::BRIGHT_CYAN);
+        echo "  " . $this->color('→', self::PRIMARY) . " ";
+        echo $this->color($command, self::PRIMARY);
         if ($description) {
             echo $this->color(" — {$description}", self::DIM);
         }
@@ -1890,7 +1908,7 @@ ASCII;
         $this->writeln('');
 
         $this->sectionHeader('Usage');
-        $this->writeln('  ' . $this->color('./ava', self::BRIGHT_CYAN) . ' <command> [options]');
+        $this->writeln('  ' . $this->color('./ava', self::PRIMARY) . ' <command> [options]');
 
         $this->sectionHeader('Site Management');
         $this->commandItem('status', 'Show site health and overview');
@@ -1923,16 +1941,16 @@ ASCII;
         $this->writeln('');
         echo $this->color('  Examples:', self::BOLD) . "\n";
         $this->writeln('');
-        $this->writeln('    ' . $this->color('./ava status', self::BRIGHT_CYAN));
-        $this->writeln('    ' . $this->color('./ava make post "Hello World"', self::BRIGHT_CYAN));
-        $this->writeln('    ' . $this->color('./ava lint', self::BRIGHT_CYAN));
+        $this->writeln('    ' . $this->color('./ava status', self::PRIMARY));
+        $this->writeln('    ' . $this->color('./ava make post "Hello World"', self::PRIMARY));
+        $this->writeln('    ' . $this->color('./ava lint', self::PRIMARY));
         $this->writeln('');
     }
 
     private function commandItem(string $command, string $description): void
     {
         $paddedCmd = str_pad($command, 30);
-        echo '    ' . $this->color($paddedCmd, self::BRIGHT_CYAN);
+        echo '    ' . $this->color($paddedCmd, self::PRIMARY);
         echo $this->color($description, self::DIM) . "\n";
     }
 

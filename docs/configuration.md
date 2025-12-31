@@ -14,9 +14,9 @@ We use PHP arrays instead of YAML or JSON because:
 | File | What it controls |
 |------|------------------|
 | `ava.php` | Main site settings (name, URL, cache). |
-| `content_types.php` | Defines your content (Pages, Posts, etc.). |
-| `taxonomies.php` | Defines how you group content (Categories, Tags). |
-| `users.php` | Admin users (generated automatically). |
+| `content_types.php` | Defines your content (Pages, Posts, etc.). See [Content](content.md). |
+| `taxonomies.php` | Defines how you group content (Categories, Tags). See [Taxonomy Fields](content.md?id=taxonomy-fields). |
+| `users.php` | Admin users (generated automatically). See [User Management](cli.md?id=user-management). |
 
 ## Main Settings (`ava.php`)
 
@@ -80,7 +80,7 @@ The content index is a binary snapshot of all your content metadata—used to av
 | Mode | Behavior |
 |------|----------|
 | `auto` | Rebuilds when content files change. Best for development. |
-| `never` | Only rebuilds via `./ava rebuild`. Best for production. |
+| `never` | Only rebuilds via [`./ava rebuild`](cli.md?id=rebuild). Best for production. |
 | `always` | Rebuilds every request. For debugging only. |
 
 **Backend options:**

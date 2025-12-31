@@ -134,4 +134,11 @@ return [
         'feed',
         'redirects',
     ],
+
+    // CLI Configuration
+    'cli' => [
+        // Enable colored output in the terminal
+        // Set to false for accessibility or if your terminal doesn't support colors
+        'colors' => true,
+    ],
 ];
