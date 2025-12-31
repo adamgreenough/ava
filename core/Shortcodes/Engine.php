@@ -147,21 +147,6 @@ final class Engine
 
             return $this->loadSnippet($name, $attrs, $content);
         });
-
-        // [include file="..."] - include a partial
-        $this->register('include', function (array $attrs) {
-            $file = $attrs['file'] ?? null;
-            if ($file === null) {
-                return '<!-- include: missing file -->';
-            }
-
-            try {
-                return $this->app->renderer()->partial($file, $attrs);
-            } catch (\Throwable $e) {
-                return '<!-- include error: ' . htmlspecialchars($e->getMessage()) . ' -->';
-            }
-        });
-
     }
 
     /**

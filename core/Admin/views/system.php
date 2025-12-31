@@ -59,7 +59,12 @@ $cpuCount = 1;
 if (is_readable('/proc/cpuinfo')) {
     $cpuCount = max(1, substr_count(file_get_contents('/proc/cpuinfo'), 'processor'));
 } elseif (PHP_OS_FAMILY === 'Darwin') {
-    $cpuCount = (int) shell_exec('sysctl -n hw.ncpu') ?: 1;
+    try {
+        $result = @shell_exec('sysctl -n hw.ncpu');
+        $cpuCount = $result !== null ? ((int) $result ?: 1) : 1;
+    } catch (\Throwable) {
+        $cpuCount = 1;
+    }
 }
 
 $uptime = $system['uptime'] ?? null;

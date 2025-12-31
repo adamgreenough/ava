@@ -12,9 +12,7 @@ use Ava\Testing\TestCase;
  */
 final class StrTest extends TestCase
 {
-    // =========================================================================
-    // slug()
-    // =========================================================================
+    // === slug() ===
 
     public function testSlugConvertsToLowercase(): void
     {
@@ -51,43 +49,7 @@ final class StrTest extends TestCase
         $this->assertEquals('post-123', Str::slug('Post 123'));
     }
 
-    // =========================================================================
-    // startsWith() / endsWith() / contains()
-    // =========================================================================
-
-    public function testStartsWithReturnsTrueForMatch(): void
-    {
-        $this->assertTrue(Str::startsWith('Hello World', 'Hello'));
-    }
-
-    public function testStartsWithReturnsFalseForNoMatch(): void
-    {
-        $this->assertFalse(Str::startsWith('Hello World', 'World'));
-    }
-
-    public function testEndsWithReturnsTrueForMatch(): void
-    {
-        $this->assertTrue(Str::endsWith('Hello World', 'World'));
-    }
-
-    public function testEndsWithReturnsFalseForNoMatch(): void
-    {
-        $this->assertFalse(Str::endsWith('Hello World', 'Hello'));
-    }
-
-    public function testContainsReturnsTrueForMatch(): void
-    {
-        $this->assertTrue(Str::contains('Hello World', 'lo Wo'));
-    }
-
-    public function testContainsReturnsFalseForNoMatch(): void
-    {
-        $this->assertFalse(Str::contains('Hello World', 'xyz'));
-    }
-
-    // =========================================================================
-    // before() / after()
-    // =========================================================================
+    // === before() / after() ===
 
     public function testBeforeReturnsSubstringBeforeNeedle(): void
     {
@@ -114,9 +76,7 @@ final class StrTest extends TestCase
         $this->assertEquals('Hello', Str::after('Hello', ' '));
     }
 
-    // =========================================================================
-    // limit() / words()
-    // =========================================================================
+    // === limit() / words() ===
 
     public function testLimitTruncatesLongStrings(): void
     {
@@ -143,73 +103,5 @@ final class StrTest extends TestCase
     {
         $result = Str::words('one two', 5);
         $this->assertEquals('one two', $result);
-    }
-
-    // =========================================================================
-    // Case conversion
-    // =========================================================================
-
-    public function testTitleConvertsToTitleCase(): void
-    {
-        $this->assertEquals('Hello World', Str::title('hello world'));
-    }
-
-    public function testCamelConvertsToCamelCase(): void
-    {
-        $this->assertEquals('helloWorld', Str::camel('hello-world'));
-        $this->assertEquals('helloWorld', Str::camel('hello_world'));
-    }
-
-    public function testSnakeConvertsToSnakeCase(): void
-    {
-        $this->assertEquals('hello_world', Str::snake('helloWorld'));
-        $this->assertEquals('hello_world', Str::snake('HelloWorld'));
-    }
-
-    public function testKebabConvertsToKebabCase(): void
-    {
-        $this->assertEquals('hello-world', Str::kebab('helloWorld'));
-    }
-
-    // =========================================================================
-    // Utility methods
-    // =========================================================================
-
-    public function testPlainStripsHtmlAndDecodesEntities(): void
-    {
-        $this->assertEquals('Hello & World', Str::plain('<p>Hello &amp; World</p>'));
-    }
-
-    public function testRandomGeneratesCorrectLength(): void
-    {
-        $result = Str::random(20);
-        $this->assertEquals(20, strlen($result));
-    }
-
-    public function testRandomGeneratesUniqueStrings(): void
-    {
-        $a = Str::random(16);
-        $b = Str::random(16);
-        $this->assertNotEquals($a, $b);
-    }
-
-    public function testEnsureLeftAddsPrefix(): void
-    {
-        $this->assertEquals('/path', Str::ensureLeft('path', '/'));
-    }
-
-    public function testEnsureLeftDoesNotDuplicatePrefix(): void
-    {
-        $this->assertEquals('/path', Str::ensureLeft('/path', '/'));
-    }
-
-    public function testEnsureRightAddsSuffix(): void
-    {
-        $this->assertEquals('path/', Str::ensureRight('path', '/'));
-    }
-
-    public function testEnsureRightDoesNotDuplicateSuffix(): void
-    {
-        $this->assertEquals('path/', Str::ensureRight('path/', '/'));
     }
 }

@@ -148,14 +148,6 @@ final class Request
     }
 
     /**
-     * Check if request is AJAX.
-     */
-    public function isAjax(): bool
-    {
-        return $this->header('x-requested-with') === 'XMLHttpRequest';
-    }
-
-    /**
      * Get a POST parameter.
      */
     public function post(?string $key = null, mixed $default = null): mixed

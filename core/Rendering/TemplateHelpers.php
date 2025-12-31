@@ -24,9 +24,7 @@ final class TemplateHelpers
         $this->engine = $engine;
     }
 
-    // -------------------------------------------------------------------------
-    // Content Rendering
-    // -------------------------------------------------------------------------
+    // === Content Rendering ===
 
     /**
      * Render a content item's body to HTML.
@@ -60,9 +58,7 @@ final class TemplateHelpers
         return $this->engine->expandAliases($content);
     }
 
-    // -------------------------------------------------------------------------
-    // URL Helpers
-    // -------------------------------------------------------------------------
+    // === URL Helpers ===
 
     /**
      * Get URL for a content item.
@@ -128,25 +124,7 @@ final class TemplateHelpers
         return '/theme/' . $path;
     }
 
-    /**
-     * Get theme asset URL explicitly.
-     */
-    public function themeAsset(string $path): string
-    {
-        $theme = $this->app->config('theme', 'default');
-        $themePath = $this->app->configPath('themes') . '/' . $theme . '/assets/' . ltrim($path, '/');
-
-        if (file_exists($themePath)) {
-            $mtime = filemtime($themePath);
-            return '/theme/' . ltrim($path, '/') . '?v=' . $mtime;
-        }
-
-        return '/theme/' . ltrim($path, '/');
-    }
-
-    // -------------------------------------------------------------------------
-    // Query Helpers
-    // -------------------------------------------------------------------------
+    // === Query Helpers ===
 
     /**
      * Create a new query.
@@ -185,9 +163,7 @@ final class TemplateHelpers
         return $this->app->repository()->terms($taxonomy);
     }
 
-    // -------------------------------------------------------------------------
-    // SEO Helpers
-    // -------------------------------------------------------------------------
+    // === SEO Helpers ===
 
     /**
      * Generate meta tags for a content item.
@@ -253,9 +229,7 @@ final class TemplateHelpers
         return implode("\n    ", $tags);
     }
 
-    // -------------------------------------------------------------------------
-    // Pagination Helpers
-    // -------------------------------------------------------------------------
+    // === Pagination Helpers ===
 
     /**
      * Generate pagination HTML.
@@ -301,9 +275,7 @@ final class TemplateHelpers
         return $baseUrl . $separator . 'paged=' . $page;
     }
 
-    // -------------------------------------------------------------------------
-    // Date Helpers
-    // -------------------------------------------------------------------------
+    // === Date Helpers ===
 
     /**
      * Format a date.
@@ -340,9 +312,7 @@ final class TemplateHelpers
         return 'just now';
     }
 
-    // -------------------------------------------------------------------------
-    // Utility Helpers
-    // -------------------------------------------------------------------------
+    // === Utility Helpers ===
 
     /**
      * Escape HTML.
@@ -382,14 +352,5 @@ final class TemplateHelpers
     public function config(string $key, mixed $default = null): mixed
     {
         return $this->app->config($key, $default);
-    }
-
-    /**
-     * Check if current path matches.
-     */
-    public function isActive(string $path): bool
-    {
-        // This would need request context - simplified version
-        return false;
     }
 }

@@ -10,20 +10,19 @@ namespace Ava;
  * Handles checking for and applying updates from GitHub.
  *
  * Version Format: CalVer YY.0M.MICRO (e.g., 25.12.1)
- * - YY: Two-digit year
- * - 0M: Zero-padded month
- * - MICRO: Release number within that month (starts at 1)
- * 
- * Examples: 25.12.1, 25.12.2, 26.01.1
  *
- * Update Process:
- * 1. Check GitHub API for latest release
- * 2. Download release zip to temp
- * 3. Extract and apply updates (core/, docs/, themes/default/, bundled plugins)
- * 4. Preserve: content/, app/, storage/, custom themes, custom plugins
- * 5. New bundled plugins are added but NOT activated
+ * What gets updated:
+ * - core/, docs/, bin/, bootstrap.php, composer.json
+ * - public/index.php, public/assets/admin.css
+ * - Bundled plugins (sitemap, feed, redirects)
  *
- * @package Ava
+ * What is preserved (never touched):
+ * - content/, app/, storage/, vendor/, .git, .env
+ * - themes/ (including themes/default/ to protect customizations)
+ * - public/robots.txt, custom plugins
+ *
+ * Note: Updates sync individual files, not entire directories.
+ * This may leave stale files from old versions. Use update:stale to detect them.
  */
 final class Updater
 {
@@ -31,13 +30,12 @@ final class Updater
     private string $githubRepo = 'adamgreenough/ava';
     private string $cacheFile;
 
-    /** @var string[] Directories that should be updated */
+    /** @var string[] Directories/files that should be updated */
     private array $updateDirs = [
         'core',
         'docs',
         'bin',
         'public/index.php',
-        'public/robots.txt',
         'bootstrap.php',
         'composer.json',
     ];
@@ -55,6 +53,8 @@ final class Updater
         'app',
         'storage',
         'vendor',
+        'themes',
+        'public/robots.txt',
         '.git',
         '.env',
     ];
@@ -359,11 +359,7 @@ final class Updater
             }
         }
 
-        // Note: We deliberately do NOT update themes/default/
-        // Users may have customised the default theme, and we don't want to overwrite their changes.
-        // Theme updates should be done manually if needed.
-
-        // Update bundled plugins (but don't activate new ones)
+        // Update bundled plugins (files only, not entire directories)
         $pluginsSource = $sourceDir . '/plugins';
         if (is_dir($pluginsSource)) {
             foreach ($this->bundledPlugins as $plugin) {

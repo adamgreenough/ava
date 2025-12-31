@@ -27,13 +27,6 @@ final class Repository
     private ?BackendInterface $backend = null;
     private ?string $backendOverride = null;
 
-    // Legacy cache for backward compatibility (used by some internal methods)
-    private ?array $contentIndex = null;
-    private ?array $taxIndex = null;
-    private ?array $routes = null;
-    private ?array $recentCache = null;
-    private ?array $slugLookup = null;
-
     public function __construct(Application $app)
     {
         $this->app = $app;
@@ -122,9 +115,7 @@ final class Repository
         return Item::fromArray($data, $rawContent);
     }
 
-    // -------------------------------------------------------------------------
-    // Content retrieval
-    // -------------------------------------------------------------------------
+    // === Content Retrieval ===
 
     /**
      * Get a content item by type and slug.
@@ -320,9 +311,7 @@ final class Repository
         return $this->backend()->count($type, $status);
     }
 
-    // -------------------------------------------------------------------------
-    // Taxonomy retrieval
-    // -------------------------------------------------------------------------
+    // === Taxonomy Retrieval ===
 
     /**
      * Get all terms for a taxonomy.
@@ -385,9 +374,7 @@ final class Repository
         return $this->backend()->taxonomies();
     }
 
-    // -------------------------------------------------------------------------
-    // Routes
-    // -------------------------------------------------------------------------
+    // === Routes ===
 
     /**
      * Get the routes index.
@@ -435,9 +422,7 @@ final class Repository
         return null;
     }
 
-    // -------------------------------------------------------------------------
-    // Recent Cache (backward compatibility)
-    // -------------------------------------------------------------------------
+    // === Recent Cache ===
 
     /**
      * Get recent items from the lightweight cache.
@@ -472,9 +457,7 @@ final class Repository
         return $this->backend()->canUseFastCache($type, $page, $perPage);
     }
 
-    // -------------------------------------------------------------------------
-    // Cache management
-    // -------------------------------------------------------------------------
+    // === Cache Management ===
 
     /**
      * Clear cached data (for testing or forced reload).
@@ -482,108 +465,5 @@ final class Repository
     public function clearCache(): void
     {
         $this->backend()->clearMemoryCache();
-        $this->contentIndex = null;
-        $this->taxIndex = null;
-        $this->routes = null;
-        $this->recentCache = null;
-        $this->slugLookup = null;
-    }
-
-    // -------------------------------------------------------------------------
-    // Legacy cache loading (for backward compatibility)
-    // These methods are kept for internal use but prefer using backend()
-    // -------------------------------------------------------------------------
-
-    private function loadContentIndex(): array
-    {
-        if ($this->contentIndex === null) {
-            $this->contentIndex = $this->loadCacheFile('content_index');
-        }
-        return $this->contentIndex;
-    }
-
-    private function loadTaxIndex(): array
-    {
-        if ($this->taxIndex === null) {
-            $this->taxIndex = $this->loadCacheFile('tax_index');
-        }
-        return $this->taxIndex;
-    }
-
-    private function loadRoutes(): array
-    {
-        if ($this->routes === null) {
-            $this->routes = $this->loadCacheFile('routes');
-        }
-        return $this->routes;
-    }
-
-    private function loadRecentCache(): array
-    {
-        if ($this->recentCache === null) {
-            $this->recentCache = $this->loadCacheFile('recent_cache');
-        }
-        return $this->recentCache;
-    }
-
-    private function loadSlugLookup(): array
-    {
-        if ($this->slugLookup === null) {
-            $this->slugLookup = $this->loadCacheFile('slug_lookup');
-        }
-        return $this->slugLookup;
-    }
-
-    /**
-     * Load a cache file (binary format with format marker).
-     * Supports both igbinary and serialize formats via prefix detection.
-     */
-    private function loadCacheFile(string $name): array
-    {
-        $binPath = $this->getCachePath($name . '.bin');
-
-        if (!file_exists($binPath)) {
-            return [];
-        }
-
-        $content = file_get_contents($binPath);
-        if ($content === false || strlen($content) < 4) {
-            return [];
-        }
-
-        // Check format marker prefix
-        $prefix = substr($content, 0, 3);
-        $payload = substr($content, 3);
-
-        if ($prefix === 'IG:') {
-            // igbinary format
-            if (!extension_loaded('igbinary')) {
-                // igbinary not available - cache needs rebuild
-                return [];
-            }
-            /** @var callable $unserialize */
-            $unserialize = 'igbinary_unserialize';
-            $data = @$unserialize($payload);
-        } elseif ($prefix === 'SZ:') {
-            // PHP serialize format
-            $data = @unserialize($payload);
-        } else {
-            // Legacy format without marker - try both
-            if (extension_loaded('igbinary')) {
-                /** @var callable $unserialize */
-                $unserialize = 'igbinary_unserialize';
-                $data = @$unserialize($content);
-            }
-            if (!isset($data) || !is_array($data)) {
-                $data = @unserialize($content);
-            }
-        }
-
-        return is_array($data) ? $data : [];
-    }
-
-    private function getCachePath(string $filename): string
-    {
-        return $this->app->configPath('storage') . '/cache/' . $filename;
     }
 }

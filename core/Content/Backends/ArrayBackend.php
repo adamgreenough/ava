@@ -522,7 +522,7 @@ final class ArrayBackend implements BackendInterface
     }
 
     /**
-     * Load a binary cache file with format auto-detection.
+     * Load a binary cache file.
      */
     private function loadCacheFile(string $name): array
     {
@@ -542,7 +542,6 @@ final class ArrayBackend implements BackendInterface
         $payload = substr($content, 3);
 
         if ($prefix === 'IG:') {
-            // igbinary format
             if (!extension_loaded('igbinary')) {
                 return [];
             }
@@ -550,18 +549,10 @@ final class ArrayBackend implements BackendInterface
             $unserialize = 'igbinary_unserialize';
             $data = @$unserialize($payload);
         } elseif ($prefix === 'SZ:') {
-            // PHP serialize format
             $data = @unserialize($payload);
         } else {
-            // Legacy format without marker - try both
-            if (extension_loaded('igbinary')) {
-                /** @var callable $unserialize */
-                $unserialize = 'igbinary_unserialize';
-                $data = @$unserialize($content);
-            }
-            if (!isset($data) || !is_array($data)) {
-                $data = @unserialize($content);
-            }
+            // Invalid format - cache needs rebuild
+            return [];
         }
 
         return is_array($data) ? $data : [];

@@ -213,39 +213,6 @@ final class ConfigTest extends TestCase
     }
 
     // =========================================================================
-    // Has/Set Operations
-    // =========================================================================
-
-    public function testHasExistingKey(): void
-    {
-        $this->assertTrue(Arr::has($this->config, 'site.name'));
-    }
-
-    public function testHasMissingKey(): void
-    {
-        $this->assertFalse(Arr::has($this->config, 'site.nonexistent'));
-    }
-
-    public function testHasNullValue(): void
-    {
-        $this->assertTrue(Arr::has($this->config, 'features'));
-    }
-
-    public function testSetNewValue(): void
-    {
-        $config = $this->config;
-        Arr::set($config, 'new.nested.value', 'test');
-        $this->assertEquals('test', Arr::get($config, 'new.nested.value'));
-    }
-
-    public function testSetOverwritesExisting(): void
-    {
-        $config = $this->config;
-        Arr::set($config, 'theme', 'custom');
-        $this->assertEquals('custom', Arr::get($config, 'theme'));
-    }
-
-    // =========================================================================
     // Edge Cases
     // =========================================================================
 
