@@ -78,9 +78,9 @@ final class AdminRouter
             return $this->handle('rebuild', $request);
         });
 
-        // Flush page cache action (protected)
+        // Flush webpage cache action (protected)
         $router->addRoute($basePath . '/flush-pages', function (Request $request) {
-            return $this->handle('flushPageCache', $request);
+            return $this->handle('flushWebpageCache', $request);
         });
 
         // Lint action (protected)
@@ -180,7 +180,7 @@ final class AdminRouter
             'logout' => $this->controller->logout($request),
             'dashboard' => $this->controller->dashboard($request),
             'rebuild' => $this->controller->rebuild($request),
-            'flushPageCache' => $this->controller->flushPageCache($request),
+            'flushWebpageCache' => $this->controller->flushWebpageCache($request),
             'clearErrorLog' => $this->controller->clearErrorLog($request),
             'lint' => $this->controller->lint($request),
             'system' => $this->controller->system($request),

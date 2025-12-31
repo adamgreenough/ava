@@ -48,7 +48,7 @@ final class ConfigTest extends TestCase
                 'sitemap' => ['enabled' => true],
                 'redirects' => ['enabled' => false],
             ],
-            'page_cache' => [
+            'webpage_cache' => [
                 'enabled' => false,
                 'ttl' => 3600,
                 'exclude' => ['/api/*', '/admin/*'],
@@ -140,7 +140,7 @@ final class ConfigTest extends TestCase
 
     public function testBooleanFalse(): void
     {
-        $this->assertFalse(Arr::get($this->config, 'page_cache.enabled'));
+        $this->assertFalse(Arr::get($this->config, 'webpage_cache.enabled'));
     }
 
     public function testNestedBooleanFalse(): void
@@ -159,7 +159,7 @@ final class ConfigTest extends TestCase
 
     public function testTtlValue(): void
     {
-        $this->assertEquals(3600, Arr::get($this->config, 'page_cache.ttl'));
+        $this->assertEquals(3600, Arr::get($this->config, 'webpage_cache.ttl'));
     }
 
     // =========================================================================
@@ -206,7 +206,7 @@ final class ConfigTest extends TestCase
 
     public function testExcludePatterns(): void
     {
-        $exclude = Arr::get($this->config, 'page_cache.exclude');
+        $exclude = Arr::get($this->config, 'webpage_cache.exclude');
         $this->assertIsArray($exclude);
         $this->assertCount(2, $exclude);
         $this->assertContains('/api/*', $exclude);

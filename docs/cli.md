@@ -75,8 +75,8 @@ If you’re used to FTP, think of **SFTP** as the safer modern version. Popular 
 | `user:list` (or `user`) | List all users |
 | `update:check` (or `update`) | Check for updates |
 | `update:apply` | Apply available update |
-| `pages:stats` (or `pages`) | Page cache statistics |
-| `pages:clear` | Clear page cache |
+| `cache:stats` (or `cache`) | Webpage cache statistics |
+| `cache:clear` | Clear webpage cache |
 | `logs:stats` (or `logs`) | Log file statistics |
 | `logs:tail` | Show last lines of a log |
 | `logs:clear` | Clear log files |
@@ -95,7 +95,7 @@ Run `./ava` or `./ava --help` to see all available commands:
 ```
 
 **Shortcuts:** Several commands have convenient aliases:
-- `./ava pages` → `pages:stats`
+- `./ava cache` → `cache:stats`
 - `./ava logs` → `logs:stats`
 - `./ava user` → `user:list`
 - `./ava update` → `update:check`
@@ -170,11 +170,11 @@ Shows a quick overview of your site's health:
   <span class="t-cyan">◆ Category:</span> <span class="t-white">8 terms</span>
   <span class="t-cyan">◆ Tag:</span> <span class="t-white">23 terms</span>
 
-  <span class="t-dim">───</span> <span class="t-bold">Page Cache</span> <span class="t-dim">────────────────────────────────────────</span>
+  <span class="t-dim">───</span> <span class="t-bold">Webpage Cache</span> <span class="t-dim">────────────────────────────────────────</span>
 
   <span class="t-dim">Status:</span>     <span class="t-green">● Enabled</span>
   <span class="t-dim">TTL:</span>        <span class="t-white">Forever</span>
-  <span class="t-dim">Cached:</span>     <span class="t-white">42 pages</span>
+  <span class="t-dim">Cached:</span>     <span class="t-white">42 webpages</span>
   <span class="t-dim">Size:</span>       <span class="t-white">1.2 MB</span></samp></pre>
 
 ### rebuild
@@ -456,51 +456,51 @@ See [Updates](updates.md) for details on what gets updated and preserved.
 
 ---
 
-## Page Cache
+## Webpage Cache
 
-Commands for managing the on-demand HTML page cache. This cache stores rendered web pages for all URLs on your site—not just the "Page" content type—including posts, archives, taxonomy pages, and custom content types.
+Commands for managing the on-demand HTML webpage cache. This cache stores rendered webpages for all URLs on your site—not just the "Page" content type—including posts, archives, taxonomy pages, and custom content types.
 
-### pages:stats
+### cache:stats
 
-View page cache statistics:
+View webpage cache statistics:
 
 ```bash
-./ava pages:stats
+./ava cache:stats
 ```
 
-<pre><samp>  <span class="t-dim">───</span> <span class="t-bold">Page Cache</span> <span class="t-dim">─────────────────────────────────────────</span>
+<pre><samp>  <span class="t-dim">───</span> <span class="t-bold">Webpage Cache</span> <span class="t-dim">─────────────────────────────────────────</span>
 
   <span class="t-dim">Status:</span>     <span class="t-green">● Enabled</span>
   <span class="t-dim">TTL:</span>        <span class="t-white">Forever (until cleared)</span>
 
-  <span class="t-dim">Cached:</span>     <span class="t-white">42 pages</span>
+  <span class="t-dim">Cached:</span>     <span class="t-white">42 webpages</span>
   <span class="t-dim">Size:</span>       <span class="t-white">1.2 MB</span>
   <span class="t-dim">Oldest:</span>     <span class="t-white">2024-12-28 10:00:00</span>
   <span class="t-dim">Newest:</span>     <span class="t-white">2024-12-28 14:30:00</span></samp></pre>
 
-### pages:clear
+### cache:clear
 
-Clear cached pages:
-
-```bash
-# Clear all cached pages (with confirmation)
-./ava pages:clear
-```
-
-<pre><samp>  Found <span class="t-white">42</span> cached page(s).
-
-  Clear all cached pages? <span class="t-dim">[y/N]:</span> <span class="t-green">y</span>
-
-  <span class="t-green">✓</span> Cleared <span class="t-white">42</span> cached page(s)</samp></pre>
+Clear cached webpages:
 
 ```bash
-# Clear pages matching a URL pattern
-./ava pages:clear /blog/*
+# Clear all cached webpages (with confirmation)
+./ava cache:clear
 ```
 
-<pre><samp>  <span class="t-green">✓</span> Cleared <span class="t-white">15</span> page(s) matching: <span class="t-cyan">/blog/*</span></samp></pre>
+<pre><samp>  Found <span class="t-white">42</span> cached webpage(s).
 
-The page cache is also automatically cleared when:
+  Clear all cached webpages? <span class="t-dim">[y/N]:</span> <span class="t-green">y</span>
+
+  <span class="t-green">✓</span> Cleared <span class="t-white">42</span> cached webpage(s)</samp></pre>
+
+```bash
+# Clear webpages matching a URL pattern
+./ava cache:clear /blog/*
+```
+
+<pre><samp>  <span class="t-green">✓</span> Cleared <span class="t-white">15</span> webpage(s) matching: <span class="t-cyan">/blog/*</span></samp></pre>
+
+The webpage cache is also automatically cleared when:
 - You run `./ava rebuild`
 - Content changes (in `content_index.mode = 'auto'`)
 

@@ -1,13 +1,13 @@
-<?= $ava->partial('header', ['request' => $request, 'pageTitle' => $item->title() . ' - ' . $site['name']]) ?>
+<?= $ava->partial('header', ['request' => $request, 'pageTitle' => $content->title() . ' - ' . $site['name']]) ?>
 
         <div class="container">
             <article class="entry">
                 <header class="entry-header">
-                    <h1><?= $ava->e($item->title()) ?></h1>
+                    <h1><?= $ava->e($content->title()) ?></h1>
                 </header>
 
                 <div class="entry-content">
-                    <?= $ava->content($item) ?>
+                    <?= $ava->body($content) ?>
                 </div>
             </article>
         </div>

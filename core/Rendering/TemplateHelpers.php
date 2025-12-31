@@ -29,7 +29,7 @@ final class TemplateHelpers
     /**
      * Render a content item's body to HTML.
      */
-    public function content(Item $item): string
+    public function body(Item $item): string
     {
         return $this->engine->renderItem($item);
     }
@@ -278,11 +278,20 @@ final class TemplateHelpers
     // === Date Helpers ===
 
     /**
-     * Format a date.
+     * Format a date using site timezone and optional format.
      */
-    public function date(\DateTimeInterface $date, string $format = 'F j, Y'): string
+    public function date(\DateTimeInterface $date, ?string $format = null): string
     {
-        return $date->format($format);
+        $format = $format ?? $this->app->config('site.date_format', 'F j, Y');
+        $timezone = $this->app->config('site.timezone', 'UTC');
+        
+        // Convert to site timezone
+        $tz = new \DateTimeZone($timezone);
+        $localDate = $date instanceof \DateTimeImmutable 
+            ? $date->setTimezone($tz) 
+            : \DateTimeImmutable::createFromInterface($date)->setTimezone($tz);
+        
+        return $localDate->format($format);
     }
 
     /**

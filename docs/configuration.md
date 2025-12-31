@@ -42,6 +42,7 @@ return [
 | `site.base_url` | Full URL where your site lives (no trailing slash). Used for sitemaps and absolute links. |
 | `site.timezone` | Timezone for dates. Use a [PHP timezone identifier](https://www.php.net/manual/en/timezones.php). |
 | `site.locale` | Locale for date/number formatting. See [list of locale codes](https://www.php.net/manual/en/function.setlocale.php#refsect1-function-setlocale-notes). |
+| `site.date_format` | Default format for `$ava->date()`. Uses [PHP date() format codes](https://www.php.net/manual/en/datetime.format.php). Default: `F j, Y`. |
 | `paths` | Where Ava finds content, themes, plugins. Usually no need to change. || `paths.aliases` | Path aliases for use in content. See [Path Aliases](#path-aliases) below. |
 
 ### Path Aliases
@@ -127,12 +128,12 @@ See [Performance](performance.md) for detailed benchmarks.
 
 </div>
 
-### Page Cache
+### Webpage Cache
 
-The page cache stores fully-rendered HTML web pages for instant serving. This applies to all URLs on your site (not just the "Page" content type) including posts, archive listings, taxonomy pages, and any custom content types you define.
+The webpage cache stores fully-rendered HTML for instant serving. This applies to all URLs on your site—pages, posts, archive listings, taxonomy pages, and any custom content types you define.
 
 ```php
-'page_cache' => [
+'webpage_cache' => [
     'enabled' => true,
     'ttl' => null,
     'exclude' => [
@@ -144,15 +145,15 @@ The page cache stores fully-rendered HTML web pages for instant serving. This ap
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enabled` | bool | `true` | Enable HTML page caching |
+| `enabled` | bool | `true` | Enable HTML webpage caching |
 | `ttl` | int\|null | `null` | Lifetime in seconds. `null` = until rebuild |
 | `exclude` | array | `[]` | URL patterns to never cache |
 
 **How it works:**
-- First visit: Page rendered and saved to `storage/cache/pages/`
+- First visit: Webpage rendered and saved to `storage/cache/pages/`
 - Subsequent visits: Cached HTML served (~0.1ms vs ~30ms)
-- On `./ava rebuild`: Page cache is cleared
-- On content change (with `content_index.mode = 'auto'`): Page cache is cleared
+- On `./ava rebuild`: Webpage cache is cleared
+- On content change (with `content_index.mode = 'auto'`): Webpage cache is cleared
 - Logged-in admin users bypass the cache
 
 **Per-page override:**
@@ -165,9 +166,9 @@ cache: false
 ```
 
 **CLI commands:**
-- `./ava pages:stats` - View cache statistics
-- `./ava pages:clear` - Clear all cached pages
-- `./ava pages:clear /blog/*` - Clear matching pattern
+- `./ava cache:stats` - View cache statistics
+- `./ava cache:clear` - Clear all cached webpages
+- `./ava cache:clear /blog/*` - Clear matching pattern
 
 For details, see [Performance](performance.md).
 
@@ -587,7 +588,7 @@ return [
         'use_igbinary' => true,
     ],
 
-    'page_cache' => [
+    'webpage_cache' => [
         'enabled' => true,
         'ttl' => null,
         'exclude' => [

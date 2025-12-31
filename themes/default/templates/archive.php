@@ -9,32 +9,32 @@ $pageTitle = ucfirst($contentType) . ' - ' . $site['name'];
                 <h1><?= $ava->e(ucfirst($contentType)) ?></h1>
             </header>
 
-            <?php $items = $query->get(); ?>
+            <?php $results = $query->get(); ?>
 
-            <?php if (empty($items)): ?>
+            <?php if (empty($results)): ?>
                 <div class="search-empty">
                     <p>No content found.</p>
                 </div>
             <?php else: ?>
                 <div class="archive-list">
-                    <?php foreach ($items as $item): ?>
+                    <?php foreach ($results as $entry): ?>
                         <article class="archive-item">
                             <h2>
-                                <a href="<?= $ava->url($item->type(), $item->slug()) ?>">
-                                    <?= $ava->e($item->title()) ?>
+                                <a href="<?= $ava->url($entry->type(), $entry->slug()) ?>">
+                                    <?= $ava->e($entry->title()) ?>
                                 </a>
                             </h2>
 
-                            <?php if ($item->date()): ?>
+                            <?php if ($entry->date()): ?>
                                 <div class="meta">
-                                    <time datetime="<?= $item->date()->format('c') ?>">
-                                        <?= $ava->date($item->date()) ?>
+                                    <time datetime="<?= $entry->date()->format('c') ?>">
+                                        <?= $ava->date($entry->date()) ?>
                                     </time>
                                 </div>
                             <?php endif; ?>
 
-                            <?php if ($item->excerpt()): ?>
-                                <p class="excerpt"><?= $ava->e($item->excerpt()) ?></p>
+                            <?php if ($entry->excerpt()): ?>
+                                <p class="excerpt"><?= $ava->e($entry->excerpt()) ?></p>
                             <?php endif; ?>
                         </article>
                     <?php endforeach; ?>

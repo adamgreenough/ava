@@ -102,7 +102,7 @@ $activePage = 'dashboard';
         <?php if (isset($_GET['action']) && $_GET['action'] === 'flush_pages'): ?>
         <div class="alert alert-success">
             <span class="material-symbols-rounded">check_circle</span>
-            Page cache cleared (<?= htmlspecialchars($_GET['count'] ?? '0') ?> pages)
+            Webpage cache cleared (<?= htmlspecialchars($_GET['count'] ?? '0') ?> webpages)
         </div>
         <?php endif; ?>
 
@@ -195,7 +195,7 @@ $activePage = 'dashboard';
             -->
         </div>
 
-        <!-- Top Row: Content Index, Page Cache, System, Site -->
+        <!-- Top Row: Content Index, Webpage Cache, System, Site -->
         <div class="grid grid-4">
             <div class="card">
                 <div class="card-header">
@@ -234,32 +234,32 @@ $activePage = 'dashboard';
                 <div class="card-header">
                     <span class="card-title">
                         <span class="material-symbols-rounded">bolt</span>
-                        Page Cache
+                        Webpage Cache
                     </span>
-                    <span class="badge <?= $pageCache['enabled'] ? 'badge-success' : 'badge-secondary' ?>">
-                        <?= $pageCache['enabled'] ? 'On' : 'Off' ?>
+                    <span class="badge <?= $webpageCache['enabled'] ? 'badge-success' : 'badge-secondary' ?>">
+                        <?= $webpageCache['enabled'] ? 'On' : 'Off' ?>
                     </span>
                 </div>
                 <div class="card-body">
-                    <?php if ($pageCache['enabled']): ?>
+                    <?php if ($webpageCache['enabled']): ?>
                     <div class="list-item">
-                        <span class="list-label">Cached Pages</span>
-                        <span class="list-value"><?= $pageCache['count'] ?></span>
+                        <span class="list-label">Cached Webpages</span>
+                        <span class="list-value"><?= $webpageCache['count'] ?></span>
                     </div>
                     <div class="list-item">
                         <span class="list-label">Size</span>
-                        <span class="list-value"><?= $formatBytes($pageCache['size'] ?? 0) ?></span>
+                        <span class="list-value"><?= $formatBytes($webpageCache['size'] ?? 0) ?></span>
                     </div>
                     <div class="list-item">
                         <span class="list-label">TTL</span>
-                        <span class="list-value"><?= $pageCache['ttl'] ? $pageCache['ttl'] . 's' : 'Forever' ?></span>
+                        <span class="list-value"><?= $webpageCache['ttl'] ? $webpageCache['ttl'] . 's' : 'Forever' ?></span>
                     </div>
-                    <?php if ($pageCache['count'] > 0): ?>
+                    <?php if ($webpageCache['count'] > 0): ?>
                     <form method="POST" action="<?= $admin_url ?>/flush-pages" style="margin-top: var(--sp-4);">
                         <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf) ?>">
                         <button type="submit" class="btn btn-secondary btn-sm">
                             <span class="material-symbols-rounded">delete_sweep</span>
-                            Flush Pages
+                            Flush Webpages
                         </button>
                     </form>
                     <?php endif; ?>

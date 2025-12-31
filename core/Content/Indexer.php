@@ -112,8 +112,8 @@ final class Indexer
             $this->writeBinaryCacheFile('content_index.bin', $contentIndex);
         }
 
-        // Clear page cache when content cache is rebuilt
-        $this->clearPageCache();
+        // Clear webpage cache when content cache is rebuilt
+        $this->clearWebpageCache();
 
         // Log any errors
         if (!empty($errors)) {
@@ -174,16 +174,16 @@ final class Indexer
     }
 
     /**
-     * Clear the page cache.
+     * Clear the webpage cache.
      */
-    private function clearPageCache(): void
+    private function clearWebpageCache(): void
     {
-        $pageCachePath = $this->app->configPath('storage') . '/cache/pages';
-        if (!is_dir($pageCachePath)) {
+        $webpageCachePath = $this->app->configPath('storage') . '/cache/pages';
+        if (!is_dir($webpageCachePath)) {
             return;
         }
 
-        $files = glob($pageCachePath . '/*.html');
+        $files = glob($webpageCachePath . '/*.html');
         foreach ($files as $file) {
             @unlink($file);
         }

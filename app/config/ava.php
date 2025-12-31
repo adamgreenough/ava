@@ -17,6 +17,7 @@ return [
         'base_url' => 'http://localhost:8000',      // Full URL (no trailing slash)
         'timezone' => 'UTC',                        // See: https://www.php.net/timezones
         'locale' => 'en_GB',                        // See: https://www.php.net/setlocale
+        'date_format' => 'F j, Y',                  // See: https://www.php.net/manual/en/datetime.format.php#refsect1-datetime.format-parameters
     ],
 
     // Paths (rarely need to change these)
@@ -43,8 +44,8 @@ return [
         'use_igbinary' => true,     // ~5x faster cache serialization
     ],
 
-    // Page Cache - stores rendered HTML (~0.1ms vs ~30ms)
-    'page_cache' => [
+    // Webpage Cache - stores rendered HTML (~0.1ms vs ~30ms)
+    'webpage_cache' => [
         'enabled' => true,
         'ttl' => null,              // Seconds (null = until rebuild)
         'exclude' => [              // Never cache these URL patterns

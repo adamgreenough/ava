@@ -7,12 +7,12 @@ namespace Ava\Http;
 use Ava\Application;
 
 /**
- * On-Demand Page Cache
+ * On-Demand Webpage Cache
  *
- * Caches rendered HTML pages to disk for ultra-fast serving.
- * Pages are cached on first request and served directly on subsequent requests.
+ * Caches rendered HTML webpages to disk for ultra-fast serving.
+ * Webpages are cached on first request and served directly on subsequent requests.
  */
-final class PageCache
+final class WebpageCache
 {
     private Application $app;
     private string $cachePath;
@@ -24,13 +24,13 @@ final class PageCache
     {
         $this->app = $app;
         $this->cachePath = $app->configPath('storage') . '/cache/pages';
-        $this->enabled = (bool) $app->config('page_cache.enabled', false);
-        $this->ttl = $app->config('page_cache.ttl'); // null = forever (until cleared)
-        $this->exclude = $app->config('page_cache.exclude', []);
+        $this->enabled = (bool) $app->config('webpage_cache.enabled', false);
+        $this->ttl = $app->config('webpage_cache.ttl'); // null = forever (until cleared)
+        $this->exclude = $app->config('webpage_cache.exclude', []);
     }
 
     /**
-     * Check if page caching is enabled.
+     * Check if webpage caching is enabled.
      */
     public function isEnabled(): bool
     {

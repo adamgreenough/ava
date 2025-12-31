@@ -19,39 +19,39 @@
             </form>
 
             <?php if ($searchQuery !== ''): ?>
-                <?php $items = $query->get(); ?>
+                <?php $results = $query->get(); ?>
                 <?php $total = $query->count(); ?>
 
                 <p class="search-results-info">
                     Found <?= $total ?> result<?= $total !== 1 ? 's' : '' ?> for "<?= $ava->e($searchQuery) ?>"
                 </p>
 
-                <?php if (empty($items)): ?>
+                <?php if (empty($results)): ?>
                     <div class="search-empty">
                         <p>No results found. Try a different search term.</p>
                     </div>
                 <?php else: ?>
                     <div class="archive-list">
-                        <?php foreach ($items as $item): ?>
+                        <?php foreach ($results as $entry): ?>
                             <article class="archive-item">
                                 <h2>
-                                    <a href="<?= $ava->url($item->type(), $item->slug()) ?>">
-                                        <?= $ava->e($item->title()) ?>
+                                    <a href="<?= $ava->url($entry->type(), $entry->slug()) ?>">
+                                        <?= $ava->e($entry->title()) ?>
                                     </a>
                                 </h2>
 
                                 <div class="meta">
-                                    <span><?= $ava->e(ucfirst($item->type())) ?></span>
-                                    <?php if ($item->date()): ?>
+                                    <span><?= $ava->e(ucfirst($entry->type())) ?></span>
+                                    <?php if ($entry->date()): ?>
                                         &middot;
-                                        <time datetime="<?= $item->date()->format('c') ?>">
-                                            <?= $ava->date($item->date()) ?>
+                                        <time datetime="<?= $entry->date()->format('c') ?>">
+                                            <?= $ava->date($entry->date()) ?>
                                         </time>
                                     <?php endif; ?>
                                 </div>
 
-                                <?php if ($item->excerpt()): ?>
-                                    <p class="excerpt"><?= $ava->e($item->excerpt()) ?></p>
+                                <?php if ($entry->excerpt()): ?>
+                                    <p class="excerpt"><?= $ava->e($entry->excerpt()) ?></p>
                                 <?php endif; ?>
                             </article>
                         <?php endforeach; ?>

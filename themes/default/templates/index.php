@@ -1,40 +1,40 @@
 <?= $ava->partial('header', ['request' => $request, 'pageTitle' => $site['name'], 'pageDescription' => 'Welcome to ' . $site['name']]) ?>
 
         <div class="container">
-            <?php if (isset($item)): ?>
+            <?php if (isset($content)): ?>
                 <article class="entry">
                     <header class="entry-header">
-                        <h1><?= $ava->e($item->title()) ?></h1>
-                        <?php if ($item->date()): ?>
+                        <h1><?= $ava->e($content->title()) ?></h1>
+                        <?php if ($content->date()): ?>
                             <div class="entry-meta">
-                                <time datetime="<?= $item->date()->format('c') ?>">
-                                    <?= $ava->date($item->date()) ?>
+                                <time datetime="<?= $content->date()->format('c') ?>">
+                                    <?= $ava->date($content->date()) ?>
                                 </time>
                             </div>
                         <?php endif; ?>
                     </header>
 
                     <div class="entry-content">
-                        <?= $ava->content($item) ?>
+                        <?= $ava->body($content) ?>
                     </div>
                 </article>
             <?php elseif (isset($query)): ?>
-                <?php $items = $query->get(); ?>
-                <?php if (empty($items)): ?>
+                <?php $results = $query->get(); ?>
+                <?php if (empty($results)): ?>
                     <div class="search-empty">
                         <p>No content found.</p>
                     </div>
                 <?php else: ?>
                     <div class="archive-list">
-                        <?php foreach ($items as $item): ?>
+                        <?php foreach ($results as $entry): ?>
                             <article class="archive-item">
                                 <h2>
-                                    <a href="<?= $ava->url($item->type(), $item->slug()) ?>">
-                                        <?= $ava->e($item->title()) ?>
+                                    <a href="<?= $ava->url($entry->type(), $entry->slug()) ?>">
+                                        <?= $ava->e($entry->title()) ?>
                                     </a>
                                 </h2>
-                                <?php if ($item->excerpt()): ?>
-                                    <p class="excerpt"><?= $ava->e($item->excerpt()) ?></p>
+                                <?php if ($entry->excerpt()): ?>
+                                    <p class="excerpt"><?= $ava->e($entry->excerpt()) ?></p>
                                 <?php endif; ?>
                             </article>
                         <?php endforeach; ?>

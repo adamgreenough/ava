@@ -3,7 +3,7 @@
 Ava is designed to be fast by default. To achieve this, it uses a two-layer performance strategy:
 
 1. **Content Indexing:** A pre-built index of your content metadata to avoid parsing Markdown files on every request.
-2. **Page Caching:** A static HTML cache that serves fully rendered pages instantly.
+2. **Webpage Caching:** A static HTML cache that serves fully rendered webpages instantly.
 
 This page explains both systems and how to configure them for your site.
 
@@ -166,7 +166,7 @@ You might expect a database to be faster than a file-based array, but PHP's arra
 SQLite shines when you only need a single item or a simple count.
 
 - **Get by Slug:** SQLite uses a database index to jump directly to the specific row on disk. It reads almost nothing.
-- **Array Backend:** Must load and unserialize the entire `slug_lookup` map into memory just to find one key. At 100k posts, that's a lot of overhead for one item. A significant optimisation for high-traffic sites, sites that don't make extensive use of page caching, or memory-constrained servers.
+- **Array Backend:** Must load and unserialize the entire `slug_lookup` map into memory just to find one key. At 100k posts, that's a lot of overhead for one item. A significant optimisation for high-traffic sites, sites that don't make extensive use of webpage caching, or memory-constrained servers.
 
 ## Choosing a Backend
 
@@ -245,9 +245,9 @@ Configure your index and caching in `app/config/ava.php`:
 
 ---
 
-# Page Caching
+# Webpage Caching
 
-For the ultimate performance, enable Ava's full page cache. This saves a static HTML copy of all rendered web pages—posts, archives, taxonomy pages, and any custom content types—after the first visit.
+For the ultimate performance, enable Ava's full webpage cache. This saves a static HTML copy of all rendered webpages—posts, archives, taxonomy pages, and any custom content types—after the first visit.
 
 - **First visit:** ~50ms (renders template)
 - **Subsequent visits:** ~1ms (serves static file)
@@ -256,11 +256,11 @@ This bypasses the content index entirely for most visitors.
 
 ## Configuration
 
-Configure your page cache in `app/config/ava.php`:
+Configure your webpage cache in `app/config/ava.php`:
 
 ```php
 // app/config/ava.php
-'page_cache' => [
+'webpage_cache' => [
     'enabled' => true,
     'ttl' => null, // Cache until next rebuild
 ],
@@ -292,16 +292,16 @@ cache: false
 
 ### Cache Invalidation
 
-The page cache is automatically cleared when:
+The webpage cache is automatically cleared when:
 - You run `./ava rebuild`
 - Content changes (if `content_index.mode` is `'auto'`)
-- You click "Rebuild Now" or "Flush Pages" in the Admin Dashboard
+- You click "Rebuild Now" or "Flush Webpages" in the Admin Dashboard
 
 You can also clear it manually via CLI:
 
 ```bash
-./ava pages:clear              # Clear all cached pages
-./ava pages:clear /blog/*      # Clear only matching pages
+./ava cache:clear              # Clear all cached webpages
+./ava cache:clear /blog/*      # Clear only matching webpages
 ```
 
 ### Monitoring & Security
@@ -309,11 +309,11 @@ You can also clear it manually via CLI:
 You can check the status of your cache via CLI:
 
 ```bash
-./ava status         # Shows content index and page cache status
-./ava pages:stats    # Detailed page cache stats
+./ava status         # Shows content index and webpage cache status
+./ava cache:stats    # Detailed webpage cache stats
 ```
 
-**Security Note:** The page cache is secure by default. It respects your exclude patterns, never caches admin pages, and hashes filenames to prevent path traversal. Query strings (like `?search=foo`) bypass the cache to prevent poisoning.
+**Security Note:** The webpage cache is secure by default. It respects your exclude patterns, never caches admin pages, and hashes filenames to prevent path traversal. Query strings (like `?search=foo`) bypass the cache to prevent poisoning.
 
 ---
 
@@ -350,7 +350,7 @@ If you set `backend: 'sqlite'` but get errors:
 2. If not installed, ask your host or run `apt install php-sqlite3` (Linux)
 3. Or set `backend: 'array'` to use the default
 
-### Pages not being cached
+### Webpages not being cached
 
 1. Check if enabled: `./ava status`
 2. Log out of admin (admin users bypass cache)

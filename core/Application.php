@@ -6,7 +6,7 @@ namespace Ava;
 
 use Ava\Content\Indexer;
 use Ava\Content\Repository;
-use Ava\Http\PageCache;
+use Ava\Http\WebpageCache;
 use Ava\Http\Request;
 use Ava\Http\Response;
 use Ava\Rendering\Engine as RenderingEngine;
@@ -102,10 +102,10 @@ final class Application
      */
     public function handle(Request $request): Response
     {
-        // Check page cache first
-        $pageCache = $this->pageCache();
-        if ($pageCache->isEnabled()) {
-            $cached = $pageCache->get($request);
+        // Check webpage cache first
+        $webpageCache = $this->webpageCache();
+        if ($webpageCache->isEnabled()) {
+            $cached = $webpageCache->get($request);
             if ($cached !== null) {
                 return $cached;
             }
@@ -139,8 +139,8 @@ final class Application
         // Render the matched route
         $response = $this->renderRoute($match, $request);
 
-        // Store in page cache if enabled
-        if ($pageCache->isEnabled() && $response->status() === 200) {
+        // Store in webpage cache if enabled
+        if ($webpageCache->isEnabled() && $response->status() === 200) {
             // Check for content-level cache override
             $cacheOverride = null;
             $contentItem = $match->getContentItem();
@@ -148,8 +148,8 @@ final class Application
                 $cacheOverride = $contentItem->get('cache');
             }
 
-            $pageCache->put($request, $response, $cacheOverride);
-            $response = $response->withHeader('X-Page-Cache', 'MISS');
+            $webpageCache->put($request, $response, $cacheOverride);
+            $response = $response->withHeader('X-Webpage-Cache', 'MISS');
         }
 
         return $response;
@@ -220,9 +220,9 @@ final class Application
         return $this->service('shortcodes', fn() => new ShortcodeEngine($this));
     }
 
-    public function pageCache(): PageCache
+    public function webpageCache(): WebpageCache
     {
-        return $this->service('page_cache', fn() => new PageCache($this));
+        return $this->service('webpage_cache', fn() => new WebpageCache($this));
     }
 
     /**
@@ -387,9 +387,9 @@ final class Application
             'route' => $match,
         ];
 
-        // Add item context for single routes
+        // Add content context for single routes
         if ($match->getContentItem() !== null) {
-            $context['item'] = $match->getContentItem();
+            $context['content'] = $match->getContentItem();
         }
 
         // Add query context for archives

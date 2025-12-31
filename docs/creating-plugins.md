@@ -126,15 +126,15 @@ Hooks::addFilter('router.before_match', function($match, $request, $router) {
 
 | Hook | Type | Description | Parameters |
 |------|------|-------------|------------|
-| `content.loaded` | Filter | Modify content item after loading from repository | `$item` |
+| `content.loaded` | Filter | Modify content item after loading from repository | `$content` |
 
 ```php
 // Add computed fields to content items
-Hooks::addFilter('content.loaded', function($item) {
+Hooks::addFilter('content.loaded', function($content) {
     // Add reading time estimate
-    $words = str_word_count(strip_tags($item->rawContent()));
-    $item->set('reading_time', max(1, (int) ceil($words / 200)));
-    return $item;
+    $words = str_word_count(strip_tags($content->rawContent()));
+    $content->set('reading_time', max(1, (int) ceil($words / 200)));
+    return $content;
 });
 ```
 

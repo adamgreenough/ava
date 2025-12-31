@@ -56,7 +56,7 @@ content/
 core/                    # Framework code (don't modify)
   Application.php        # Singleton container
   Content/               # Parser, Indexer, Repository, Query, Item
-  Http/                  # Request, Response, PageCache
+  Http/                  # Request, Response, WebpageCache
   Routing/               # Router, RouteMatch
   Rendering/             # Engine, TemplateHelpers
   Shortcodes/            # Shortcode processing
@@ -97,7 +97,7 @@ Request → Router → RouteMatch → Renderer → Response
 1. Router matches URL against cached routes
 2. Repository loads content item from binary index
 3. Renderer processes template with content
-4. Response sends HTML (optionally cached to page cache)
+4. Response sends HTML (optionally cached to webpage cache)
 
 ---
 
@@ -137,7 +137,7 @@ Binary serialized cache of all content metadata:
 
 **Binary format (array backend):** Uses igbinary if available (~4-5× faster), falls back to PHP serialize. Files prefixed with `IG:` or `SZ:` marker for auto-detection.
 
-### Page Cache
+### Webpage Cache
 
 On-demand HTML file cache in `storage/cache/pages/`:
 - Enabled globally via config, per-item via frontmatter
@@ -217,7 +217,7 @@ slug: page-title      # Required, URL-safe
 status: published     # draft | published | unlisted
 date: 2024-12-28      # Publication date
 excerpt: Summary      # Short description
-cache: true           # Override page cache setting
+cache: true           # Override webpage cache setting
 categories:           # Taxonomy terms
   - tutorials
 tags:
@@ -239,7 +239,7 @@ Markdown content here. **Bold**, *italic*, [links](/url).
 - `status` — `draft`, `published`, or `unlisted`
 - `date` — Publication date (for dated content types)
 - `excerpt` — Short description
-- `cache` — Override page cache setting
+- `cache` — Override webpage cache setting
 - `redirect_from` — Array of old URLs to 301 redirect
 - `template` — Override default template
 
@@ -357,7 +357,7 @@ tutorials:
 | `Content\Item` | Content value object |
 | `Http\Request` | HTTP request wrapper |
 | `Http\Response` | HTTP response wrapper |
-| `Http\PageCache` | HTML page cache management |
+| `Http\WebpageCache` | HTML webpage cache management |
 | `Routing\Router` | Match URLs to routes |
 | `Routing\RouteMatch` | Route match result |
 | `Rendering\Engine` | Template rendering |
@@ -506,7 +506,7 @@ Templates are plain PHP files in `themes/<name>/templates/`:
 | Variable | Type | Description |
 |----------|------|-------------|
 | `$site` | array | Site config (`name`, `url`, `timezone`) |
-| `$item` | Item | Current content (single templates) |
+| `$content` | Item | Current content (single templates) |
 | `$query` | Query | Query object (archive templates) |
 | `$tax` | array | Taxonomy info (taxonomy templates) |
 | `$request` | Request | HTTP request |
@@ -520,7 +520,7 @@ The `$ava` object provides helper methods in templates:
 
 **Content:**
 ```php
-$ava->content($item)            // Render item content
+$ava->body($content)            // Render content body
 $ava->markdown($string)         // Render Markdown string
 $ava->partial($name, $vars)     // Include partial
 ```
@@ -668,11 +668,11 @@ Ava includes a command-line tool at `./ava` (or `php bin/ava`):
 ./ava prefix remove post       # Remove date prefixes
 ```
 
-**Page cache:**
+**Webpage cache:**
 ```bash
-./ava pages:stats              # Page cache statistics (alias: pages)
-./ava pages:clear              # Clear all cached pages
-./ava pages:clear /blog/*      # Clear matching pattern
+./ava cache:stats              # Webpage cache statistics (alias: cache)
+./ava cache:clear              # Clear all cached pages
+./ava cache:clear /blog/*      # Clear matching pattern
 ```
 
 **Logs:**

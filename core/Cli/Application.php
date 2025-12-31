@@ -108,9 +108,9 @@ ASCII;
         $this->commands['lint'] = [$this, 'cmdLint'];
         $this->commands['make'] = [$this, 'cmdMake'];
         $this->commands['prefix'] = [$this, 'cmdPrefix'];
-        $this->commands['pages'] = [$this, 'cmdPagesStats']; // Alias for pages:stats
-        $this->commands['pages:clear'] = [$this, 'cmdPagesClear'];
-        $this->commands['pages:stats'] = [$this, 'cmdPagesStats'];
+        $this->commands['cache'] = [$this, 'cmdCacheStats']; // Alias for cache:stats
+        $this->commands['cache:clear'] = [$this, 'cmdCacheClear'];
+        $this->commands['cache:stats'] = [$this, 'cmdCacheStats'];
         $this->commands['logs'] = [$this, 'cmdLogsStats']; // Alias for logs:stats
         $this->commands['logs:stats'] = [$this, 'cmdLogsStats'];
         $this->commands['logs:clear'] = [$this, 'cmdLogsClear'];
@@ -319,10 +319,10 @@ ASCII;
             );
         }
 
-        // Page cache stats
-        $pageCache = $this->app->pageCache();
-        $stats = $pageCache->stats();
-        $this->sectionHeader('Page Cache');
+        // Webpage cache stats
+        $webpageCache = $this->app->webpageCache();
+        $stats = $webpageCache->stats();
+        $this->sectionHeader('Webpage Cache');
         $status = $stats['enabled']
             ? $this->color('● Enabled', self::GREEN, self::BOLD)
             : $this->color('○ Disabled', self::DIM);
@@ -331,7 +331,7 @@ ASCII;
         if ($stats['enabled']) {
             $ttl = $stats['ttl'] ?? null;
             $this->keyValue('TTL', $ttl ? "{$ttl}s" : 'Forever');
-            $this->keyValue('Cached', $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' pages');
+            $this->keyValue('Cached', $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' webpages');
             if ($stats['count'] > 0) {
                 $this->keyValue('Size', $this->formatBytes($stats['size']));
             }
@@ -1535,39 +1535,39 @@ ASCII;
     }
 
     /**
-     * Clear page cache.
+     * Clear webpage cache.
      */
-    private function cmdPagesClear(array $args): int
+    private function cmdCacheClear(array $args): int
     {
-        $pageCache = $this->app->pageCache();
+        $webpageCache = $this->app->webpageCache();
 
         $this->writeln('');
 
-        if (!$pageCache->isEnabled()) {
-            $this->box("Page cache is not enabled", 'warning');
+        if (!$webpageCache->isEnabled()) {
+            $this->box("Webpage cache is not enabled", 'warning');
             $this->writeln('');
-            $this->tip("Enable it in app/config/ava.php with 'page_cache' => ['enabled' => true]");
+            $this->tip("Enable it in app/config/ava.php with 'webpage_cache' => ['enabled' => true]");
             $this->writeln('');
             return 0;
         }
 
-        $stats = $pageCache->stats();
+        $stats = $webpageCache->stats();
         if ($stats['count'] === 0) {
-            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Page cache is empty.');
+            $this->writeln('  ' . $this->color('ℹ', self::PRIMARY) . ' Webpage cache is empty.');
             $this->writeln('');
             return 0;
         }
 
-        $this->writeln('  Found ' . $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' cached page(s).');
+        $this->writeln('  Found ' . $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' cached webpage(s).');
         $this->writeln('');
 
         // Check for pattern argument
         if (isset($args[0])) {
             $pattern = $args[0];
-            $count = $pageCache->clearPattern($pattern);
-            $this->success("Cleared {$count} page(s) matching: {$pattern}");
+            $count = $webpageCache->clearPattern($pattern);
+            $this->success("Cleared {$count} webpage(s) matching: {$pattern}");
         } else {
-            echo '  Clear all cached pages? [' . $this->color('y', self::RED) . '/N]: ';
+            echo '  Clear all cached webpages? [' . $this->color('y', self::RED) . '/N]: ';
             $answer = trim(fgets(STDIN));
 
             if (strtolower($answer) !== 'y') {
@@ -1577,8 +1577,8 @@ ASCII;
                 return 0;
             }
 
-            $count = $pageCache->clear();
-            $this->success("Cleared {$count} cached page(s)");
+            $count = $webpageCache->clear();
+            $this->success("Cleared {$count} cached webpage(s)");
         }
 
         $this->writeln('');
@@ -1586,16 +1586,16 @@ ASCII;
     }
 
     /**
-     * Show page cache statistics.
+     * Show webpage cache statistics.
      */
-    private function cmdPagesStats(array $args): int
+    private function cmdCacheStats(array $args): int
     {
-        $pageCache = $this->app->pageCache();
-        $stats = $pageCache->stats();
+        $webpageCache = $this->app->webpageCache();
+        $stats = $webpageCache->stats();
 
         $this->writeln('');
-        echo $this->color('  ─── Page Cache ', self::PRIMARY, self::BOLD);
-        echo $this->color(str_repeat('─', 41), self::PRIMARY, self::BOLD) . "\n";
+        echo $this->color('  ─── Webpage Cache ', self::PRIMARY, self::BOLD);
+        echo $this->color(str_repeat('─', 38), self::PRIMARY, self::BOLD) . "\n";
         $this->writeln('');
 
         $status = $stats['enabled']
@@ -1605,14 +1605,14 @@ ASCII;
 
         if (!$stats['enabled']) {
             $this->writeln('');
-            $this->tip("Enable page caching in app/config/ava.php: 'page_cache' => ['enabled' => true]");
+            $this->tip("Enable webpage caching in app/config/ava.php: 'webpage_cache' => ['enabled' => true]");
             $this->writeln('');
             return 0;
         }
 
         $this->keyValue('TTL', $stats['ttl'] ? $stats['ttl'] . ' seconds' : 'Forever (until cleared)');
         $this->writeln('');
-        $this->keyValue('Cached', $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' pages');
+        $this->keyValue('Cached', $this->color((string) $stats['count'], self::PRIMARY, self::BOLD) . ' webpages');
         $this->keyValue('Size', $this->formatBytes($stats['size']));
 
         if ($stats['oldest']) {
@@ -2273,9 +2273,9 @@ ASCII;
         $this->commandItem('make <type> "Title"', 'Create new content');
         $this->commandItem('prefix <add|remove> [type]', 'Toggle date prefixes');
 
-        $this->sectionHeader('Page Cache');
-        $this->commandItem('pages:stats (or pages)', 'View cache statistics');
-        $this->commandItem('pages:clear [pattern]', 'Clear cached pages');
+        $this->sectionHeader('Webpage Cache');
+        $this->commandItem('cache:stats (or cache)', 'View cache statistics');
+        $this->commandItem('cache:clear [pattern]', 'Clear cached webpages');
 
         $this->sectionHeader('Logs');
         $this->commandItem('logs:stats (or logs)', 'View log file statistics');
