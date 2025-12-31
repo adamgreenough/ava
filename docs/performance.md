@@ -1,326 +1,229 @@
 # Performance
 
-Ava is built for speed. Most sites load in under 10ms, and cached pages serve in under 1ms—faster than most static site generators.
+Ava is designed to be fast by default. Your content lives in Markdown files, but Ava builds a pre-processed index so it never parses those files on each request.
 
-## At a Glance
-
-| Posts | Archive Page | Single Post | Cached Page |
-|-------|--------------|-------------|-------------|
-| 100 | 3ms | 5ms | <1ms |
-| 1,000 | 3ms | 8ms | <1ms |
-| 10,000 | 3ms | 15ms | <1ms |
-
-**Archive pages stay fast at any scale** thanks to smart caching. Cached pages are served as static HTML with zero PHP processing.
+This page explains how Ava's performance works, compares the available backends, and helps you choose the right setup for your site.
 
 ---
 
-## How Ava Stays Fast
+## How Ava's Cache Works
 
-Ava uses two caching layers:
+When you run `./ava rebuild` (or when Ava auto-detects changes), it:
 
-| Layer | What it does | Speed |
-|-------|--------------|-------|
-| **Content Index** | Pre-parses all Markdown into a binary index | Avoids file parsing on every request |
-| **Page Cache** | Stores rendered HTML | Serves pages in <1ms |
+1. **Scans** all your Markdown files
+2. **Parses** frontmatter and extracts metadata
+3. **Builds** an optimized index for fast lookups
+4. **Stores** the index in your chosen backend format
 
-### Content Index
+When someone visits your site, Ava reads from this pre-built index. It never re-parses your content files on a request.
 
-When you run `./ava rebuild`, Ava scans all your Markdown files and builds a fast binary index. On each request, Ava reads from this index instead of parsing files.
+### The "Recent Cache" Optimization
 
-The index uses **tiered caching** to load only what's needed:
+Ava creates a special, small cache file (`recent_cache.bin`) containing just the latest 200 items of each content type.
 
-| Request Type | What Loads | Memory |
-|--------------|------------|--------|
-| Homepage / Archives | Recent cache (~51KB) | ~2MB |
-| Single post | Slug lookup (~900KB for 10k posts) | ~10MB |
-| Complex queries | Full index (~4.5MB for 10k posts) | ~35MB |
-
-This means archive pages stay fast regardless of how much content you have.
-
-### Page Cache
-
-After a page is rendered once, Ava saves the HTML to disk. Subsequent requests serve this static file directly—no template rendering, no database queries, no PHP processing.
-
-```php
-// In app/config/ava.php
-'page_cache' => [
-    'enabled' => true,
-    'ttl' => null,  // Cache until rebuild
-],
-```
-
-The page cache is cleared automatically when you rebuild the content index.
+- **Homepage & Recent Archives:** Ava loads *only* this small file (~50KB). This makes your most visited pages extremely fast (sub-millisecond) regardless of how many total posts you have.
+- **Deep Archives & Search:** If a user navigates to page 50 or searches for a term, Ava loads the full content index. This is where your choice of backend matters.
 
 ---
 
-## Scaling to 10,000+ Posts
+## Backend Options
 
-The default setup handles most sites beautifully. But if you're building something big—10,000+ posts—you have options.
+Ava supports three index configurations. The best choice depends on your content size and server setup.
 
-### The Challenge
+### 1. Array + igbinary (Recommended)
 
-With the default `array` backend, the full content index grows with your content:
+The default and best option for most sites. It uses [igbinary](https://github.com/igbinary/igbinary), a PHP extension that serializes data ~5× faster and ~9× smaller than standard PHP serialization.
 
-| Posts | Index Size | Memory to Load |
-|-------|------------|----------------|
-| 1,000 | 450KB | 4MB |
-| 10,000 | 4.5MB | 35MB |
-| 100,000 | 45MB | 323MB |
+- **Pros:** Fastest for almost all operations. Compact cache files.
+- **Cons:** Loads the full index into memory for deep archives or search.
+- **Requirement:** `igbinary` PHP extension (standard on most quality hosts).
 
-Archive pages and single posts stay fast (they use the tiered cache). But operations like `->count()`, deep pagination, or complex filters need the full index—and at 100k posts, that's 323MB of memory per request.
+### 2. Array + serialize (Fallback)
 
-### The Solution: SQLite Backend
+If `igbinary` isn't installed, Ava falls back to standard PHP `serialize()`.
 
-For large sites, Ava offers an optional SQLite backend. Instead of loading the entire index into memory, queries run against a SQLite database file.
+- **Pros:** Works everywhere with zero configuration.
+- **Cons:** Much larger cache files. Slower to load. Higher memory usage.
+- **Best for:** Local development or small sites (< 1,000 posts) where you can't install extensions.
 
-| Backend | How it works | Best for |
-|---------|--------------|----------|
-| `array` (default) | Loads index into PHP memory | Most sites (<10k posts) |
-| `sqlite` | Queries a SQLite database file | Large sites (10k+ posts) |
+### 3. SQLite
 
-**SQLite uses constant memory** regardless of content size—about 14MB whether you have 1,000 or 100,000 posts.
+Stores the index in a local SQLite database file. Instead of loading the whole index into memory, Ava runs SQL queries.
 
-### Benchmark Comparison
-
-Real benchmarks comparing both backends (tested on Hetzner Cloud VPS, 4 vCPU, 8GB RAM, PHP 8.3):
-
-| Posts | Operation | Array | SQLite | Winner |
-|-------|-----------|-------|--------|--------|
-| **1,000** | Count all | 2.5ms | 0.6ms | SQLite |
-| | Get by slug | 0.5ms | 0.5ms | Tie |
-| | List recent 10 | 0.3ms | 1.4ms | Array |
-| | Search | 9ms | 18ms | Array |
-| **10,000** | Count all | 54ms | 1.8ms | **SQLite** |
-| | Get by slug | 12ms | 0.6ms | **SQLite** |
-| | List recent 10 | 0.3ms | 9ms | Array |
-| | Search | 147ms | 340ms | Array |
-| **50,000** | Count all | 209ms | 5ms | **SQLite** |
-| | Get by slug | 59ms | 0.5ms | **SQLite** |
-| | List recent 10 | 0.1ms | 27ms | Array |
-| | Search | 663ms | 1646ms | Array |
-| **100,000** | Count all | 418ms | 9ms | **SQLite** |
-| | Get by slug | 91ms | 0.6ms | **SQLite** |
-| | List recent 10 | 0.2ms | 73ms | Array |
-| | Search | 1461ms | 3622ms | Array |
-
-**Key insights:**
-
-- **SQLite dominates** for counts, lookups, and filtered queries at 10k+ posts
-- **Array wins for archives** thanks to the tiered recent cache (~51KB, instant load)
-- **Search is faster on Array** because it loads everything into memory once
-- **SQLite memory is constant** (~0MB overhead) while Array scales with content
-- At 100k posts, Array uses ~18MB per full index load; SQLite stays near zero
-
-### Which Should You Use?
-
-| Your site | Recommendation |
-|-----------|----------------|
-| Under 5,000 posts | **Array** (default) — fast and simple |
-| 5,000–10,000 posts | Either works — Array is simpler |
-| 10,000+ posts | **SQLite** — faster queries, constant memory |
-| 100,000+ posts | **SQLite** (required) — Array may exceed memory limits |
-
-**Most sites should stick with the default.** Only switch to SQLite if you're hitting performance issues with large content.
-
-### Enabling SQLite
-
-1. Check that `pdo_sqlite` is installed:
-   ```bash
-   php -m | grep -i sqlite
-   ```
-
-2. Update your config:
-   ```php
-   // app/config/ava.php
-   'content_index' => [
-       'mode' => 'auto',
-       'backend' => 'sqlite',
-   ],
-   ```
-
-3. Rebuild the index:
-   ```bash
-   ./ava rebuild
-   ```
-
-That's it. Your theme code doesn't change—the Query API works identically with both backends.
+- **Pros:** Constant memory usage (~2MB) regardless of site size. Instant counts.
+- **Cons:** Slightly slower for complex pages. Requires `pdo_sqlite` extension.
+- **Best for:** Very large sites (10,000+ posts) or memory-constrained environments.
 
 ---
 
-## Optimizing Further
+## Benchmark Comparison
 
-### Install igbinary
+We tested all three backends with real content on a standard server.
 
-The `igbinary` extension makes the Array backend significantly faster:
+### 1,000 Posts
 
-| Metric | With igbinary | Without | Improvement |
-|--------|---------------|---------|-------------|
-| Index size (10k posts) | 4.5MB | 42MB | **9× smaller** |
-| Load time | 61ms | 422ms | **7× faster** |
-| Memory usage | 35MB | 229MB | **6.5× less** |
+| Operation | Array + igbinary | Array + serialize | SQLite |
+|-----------|------------------|-------------------|--------|
+| **Count all posts** | 2.5ms | 25ms | 0.6ms |
+| **Homepage** (Recent) | 0.1ms | 0.3ms | 1.5ms |
+| **Deep Archive** (Page 50) | 8ms | 33ms | 24ms |
+| **Sort by date** | 10ms | 29ms | 22ms |
+| **Sort by title** | 11ms | 33ms | 21ms |
+| **Search** | 8ms | 28ms | 29ms |
+| **Cache Size** | 0.6 MB | 4.4 MB | 1.2 MB |
 
-Install via your package manager:
-```bash
-# Ubuntu/Debian
-apt install php-igbinary
+### 10,000 Posts
 
-# macOS
-pecl install igbinary
-```
+| Operation | Array + igbinary | Array + serialize | SQLite |
+|-----------|------------------|-------------------|--------|
+| **Count all posts** | 37ms | 262ms | 1ms |
+| **Homepage** (Recent) | 0.2ms | 0.3ms | 6ms |
+| **Deep Archive** (Page 50) | 124ms | 350ms | 287ms |
+| **Sort by date** | 119ms | 349ms | 287ms |
+| **Sort by title** | 151ms | 363ms | 285ms |
+| **Search** | 106ms | 322ms | 266ms |
+| **Cache Size** | 5.3 MB | 43 MB | 12 MB |
 
-Ava auto-detects igbinary and uses it automatically.
+### 100,000 Posts
 
-### Production Settings
+| Operation | Array + igbinary | Array + serialize | SQLite |
+|-----------|------------------|-------------------|--------|
+| **Count all posts** | 448ms | 2.6s | 8ms |
+| **Homepage** (Recent) | 0.2ms | 0.5ms | 51ms |
+| **Deep Archive** (Page 50) | 1.7s | 4.1s | 4.2s |
+| **Sort by date** | 1.7s | 4.0s | 4.3s |
+| **Sort by title** | 2.1s | 4.1s | 4.3s |
+| **Search** | 1.5s | 3.7s | 4.5s |
+| **Cache Size** | 54 MB | 432 MB | 116 MB |
 
-For production sites, use these settings:
+<details>
+<summary><strong>Benchmark Environment & Methodology</strong></summary>
+
+**Environment:**
+- **OS:** Linux x86_64 (Ubuntu)
+- **PHP:** 8.3.29 (CLI) with OPcache
+- **Hardware:** Standard cloud instance
+
+**Methodology:**
+Benchmarks were run using the built-in Ava CLI tools.
+1. Content generated via `./ava stress:generate post <count>`
+2. Benchmarks run via `./ava benchmark --compare`
+3. Each test iterated 5 times, average result shown.
+</details>
+
+### Analysis
+
+- **Homepage:** Array backends are instant because they use the "Recent Cache" optimization. SQLite is slightly slower as it must query the database.
+- **Counts:** SQLite is the clear winner for counting items (e.g. `{{ count('post') }}`).
+- **Deep Archives:** Array + igbinary remains faster than SQLite even at 100k posts, *provided you have enough RAM* to load the 54MB index.
+- **Memory:** SQLite wins on memory. It stays at ~2MB usage, while Array backends load the full index size into RAM.
+
+### Why isn't SQLite faster?
+
+You might expect a database to be faster than a file-based array, but PHP's arrays are incredibly optimized in-memory structures.
+
+- **Array Backend:** Loads the *entire* dataset into RAM. Sorting and filtering happen instantly in memory.
+- **SQLite:** Must read from disk (or OS cache) and parse records.
+
+**The Catch:** The Array backend consumes memory *per concurrent request*.
+- 100k posts = ~54MB RAM.
+- 10 concurrent visitors = 540MB RAM.
+- 100 concurrent visitors = 5.4GB RAM.
+
+**SQLite** uses constant memory (~2MB). It won't be as fast for a single user, but it won't crash your server under load. A significant optimisation for high-traffic sites, sites that don't make extensive use of page caching, or memory-constrained servers.
+
+---
+
+## Which Should You Choose?
+
+### Small to Medium Sites (< 10,000 posts, low concurrent traffic)
+**Use Array + igbinary.** It's the fastest option. If your host doesn't have igbinary, ask them to enable it, or use the standard Array backend (it's still fine for smaller sites).
+
+### Large Sites (10,000 - 50,000 posts, moderate concurrent traffic)
+**Use Array + igbinary** if you have plenty of RAM (e.g. 512MB+) and low traffic with few concurrent users.
+**Use SQLite** if you are on a constrained server (e.g. 128MB RAM limit) or have high traffic with many concurrent users or searches.
+
+### Very Large Sites (50,000+ posts, high concurrent traffic)
+**Use SQLite + Page Caching.**
+
+1.  **Use SQLite** to ensure your server memory stays stable (avoiding Out-Of-Memory crashes).
+2.  **Enable Page Caching** to mask the slightly slower database queries.
+
+With Page Caching, the backend performance only matters for the *first* visitor to a page. Everyone else gets a static HTML file served in ~1ms, bypassing the database entirely.
+
+Without page caching, while Array + igbinary can technically be faster, loading a 50MB+ file on every request (for deep pages) will cause memory pressure on your server. SQLite's constant memory usage is safer and more stable in this case.
+
+---
+
+## Configuration
+
+Configure your backend in `app/config/ava.php`:
 
 ```php
 'content_index' => [
-    'mode' => 'never',  // Only rebuild via CLI
-],
+    // 'auto'   - Rebuild when content changes (recommended)
+    // 'never'  - Only rebuild via CLI (production)
+    'mode' => 'auto',
 
-'page_cache' => [
-    'enabled' => true,
-    'ttl' => null,      // Cache forever until rebuild
-],
-```
+    // 'array'  - Default, fastest for most sites
+    // 'sqlite' - For large sites / low memory
+    'backend' => 'array',
 
-Then rebuild after each deploy:
-```bash
-./ava rebuild
+    // Enable igbinary optimization (highly recommended)
+    'use_igbinary' => true,
+],
 ```
 
 ---
 
-## Page Cache Details
+## Page Caching
 
-### What Gets Cached
+For the ultimate performance, enable Ava's full page cache. This saves a static HTML copy of every page after the first visit.
 
-- ✅ Single pages and posts
-- ✅ Archive pages (paginated)
-- ✅ Taxonomy pages
-- ❌ Admin pages
-- ❌ URLs with query parameters
-- ❌ Logged-in admin users
-- ❌ POST requests
+- **First visit:** ~50ms (renders template)
+- **Subsequent visits:** ~1ms (serves static file)
 
-### Per-Page Override
+```php
+// app/config/ava.php
+'page_cache' => [
+    'enabled' => true,
+    'ttl' => null, // Cache until next rebuild
+],
+```
 
-Disable caching for specific pages:
+This bypasses the content index entirely for most visitors.
+
+### Per-Page Control
+
+You can override the global setting for individual pages using the `cache` field in your frontmatter:
 
 ```yaml
 ---
-title: Contact Form
+title: Dynamic Page
 cache: false
 ---
 ```
 
-### CLI Commands
-
-```bash
-./ava status           # Shows cache status
-./ava pages:stats      # Detailed cache statistics
-./ava pages:clear      # Clear all cached pages
-./ava pages:clear /blog/*  # Clear matching pattern
-```
-
-### Cache Invalidation
-
-The page cache is cleared when:
-- You run `./ava rebuild`
-- Content changes (with `mode: 'auto'`)
-- You click "Rebuild Now" or "Flush Pages" in admin
-
----
-
-## Content Index Configuration
-
-### Rebuild Mode
-
-```php
-'content_index' => [
-    'mode' => 'auto',
-],
-```
-
-| Mode | Behavior | Best for |
-|------|----------|----------|
-| `auto` | Rebuilds when files change | Development |
-| `never` | Only via `./ava rebuild` | Production |
-| `always` | Every request | Debugging only |
-
-### Backend
-
-```php
-'content_index' => [
-    'backend' => 'array',  // or 'sqlite'
-],
-```
-
-| Backend | Storage | Best for |
-|---------|---------|----------|
-| `array` | Binary PHP files | Most sites (default) |
-| `sqlite` | SQLite database | Large sites (10k+) |
+- `cache: false` — Disables caching for this page, even if globally enabled. Useful for pages with random content or dynamic logic.
+- `cache: true` — Forces caching for this page (if global caching is enabled), even if it would normally be excluded (e.g. by an exclude pattern).
 
 ---
 
 ## Running Your Own Benchmarks
 
-Test performance with generated content:
+You can test performance on your own server using the built-in CLI command.
 
-```bash
-# Generate 10,000 test posts
-./ava stress:generate post 10000
+1. **Generate test content:**
+   ```bash
+   ./ava stress:generate post 5000
+   ```
 
-# Compare backends
-./ava stress:benchmark
+2. **Run the benchmark:**
+   ```bash
+   ./ava benchmark --compare
+   ```
 
-# Clean up
-./ava stress:clean post
-```
-
-### Full Benchmark Reference
-
-| Posts | Rebuild | Index Size | SQLite Size | Array Memory |
-|-------|---------|------------|-------------|--------------|
-| 1,000 | 244ms | 594KB | 1.2MB | 2MB |
-| 10,000 | 2.6s | 5.2MB | 11.4MB | 6MB |
-| 50,000 | 14s | 26.9MB | 57.8MB | 10MB |
-| 100,000 | 28s | 54MB | 116MB | 18MB |
-
-**Cache file sizes include:** `content_index.bin`, `slug_lookup.bin`, and `recent_cache.bin`.
-
-*Tested on Hetzner Cloud VPS (4 vCPU, 8GB RAM), PHP 8.3, igbinary enabled.*
-
----
-
-## Troubleshooting
-
-### Pages not being cached
-
-1. Run `./ava status` to check if caching is enabled
-2. Log out of admin (admin users bypass cache)
-3. Check if URL has query parameters
-4. Check `exclude` patterns in config
-
-### Content changes not appearing
-
-1. If `mode: 'never'`, run `./ava rebuild`
-2. Delete `storage/cache/fingerprint.json` to force rebuild
-3. Run `./ava rebuild`
-
-### SQLite errors
-
-If you set `backend: 'sqlite'` but get errors:
-
-1. Check if `pdo_sqlite` is installed: `php -m | grep -i sqlite`
-2. Install it: `apt install php-sqlite3` (Linux) or `pecl install pdo_sqlite` (macOS)
-3. Or switch back to `backend: 'array'`
-
-### Out of memory errors
-
-If you're hitting memory limits with large content:
-
-1. Switch to `backend: 'sqlite'` (constant memory usage)
-2. Or install `igbinary` to reduce Array backend memory
-3. Or increase PHP's `memory_limit`
+3. **Clean up:**
+   ```bash
+   ./ava stress:clean post
+   ```

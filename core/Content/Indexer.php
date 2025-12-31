@@ -26,10 +26,18 @@ final class Indexer
     /** @var array<string, string> Track IDs during indexing */
     private array $seenIds = [];
 
-    public function __construct(Application $app)
+    /** @var string|null Override backend for benchmark comparison */
+    private ?string $backendOverride = null;
+
+    /** @var bool|null Override igbinary setting for benchmark comparison */
+    private ?bool $igbinaryOverride = null;
+
+    public function __construct(Application $app, ?string $backendOverride = null, ?bool $igbinaryOverride = null)
     {
         $this->app = $app;
         $this->parser = new Parser();
+        $this->backendOverride = $backendOverride;
+        $this->igbinaryOverride = $igbinaryOverride;
     }
 
     /**
@@ -81,8 +89,8 @@ final class Indexer
         $slugLookup = $this->buildSlugLookup($allItems);
         $fingerprint = $this->computeFingerprint();
 
-        // Determine which backend to build
-        $backendConfig = $this->app->config('content_index.backend', 'array');
+        // Determine which backend to build (use override if set, otherwise config)
+        $backendConfig = $this->backendOverride ?? $this->app->config('content_index.backend', 'array');
 
         // Always write shared cache files (used by both backends)
         $this->writeBinaryCacheFile('tax_index.bin', $taxIndex);
@@ -705,7 +713,7 @@ final class Indexer
 
     /**
      * Write a binary cache file atomically.
-     * Uses igbinary if available (faster, smaller), otherwise PHP serialize.
+     * Uses igbinary if available and enabled (faster, smaller), otherwise PHP serialize.
      * Adds a format marker prefix for reliable deserialization.
      */
     private function writeBinaryCacheFile(string $filename, array $data): void
@@ -718,9 +726,12 @@ final class Indexer
         $targetPath = $cachePath . '/' . $filename;
         $tmpPath = $cachePath . '/.' . $filename . '.tmp';
 
-        // Use igbinary if available (faster and smaller), otherwise serialize
+        // Check if igbinary is enabled (use override if set, otherwise config)
+        $useIgbinary = $this->igbinaryOverride ?? $this->app->config('content_index.use_igbinary', true);
+
+        // Use igbinary if available AND enabled (faster and smaller), otherwise serialize
         // Prefix with format marker: "IG:" for igbinary, "SZ:" for serialize
-        if (extension_loaded('igbinary')) {
+        if ($useIgbinary && extension_loaded('igbinary')) {
             /** @var callable $serialize */
             $serialize = 'igbinary_serialize';
             $content = "IG:" . $serialize($data);

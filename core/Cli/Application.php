@@ -108,9 +108,10 @@ ASCII;
         $this->commands['prefix'] = [$this, 'cmdPrefix'];
         $this->commands['pages:clear'] = [$this, 'cmdPagesClear'];
         $this->commands['pages:stats'] = [$this, 'cmdPagesStats'];
+        $this->commands['benchmark'] = [$this, 'cmdBenchmark'];
         $this->commands['stress:generate'] = [$this, 'cmdStressGenerate'];
         $this->commands['stress:clean'] = [$this, 'cmdStressClean'];
-        $this->commands['stress:benchmark'] = [$this, 'cmdStressBenchmark'];
+        $this->commands['stress:benchmark'] = [$this, 'cmdBenchmark']; // Alias for benchmark
         $this->commands['user:add'] = [$this, 'cmdUserAdd'];
         $this->commands['user:password'] = [$this, 'cmdUserPassword'];
         $this->commands['user:remove'] = [$this, 'cmdUserRemove'];
@@ -1128,15 +1129,51 @@ ASCII;
     }
 
     /**
-     * Benchmark content index backends.
+     * Benchmark content index performance.
+     *
+     * Tests current backend or compares all available backends.
+     * Use --compare to test all backends side-by-side.
      */
-    private function cmdStressBenchmark(array $args): int
+    private function cmdBenchmark(array $args): int
     {
+        $this->showBanner();
         $this->writeln('');
-        $this->sectionHeader('Content Index Backend Benchmark');
+        echo $this->color('  v' . AVA_VERSION, self::DIM) . "\n";
+        $this->sectionHeader('Performance Benchmark');
 
-        // Get current content count
+        // Parse arguments
+        $iterations = 5;
+        $compareMode = false;
+        foreach ($args as $arg) {
+            if (str_starts_with($arg, '--iterations=')) {
+                $iterations = max(1, (int) substr($arg, 13));
+            }
+            if ($arg === '--compare') {
+                $compareMode = true;
+            }
+            if ($arg === '--help' || $arg === '-h') {
+                $this->writeln('  ' . $this->color('Usage:', self::BOLD) . ' ./ava benchmark [options]');
+                $this->writeln('');
+                $this->writeln('  ' . $this->color('Options:', self::BOLD));
+                $this->writeln('    --compare         Compare all available backends');
+                $this->writeln('    --iterations=N    Number of test iterations (default: 5)');
+                $this->writeln('');
+                $this->writeln('  ' . $this->color('Examples:', self::BOLD));
+                $this->writeln('    ./ava benchmark              Test current backend');
+                $this->writeln('    ./ava benchmark --compare    Compare array vs sqlite');
+                $this->writeln('');
+                return 0;
+            }
+        }
+
+        // Get current configuration
         $repository = $this->app->repository();
+        $currentBackend = $this->app->config('content_index.backend', 'array');
+        $useIgbinary = $this->app->config('content_index.use_igbinary', true);
+        $igbinaryAvailable = extension_loaded('igbinary');
+        $igbinaryActive = $useIgbinary && $igbinaryAvailable && $currentBackend === 'array';
+
+        // Get content counts
         $totalItems = 0;
         $itemsByType = [];
         foreach ($repository->types() as $type) {
@@ -1146,199 +1183,230 @@ ASCII;
         }
 
         if ($totalItems === 0) {
-            $this->error('No content found. Generate some with: ./ava stress:generate post 1000');
+            $this->error('No content found. Generate test content with:');
+            $this->writeln('');
+            $this->writeln('    ' . $this->color('./ava stress:generate post 1000', self::BRIGHT_CYAN));
             $this->writeln('');
             return 1;
         }
 
-        $this->keyValue('Total items', $this->color((string) $totalItems, self::CYAN, self::BOLD));
+        // Display configuration
+        $this->keyValue('Content', $this->color(number_format($totalItems), self::BOLD) . ' items');
         foreach ($itemsByType as $type => $count) {
-            $this->keyValue("  {$type}", (string) $count);
+            $this->writeln('              ' . $type . ': ' . $count);
         }
         $this->writeln('');
 
-        // Check available backends
-        $backends = ['array'];
-        if (extension_loaded('pdo_sqlite')) {
-            $sqlitePath = $this->app->configPath('storage') . '/cache/content_index.sqlite';
-            if (file_exists($sqlitePath)) {
-                $backends[] = 'sqlite';
+        $backendDisplay = $currentBackend;
+        if ($currentBackend === 'array') {
+            if ($igbinaryActive) {
+                $backendDisplay .= ' + igbinary';
             } else {
-                $this->writeln('  ' . $this->color('ℹ', self::YELLOW) . ' SQLite backend not available. Run ./ava rebuild first.');
-                $this->writeln('');
+                $backendDisplay .= ' + serialize';
             }
         }
+        $this->keyValue('Backend', $this->color($backendDisplay, self::CYAN, self::BOLD));
 
-        // Parse arguments
-        $iterations = 5;
-        $selectedBackend = null;
-        foreach ($args as $arg) {
-            if (str_starts_with($arg, '--iterations=')) {
-                $iterations = (int) substr($arg, 13);
-            }
-            if (str_starts_with($arg, '--backend=')) {
-                $selectedBackend = substr($arg, 10);
-            }
+        if ($currentBackend === 'array') {
+            $igStatus = $igbinaryAvailable
+                ? ($useIgbinary ? $this->color('enabled', self::GREEN) : $this->color('disabled in config', self::YELLOW))
+                : $this->color('not installed', self::DIM);
+            $this->keyValue('igbinary', $igStatus);
         }
 
-        if ($selectedBackend !== null) {
-            $backends = [$selectedBackend];
-        }
-
-        $this->writeln('  Running ' . $this->color((string) $iterations, self::CYAN) . ' iterations per test...');
+        $this->keyValue('Iterations', (string) $iterations);
         $this->writeln('');
+
+        // Determine backends to test
+        $backends = [];
+        if ($compareMode) {
+            $backends[] = ['name' => 'array', 'igbinary' => true, 'label' => 'Array+igbinary'];
+            $backends[] = ['name' => 'array', 'igbinary' => false, 'label' => 'Array+serialize'];
+            if (extension_loaded('pdo_sqlite')) {
+                $backends[] = ['name' => 'sqlite', 'igbinary' => null, 'label' => 'SQLite'];
+            }
+        } else {
+            $backends[] = [
+                'name' => $currentBackend,
+                'igbinary' => $useIgbinary,
+                'label' => $backendDisplay,
+            ];
+        }
+
+        // Check if we need to rebuild for comparison
+        if ($compareMode) {
+            $this->writeln('  ' . $this->color('ℹ', self::CYAN) . ' Comparison mode requires rebuilding indexes for each backend.');
+            $this->writeln('    This may take a moment for large sites.');
+            $this->writeln('');
+        }
 
         $results = [];
 
-        foreach ($backends as $backend) {
-            $this->writeln('  ' . $this->color("Testing {$backend} backend...", self::BOLD));
+        foreach ($backends as $backendConfig) {
+            $backendName = $backendConfig['name'];
+            $igbinaryEnabled = $backendConfig['igbinary'];
+            $label = $backendConfig['label'];
+
+            $this->writeln('  Testing ' . $this->color($label, self::BOLD) . '...');
+
+            // In compare mode, rebuild with specific config
+            if ($compareMode) {
+                $indexer = new \Ava\Content\Indexer($this->app);
+
+                // Temporarily override config for rebuild
+                if ($backendName === 'array') {
+                    // We need to rebuild with specific igbinary setting
+                    // This is a bit hacky but necessary for fair comparison
+                    $this->rebuildWithConfig($backendName, $igbinaryEnabled);
+                } elseif ($backendName === 'sqlite') {
+                    $this->rebuildWithConfig($backendName, null);
+                }
+            }
 
             // Force backend selection
-            $repository->setBackendOverride($backend);
+            $repository->setBackendOverride($backendName);
             $repository->clearCache();
 
             $tests = [
-                'Count (all)' => fn() => $repository->count('post'),
-                'Count (published)' => fn() => $repository->count('post', 'published'),
-                'Get by slug' => fn() => $repository->getFromIndex('post', '_dummy-1-' . substr(md5('1'), 0, 8)),
-                'List recent (page 1)' => fn() => $repository->getRecentItems('post', 1, 10),
-                'List recent (page 10)' => fn() => $repository->getRecentItems('post', 10, 10),
-                'Search (title)' => fn() => (new \Ava\Content\Query($this->app))->type('post')->search('lorem')->perPage(10)->get(),
-                'All types' => fn() => $repository->types(),
+                'Count' => fn() => $repository->count('post'),
+                'Get by slug' => fn() => $repository->getFromIndex('post', array_key_first($repository->allRaw('post')) ?? 'test'),
+                'Recent (page 1)' => fn() => $repository->getRecentItems('post', 1, 10),
+                'Archive (page 50)' => fn() => (new \Ava\Content\Query($this->app))->type('post')->orderBy('date', 'desc')->perPage(10)->page(50)->get(),
+                'Sort by date' => fn() => (new \Ava\Content\Query($this->app))->type('post')->orderBy('date', 'asc')->perPage(10)->get(),
+                'Sort by title' => fn() => (new \Ava\Content\Query($this->app))->type('post')->orderBy('title', 'asc')->perPage(10)->get(),
+                'Search' => fn() => (new \Ava\Content\Query($this->app))->type('post')->search('lorem')->perPage(10)->get(),
             ];
 
-            $results[$backend] = [];
+            $results[$label] = [];
 
             foreach ($tests as $testName => $testFn) {
                 $times = [];
 
                 // Warm up
-                $testFn();
+                try {
+                    $testFn();
+                } catch (\Throwable $e) {
+                    // Skip if test fails (e.g., no content)
+                    continue;
+                }
                 $repository->clearCache();
 
                 for ($i = 0; $i < $iterations; $i++) {
                     $start = hrtime(true);
                     $testFn();
                     $end = hrtime(true);
-                    $times[] = ($end - $start) / 1_000_000; // Convert to ms
-
-                    // Clear cache between iterations for fair comparison
+                    $times[] = ($end - $start) / 1_000_000;
                     $repository->clearCache();
                 }
 
                 $avg = array_sum($times) / count($times);
-                $min = min($times);
-                $max = max($times);
-                $results[$backend][$testName] = [
-                    'avg' => $avg,
-                    'min' => $min,
-                    'max' => $max,
-                ];
+                $results[$label][$testName] = $avg;
+            }
+
+            // Memory test
+            $repository->clearCache();
+            $memBefore = memory_get_usage(false);
+            $repository->allRaw('post');
+            $memAfter = memory_get_usage(false);
+            $results[$label]['_memory'] = max(0, $memAfter - $memBefore);
+
+            // Cache size
+            $cachePath = $this->app->configPath('storage') . '/cache';
+            if ($backendName === 'sqlite') {
+                $sqlitePath = $cachePath . '/content_index.sqlite';
+                $results[$label]['_cache_size'] = file_exists($sqlitePath) ? filesize($sqlitePath) : 0;
+            } else {
+                $size = 0;
+                foreach (['content_index.bin', 'slug_lookup.bin', 'recent_cache.bin'] as $file) {
+                    $path = $cachePath . '/' . $file;
+                    if (file_exists($path)) {
+                        $size += filesize($path);
+                    }
+                }
+                $results[$label]['_cache_size'] = $size;
             }
         }
 
-        // Reset backend override
+        // Reset
         $repository->setBackendOverride(null);
         $repository->clearCache();
 
-        // Display results table
+        // Restore original config if we were comparing
+        if ($compareMode) {
+            $this->rebuildWithConfig($currentBackend, $useIgbinary);
+        }
+
+        // Display results
         $this->writeln('');
-        echo $this->color('  ─── Results (avg ms) ', self::CYAN, self::BOLD);
-        echo $this->color(str_repeat('─', 36), self::DIM) . "\n";
+        echo $this->color('  ─── Results ', self::CYAN, self::BOLD);
+        echo $this->color(str_repeat('─', 45), self::DIM) . "\n";
         $this->writeln('');
+
+        $backendLabels = array_keys($results);
+        $testNames = ['Count', 'Get by slug', 'Recent (page 1)', 'Archive (page 50)', 'Sort by date', 'Sort by title', 'Search'];
 
         // Header
-        $header = str_pad('Test', 25);
-        foreach ($backends as $backend) {
-            $header .= str_pad(ucfirst($backend), 12);
+        $header = str_pad('Test', 20);
+        foreach ($backendLabels as $label) {
+            $header .= str_pad($label, 18);
         }
-        if (count($backends) === 2) {
-            $header .= 'Winner';
-        }
-        $this->writeln('  ' . $this->color($header, self::DIM));
-        $this->writeln('  ' . str_repeat('─', 55));
+        $this->writeln('  ' . $this->color($header, self::BOLD));
+        $this->writeln('  ' . str_repeat('─', 20 + 18 * count($backendLabels)));
 
         // Rows
-        $firstBackend = $backends[0];
-        $testNames = array_keys($results[$firstBackend]);
-
         foreach ($testNames as $testName) {
-            $row = str_pad($testName, 25);
-            $times = [];
+            $row = str_pad($testName, 20);
+            $values = [];
 
-            foreach ($backends as $backend) {
-                $avg = $results[$backend][$testName]['avg'];
-                $times[$backend] = $avg;
-                $formatted = sprintf('%.2f', $avg);
-                $row .= str_pad($formatted . 'ms', 12);
-            }
-
-            // Determine winner if comparing two backends
-            if (count($backends) === 2) {
-                $arrayTime = $times['array'] ?? 0;
-                $sqliteTime = $times['sqlite'] ?? 0;
-
-                if ($arrayTime < $sqliteTime * 0.9) {
-                    $row .= $this->color('Array', self::GREEN);
-                } elseif ($sqliteTime < $arrayTime * 0.9) {
-                    $row .= $this->color('SQLite', self::CYAN);
-                } else {
-                    $row .= $this->color('Tie', self::DIM);
-                }
+            foreach ($backendLabels as $label) {
+                $avg = $results[$label][$testName] ?? 0;
+                $values[$label] = $avg;
+                $formatted = $avg < 1 ? sprintf('%.2fms', $avg) : sprintf('%.1fms', $avg);
+                $row .= str_pad($formatted, 18);
             }
 
             $this->writeln('  ' . $row);
         }
 
-        // Memory usage
-        $this->writeln('');
-        $this->writeln('  ' . $this->color('Memory usage:', self::DIM));
-        foreach ($backends as $backend) {
-            $repository->setBackendOverride($backend);
-            $repository->clearCache();
+        // Memory and cache size
+        $this->writeln('  ' . str_repeat('─', 20 + 18 * count($backendLabels)));
 
-            $memBefore = memory_get_usage(true);
-            $repository->allRaw('post'); // Force full load
-            $memAfter = memory_get_usage(true);
-
-            $memUsed = $memAfter - $memBefore;
-            $this->writeln('    ' . ucfirst($backend) . ': ' . $this->formatBytes($memUsed));
+        $memRow = str_pad('Memory', 20);
+        foreach ($backendLabels as $label) {
+            $memRow .= str_pad($this->formatBytes($results[$label]['_memory']), 18);
         }
+        $this->writeln('  ' . $memRow);
 
-        $repository->setBackendOverride(null);
-
-        // Cache file sizes
-        $this->writeln('');
-        $this->writeln('  ' . $this->color('Cache sizes:', self::DIM));
-
-        $cachePath = $this->app->configPath('storage') . '/cache';
-        $arrayFiles = ['content_index.bin', 'slug_lookup.bin', 'recent_cache.bin'];
-        $arraySize = 0;
-        foreach ($arrayFiles as $file) {
-            $path = $cachePath . '/' . $file;
-            if (file_exists($path)) {
-                $arraySize += filesize($path);
-            }
+        $cacheRow = str_pad('Cache size', 20);
+        foreach ($backendLabels as $label) {
+            $cacheRow .= str_pad($this->formatBytes($results[$label]['_cache_size']), 18);
         }
-        $this->writeln('    Array: ' . $this->formatBytes($arraySize));
-
-        $sqlitePath = $cachePath . '/content_index.sqlite';
-        if (file_exists($sqlitePath)) {
-            $this->writeln('    SQLite: ' . $this->formatBytes(filesize($sqlitePath)));
-        }
+        $this->writeln('  ' . $cacheRow);
 
         $this->writeln('');
-        $this->writeln('  ' . $this->color('Recommendation:', self::BOLD));
-        if ($totalItems < 1000) {
-            $this->writeln('    Use ' . $this->color('array', self::GREEN) . ' backend (default) for sites with <1000 items.');
-        } elseif ($totalItems < 10000) {
-            $this->writeln('    Both backends perform similarly. Array has slight edge for cache locality.');
-        } else {
-            $this->writeln('    Use ' . $this->color('sqlite', self::CYAN) . ' backend for 10k+ items (constant memory, faster queries).');
+
+        if (!$compareMode) {
+            $this->writeln('  ' . $this->color('💡 Tip:', self::YELLOW) . ' Run with ' . $this->color('--compare', self::CYAN) . ' to test all backends.');
         }
 
+        $this->writeln('  ' . $this->color('📚 Docs:', self::BLUE) . ' https://ava.addy.zone/#/performance');
         $this->writeln('');
+
         return 0;
+    }
+
+    /**
+     * Rebuild index with specific backend configuration.
+     */
+    private function rebuildWithConfig(string $backend, ?bool $useIgbinary): void
+    {
+        // This is a helper for benchmark comparison mode
+        // We temporarily override the config for the indexer
+        $configPath = $this->app->configPath('storage') . '/cache';
+
+        // Create a temporary indexer with overridden settings
+        $indexer = new \Ava\Content\Indexer($this->app, $backend, $useIgbinary);
+        $indexer->rebuild();
     }
 
     /**

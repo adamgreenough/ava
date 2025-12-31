@@ -146,7 +146,8 @@ foreach ($posts as $post) {
 | `orderBy(field, dir)` | Sort results | `->orderBy('date', 'desc')` |
 | `perPage(int)` | Items per page (max 100) | `->perPage(10)` |
 | `page(int)` | Current page number | `->page(2)` |
-| `search(string)` | Full-text search | `->search('php tutorial')` |
+| `search(string)` | Full-text search with relevance scoring | `->search('php tutorial')` |
+| `searchWeights(array)` | Override search weights | `->searchWeights(['title_phrase' => 100])` |
 
 #### Query Result Methods
 

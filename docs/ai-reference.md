@@ -329,16 +329,35 @@ $query->hasMore(); // Has more pages
 ```
 
 **Query methods:**
-- `->type(string)` — Filter by content type
+- `->type(string)` — Filter by content type (auto-loads search config)
 - `->published()` — Only published items
 - `->where(string $field, mixed $value)` — Filter by field
 - `->whereTax(string $taxonomy, string|array $terms)` — Filter by taxonomy
+- `->search(string $query)` — Full-text search with relevance scoring
+- `->searchWeights(array $weights)` — Override search weights (see below)
 - `->orderBy(string $field, string $dir = 'asc')` — Sort results
 - `->perPage(int)` — Results per page
 - `->page(int)` — Current page number
 - `->limit(int)` — Limit results
 - `->offset(int)` — Skip results
 - `->get()` — Execute and return Query object
+
+**Search Weights:**
+Content types can define search scoring in `content_types.php`:
+```php
+'search' => [
+    'fields' => ['title', 'excerpt', 'body'],
+    'weights' => [
+        'title_phrase' => 80,    // Exact phrase in title
+        'title_token' => 10,     // Per-word in title (max 30)
+        'excerpt_phrase' => 30,  // Exact phrase in excerpt
+        'body_phrase' => 20,     // Exact phrase in body
+        'featured' => 15,        // Featured item boost
+    ],
+],
+```
+
+Override per-query: `->searchWeights(['title_phrase' => 100, 'body_phrase' => 50])`
 
 **Performance:** Query operates on raw arrays from cache until the final `get()` call, then hydrates only the paginated results into Item objects.
 

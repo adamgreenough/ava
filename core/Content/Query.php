@@ -28,6 +28,7 @@ final class Query
     private int $perPage = 10;
     private int $page = 1;
     private ?string $search = null;
+    private ?array $searchWeights = null;
 
     // Results cache
     private ?array $results = null;
@@ -45,13 +46,46 @@ final class Query
 
     /**
      * Filter by content type.
+     * 
+     * Also auto-loads search weights from content type config if defined.
      */
     public function type(string $type): self
     {
         $clone = clone $this;
         $clone->type = $type;
         $clone->results = null;
+        
+        // Auto-load search config from content type if not already set
+        if ($clone->searchWeights === null) {
+            $searchConfig = $clone->getContentTypeSearchConfig($type);
+            if (!empty($searchConfig)) {
+                $weights = $searchConfig['weights'] ?? [];
+                // Add configured fields to search
+                if (!empty($searchConfig['fields'])) {
+                    $weights['fields'] = $searchConfig['fields'];
+                }
+                if (!empty($weights)) {
+                    $clone->searchWeights = $weights;
+                }
+            }
+        }
+        
         return $clone;
+    }
+
+    /**
+     * Get search config for a content type.
+     */
+    private function getContentTypeSearchConfig(string $type): array
+    {
+        static $contentTypes = null;
+        
+        if ($contentTypes === null) {
+            $path = $this->app->path('app/config/content_types.php');
+            $contentTypes = file_exists($path) ? require $path : [];
+        }
+        
+        return $contentTypes[$type]['search'] ?? [];
     }
 
     /**
@@ -136,6 +170,32 @@ final class Query
     {
         $clone = clone $this;
         $clone->search = trim($query);
+        $clone->results = null;
+        return $clone;
+    }
+
+    /**
+     * Set custom search weights.
+     * 
+     * Weights control how different matches affect result scoring.
+     * Higher weights mean more relevance for that match type.
+     * 
+     * @param array $weights Associative array with keys:
+     *   - title_phrase: Exact phrase match in title (default: 80)
+     *   - title_all_tokens: All search tokens in title (default: 40)
+     *   - title_token: Per-token match in title (default: 10, max 30)
+     *   - excerpt_phrase: Exact phrase match in excerpt (default: 30)
+     *   - excerpt_token: Per-token match in excerpt (default: 3, max 15)
+     *   - body_phrase: Exact phrase match in body (default: 20)
+     *   - body_token: Per-token match in body (default: 2, max 10)
+     *   - featured: Bonus for featured items (default: 15)
+     *   - fields: Array of meta field names to search (default: [])
+     *   - field_weight: Weight per field match (default: 5)
+     */
+    public function searchWeights(array $weights): self
+    {
+        $clone = clone $this;
+        $clone->searchWeights = $weights;
         $clone->results = null;
         return $clone;
     }
@@ -492,13 +552,31 @@ final class Query
         $score = 0;
         $title = strtolower($data['title'] ?? '');
         $excerpt = strtolower($data['meta']['excerpt'] ?? $data['excerpt'] ?? '');
+        $body = strtolower($data['body'] ?? $data['meta']['body'] ?? '');
 
-        // Title phrase match: +80
-        if (str_contains($title, $phrase)) {
-            $score += 80;
+        // Get weights with defaults
+        $w = array_merge([
+            'title_phrase' => 80,
+            'title_all_tokens' => 40,
+            'title_token' => 10,
+            'title_token_max' => 30,
+            'excerpt_phrase' => 30,
+            'excerpt_token' => 3,
+            'excerpt_token_max' => 15,
+            'body_phrase' => 20,
+            'body_token' => 2,
+            'body_token_max' => 10,
+            'featured' => 15,
+            'fields' => [],
+            'field_weight' => 5,
+        ], $this->searchWeights ?? []);
+
+        // Title phrase match
+        if ($w['title_phrase'] > 0 && str_contains($title, $phrase)) {
+            $score += $w['title_phrase'];
         }
 
-        // Title contains all tokens: +40
+        // Title contains all tokens
         $allInTitle = true;
         $tokenHits = 0;
         foreach ($tokens as $token) {
@@ -508,30 +586,66 @@ final class Query
                 $allInTitle = false;
             }
         }
-        if ($allInTitle && count($tokens) > 1) {
-            $score += 40;
+        if ($allInTitle && count($tokens) > 1 && $w['title_all_tokens'] > 0) {
+            $score += $w['title_all_tokens'];
         }
 
-        // Title token hits: +10 each (cap +30)
-        $score += min(30, $tokenHits * 10);
-
-        // Excerpt phrase match: +30
-        if (str_contains($excerpt, $phrase)) {
-            $score += 30;
+        // Title token hits
+        if ($w['title_token'] > 0) {
+            $score += min($w['title_token_max'], $tokenHits * $w['title_token']);
         }
 
-        // Excerpt token hits: +3 each (cap +15)
-        $excerptHits = 0;
-        foreach ($tokens as $token) {
-            if (str_contains($excerpt, $token)) {
-                $excerptHits++;
+        // Excerpt phrase match
+        if ($w['excerpt_phrase'] > 0 && str_contains($excerpt, $phrase)) {
+            $score += $w['excerpt_phrase'];
+        }
+
+        // Excerpt token hits
+        if ($w['excerpt_token'] > 0) {
+            $excerptHits = 0;
+            foreach ($tokens as $token) {
+                if (str_contains($excerpt, $token)) {
+                    $excerptHits++;
+                }
+            }
+            $score += min($w['excerpt_token_max'], $excerptHits * $w['excerpt_token']);
+        }
+
+        // Body phrase match
+        if ($w['body_phrase'] > 0 && str_contains($body, $phrase)) {
+            $score += $w['body_phrase'];
+        }
+
+        // Body token hits
+        if ($w['body_token'] > 0) {
+            $bodyHits = 0;
+            foreach ($tokens as $token) {
+                if (str_contains($body, $token)) {
+                    $bodyHits++;
+                }
+            }
+            $score += min($w['body_token_max'], $bodyHits * $w['body_token']);
+        }
+
+        // Custom field matches
+        if (!empty($w['fields'])) {
+            $meta = $data['meta'] ?? [];
+            foreach ($w['fields'] as $field) {
+                $value = strtolower((string) ($meta[$field] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                foreach ($tokens as $token) {
+                    if (str_contains($value, $token)) {
+                        $score += $w['field_weight'];
+                    }
+                }
             }
         }
-        $score += min(15, $excerptHits * 3);
 
-        // Featured boost: +15
-        if (!empty($data['meta']['featured']) || !empty($data['featured'])) {
-            $score += 15;
+        // Featured boost
+        if ($w['featured'] > 0 && (!empty($data['meta']['featured']) || !empty($data['featured']))) {
+            $score += $w['featured'];
         }
 
         return $score;

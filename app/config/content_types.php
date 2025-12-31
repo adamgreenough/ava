@@ -27,6 +27,10 @@ return [
         'taxonomies' => [],              // Pages don't use categories/tags by default
         'fields' => [],                  // Custom fields (see docs)
         'sorting' => 'manual',           // No automatic sorting
+        'search' => [
+            'enabled' => true,
+            'fields' => ['title', 'body'],
+        ],
     ],
 
     // Posts - dated content with pattern-based URLs
@@ -46,9 +50,25 @@ return [
         'taxonomies' => ['category', 'tag'],  // Enable categories and tags
         'fields' => [],                  // Custom fields (see docs)
         'sorting' => 'date_desc',        // Newest first
+        
+        // Search configuration
+        // Weights control how different matches affect result ranking.
+        // Higher weights = more relevance. Set to 0 to disable that match type.
         'search' => [
             'enabled' => true,
             'fields' => ['title', 'excerpt', 'body'],
+            // Optional: Custom weights (these are the defaults)
+            // 'weights' => [
+            //     'title_phrase' => 80,      // Exact phrase match in title
+            //     'title_all_tokens' => 40,  // All search words found in title
+            //     'title_token' => 10,       // Per-word match in title (max 30)
+            //     'excerpt_phrase' => 30,    // Exact phrase match in excerpt
+            //     'excerpt_token' => 3,      // Per-word match in excerpt (max 15)
+            //     'body_phrase' => 20,       // Exact phrase match in body
+            //     'body_token' => 2,         // Per-word match in body (max 10)
+            //     'featured' => 15,          // Boost for featured items
+            //     'field_weight' => 5,       // Per custom field match
+            // ],
         ],
         // Optional: Extra fields to include in the recent cache for archive listings.
         // By default only id, slug, title, date, status, excerpt, and taxonomies are cached.

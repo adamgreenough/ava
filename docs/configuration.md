@@ -277,6 +277,7 @@ return [
 | `templates.archive` | string | Template for archive/listing pages |
 | `taxonomies` | array | Which taxonomies apply to this type |
 | `sorting` | string | Default sort: `'date_desc'`, `'date_asc'`, `'title'`, `'manual'` |
+| `search` | array | Search config: `enabled`, `fields`, `weights` |
 
 ### URL Types
 
@@ -301,6 +302,47 @@ content/pages/services/web.md → /services/web
 | `{yyyy}` | 4-digit year |
 | `{mm}` | 2-digit month |
 | `{dd}` | 2-digit day |
+
+### Search Configuration
+
+Control how content types are searched:
+
+```php
+'post' => [
+    // ... other options
+    'search' => [
+        'enabled' => true,
+        'fields' => ['title', 'excerpt', 'body', 'author'],  // Fields to search
+        'weights' => [                    // Optional: customize scoring
+            'title_phrase' => 80,         // Exact phrase in title
+            'title_all_tokens' => 40,     // All search words in title
+            'title_token' => 10,          // Per-word match in title (max 30)
+            'excerpt_phrase' => 30,       // Exact phrase in excerpt
+            'excerpt_token' => 3,         // Per-word match in excerpt (max 15)
+            'body_phrase' => 20,          // Exact phrase in body
+            'body_token' => 2,            // Per-word match in body (max 10)
+            'featured' => 15,             // Boost for featured items
+            'field_weight' => 5,          // Per custom field match
+        ],
+    ],
+],
+```
+
+The `fields` array is automatically searched. Default weights are used if `weights` is not specified.
+
+You can also set weights per-query:
+
+```php
+$results = $ava->query()
+    ->type('post')
+    ->searchWeights([
+        'title_phrase' => 100,    // Make title matches more important
+        'body_phrase' => 50,      // Boost body matches
+        'featured' => 0,          // Disable featured boost
+    ])
+    ->search('tutorial')
+    ->get();
+```
 
 ---
 

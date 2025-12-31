@@ -218,6 +218,8 @@ $router->addRoute('/api/categories/{slug}/posts', function($request, $params) {
 
 ## Search Endpoint
 
+The Query class has built-in search with relevance scoring:
+
 ```php
 $router->addRoute('/api/search', function($request) {
     $query = trim($request->query('q', ''));
@@ -229,36 +231,47 @@ $router->addRoute('/api/search', function($request) {
         ]);
     }
     
-    $repo = \Ava\Application::getInstance()->repository();
-    $results = [];
+    $app = \Ava\Application::getInstance();
     
-    foreach (['page', 'post'] as $type) {
-        foreach ($repo->published($type) as $item) {
-            $inTitle = stripos($item->title(), $query) !== false;
-            $inExcerpt = stripos($item->excerpt() ?? '', $query) !== false;
-            $inContent = stripos($item->rawContent(), $query) !== false;
-            
-            if ($inTitle || $inExcerpt || $inContent) {
-                $results[] = [
-                    'type' => $type,
-                    'title' => $item->title(),
-                    'slug' => $item->slug(),
-                    'excerpt' => $item->excerpt(),
-                    'relevance' => $inTitle ? 3 : ($inExcerpt ? 2 : 1),
-                ];
-            }
-        }
-    }
-    
-    // Sort by relevance
-    usort($results, fn($a, $b) => $b['relevance'] - $a['relevance']);
+    // Search posts with built-in relevance scoring
+    $results = $app->query()
+        ->type('post')
+        ->published()
+        ->search($query)
+        ->limit(20)
+        ->get();
     
     return jsonResponse([
         'query' => $query,
-        'count' => count($results),
-        'results' => $results,
+        'count' => $results->total(),
+        'results' => array_map(fn($item) => [
+            'type' => $item->type(),
+            'title' => $item->title(),
+            'slug' => $item->slug(),
+            'url' => $item->url(),
+            'excerpt' => $item->excerpt(),
+        ], $results->items()),
     ]);
 });
+```
+
+Search automatically scores results by:
+- Title matches (phrase and individual words)
+- Excerpt matches
+- Body content matches
+- Featured item boost
+
+Configure per content type in `content_types.php`:
+```php
+'search' => [
+    'fields' => ['title', 'excerpt', 'body', 'author'],
+    'weights' => ['title_phrase' => 80, 'body_phrase' => 20],
+],
+```
+
+Or override per query:
+```php
+->searchWeights(['title_phrase' => 100, 'featured' => 0])
 ```
 
 ## CORS Headers

@@ -64,6 +64,11 @@ return [
         // 'array'  - Binary serialized arrays (default, works great for most sites)
         // 'sqlite' - SQLite database (opt-in for large sites with 10k+ items)
         'backend' => 'array',
+
+        // Use igbinary for array backend serialization (if available)
+        // When true (default): Uses igbinary for ~5x faster, ~9x smaller cache files
+        // When false: Uses PHP serialize (for testing/compatibility)
+        'use_igbinary' => true,
     ],
 
     // Page Cache

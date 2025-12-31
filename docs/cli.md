@@ -64,6 +64,7 @@ If you’re used to FTP, think of **SFTP** as the safer modern version. Popular 
 | `status` | Show site overview and health |
 | `rebuild` | Rebuild the content index |
 | `lint` | Validate content files |
+| `benchmark` | Test content index performance |
 | `make <type> "Title"` | Create new content |
 | `prefix <add\|remove> [type]` | Toggle date prefixes on filenames |
 | `user:add` | Create admin user |
@@ -76,7 +77,6 @@ If you’re used to FTP, think of **SFTP** as the safer modern version. Popular 
 | `pages:clear` | Clear page cache |
 | `stress:generate` | Generate test content |
 | `stress:clean` | Remove test content |
-| `stress:benchmark` | Benchmark index backends |
 
 ---
 
@@ -530,73 +530,86 @@ Remove all generated test content:
   <span class="t-green">✓</span> Rebuilding content index <span class="t-dim">(12ms)</span>
   <span class="t-green">✓ Done!</span></samp></pre>
 
-### stress:benchmark
+---
 
-Compare performance between array and SQLite backends:
+## Benchmarking
+
+### benchmark
+
+Test the performance of your content index:
 
 ```bash
-./ava stress:benchmark
+./ava benchmark
 ```
 
-<pre><samp>  <span class="t-dim">───</span> <span class="t-bold">Content Index Backend Benchmark</span> <span class="t-dim">───────────────────</span>
+<pre><samp><span class="t-magenta">   ▄▄▄  ▄▄ ▄▄  ▄▄▄     ▄▄▄▄ ▄▄   ▄▄  ▄▄▄▄
+  ██▀██ ██▄██ ██▀██   ██▀▀▀ ██▀▄▀██ ███▄▄
+  ██▀██  ▀█▀  ██▀██   ▀████ ██   ██ ▄▄██▀</span>
+  <span class="t-dim">v25.12.2</span>
 
-  <span class="t-dim">Total items:</span><span class="t-cyan">10003</span>
-    <span class="t-dim">page:</span>     <span class="t-white">2</span>
-    <span class="t-dim">post:</span>     <span class="t-white">10001</span>
+  <span class="t-dim">───</span> <span class="t-bold">Performance Benchmark</span> <span class="t-dim">───────────────────────────────</span>
 
-  Running <span class="t-cyan">10</span> iterations per test...
+  <span class="t-dim">Content:</span>    <span class="t-cyan">1,003</span> items
+              page: 2
+              post: 1001
 
-  Testing array backend...
-  Testing sqlite backend...
+  <span class="t-dim">Backend:</span>    <span class="t-cyan">array + igbinary</span>
+  <span class="t-dim">igbinary:</span>   <span class="t-green">enabled</span>
+  <span class="t-dim">Iterations:</span> 5
 
-  <span class="t-dim">───</span> <span class="t-bold">Results (avg ms)</span> <span class="t-dim">────────────────────────────────────</span>
+  Testing array + igbinary...
 
-  <span class="t-dim">Test                     Array       Sqlite      Winner</span>
-  <span class="t-dim">───────────────────────────────────────────────────────</span>
-  Count (all)              54.31ms     1.78ms      <span class="t-cyan">SQLite</span>
-  Count (published)        63.70ms     1.85ms      <span class="t-cyan">SQLite</span>
-  Get by slug              11.52ms     0.57ms      <span class="t-cyan">SQLite</span>
-  List recent (page 1)     0.28ms      9.03ms      <span class="t-green">Array</span>
-  List recent (page 10)    0.28ms      11.61ms     <span class="t-green">Array</span>
-  Search (title)           146.51ms    339.61ms    <span class="t-green">Array</span>
-  All types                61.03ms     1.34ms      <span class="t-cyan">SQLite</span>
+  <span class="t-dim">───</span> <span class="t-bold">Results</span> <span class="t-dim">──────────────────────────────────────────────</span>
 
-  <span class="t-dim">Memory usage:</span>
-    Array: 6 MB
-    Sqlite: 0 B
+  <span class="t-bold">Test                array + igbinary</span>
+  <span class="t-dim">──────────────────────────────────────</span>
+  Count               2.2ms
+  Get by slug         3.5ms
+  Recent (page 1)     0.14ms
+  Archive (page 50)   7.4ms
+  Sort by date        9.7ms
+  Sort by title       10.5ms
+  Search              7.3ms
+  <span class="t-dim">──────────────────────────────────────</span>
+  Memory              124 KB
+  Cache size          592.2 KB
 
-  <span class="t-dim">Cache sizes:</span>
-    Array: 5.2 MB
-    SQLite: 11.4 MB
+  <span class="t-yellow">💡 Tip:</span> Run with <span class="t-cyan">--compare</span> to test all backends.
+  <span class="t-blue">📚 Docs:</span> https://ava.addy.zone/#/performance</samp></pre>
 
-  <span class="t-bold">Recommendation:</span>
-    Use <span class="t-cyan">sqlite</span> backend for 10k+ items (constant memory, faster queries).</samp></pre>
+**Options:**
 
-Options:
-- `--iterations=N` - Number of test iterations (default: 5)
-- `--backend=name` - Test specific backend only (`array` or `sqlite`)
+| Option | Description |
+|--------|-------------|
+| `--compare` | Compare all available backends side-by-side |
+| `--iterations=N` | Number of test iterations (default: 5) |
 
-This command runs performance tests for:
-- Count operations (all items, filtered by status)
-- Single item lookups (by slug)
-- List operations (recent items, pagination)
-- Search queries
-- Type enumeration
+**What it tests:**
+- **Count** — Counting all posts
+- **Get by slug** — Fetching a single post by URL
+- **Recent (page 1)** — Homepage/recent posts (uses fast cache)
+- **Archive (page 50)** — Deep pagination (loads full index)
+- **Sort by date** — Sorting all posts by date
+- **Sort by title** — Sorting all posts by title
+- **Search** — Full-text search across content
 
-Results include timing comparisons, memory usage, and cache file sizes. Use with `stress:generate` to test at different content scales:
+**Typical workflow:**
 
 ```bash
-# Generate 10,000 test posts
+# Generate test content at your target scale
 ./ava stress:generate post 10000
 
-# Run benchmarks
-./ava stress:benchmark
+# Run benchmark on current backend
+./ava benchmark
+
+# Compare all backends (rebuilds for each)
+./ava benchmark --compare
 
 # Clean up when done
 ./ava stress:clean post
 ```
 
-See [Performance - Benchmarks](performance.md#benchmark-comparison) for detailed benchmark results at various scales.
+See [Performance](performance.md) for detailed benchmark results and backend recommendations.
 
 ---
 
