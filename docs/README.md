@@ -20,6 +20,10 @@ Ava is designed for people who love the web. It sits in the sweet spot between a
 - **🎨 Bespoke by Design.** Don't fight a platform. Create any content type you want: blogs, portfolios, recipe collections, changelogs and more without plugins or hacks.
 - **🤖 AI Friendly.** The clean file-based structure, thorough integrated documentation and straightforward CLI makes it easy for AI assistants to read your content, understand your config and test your setup to help you build themes and extensions.
 
+![Ava CMS Screenshots](https://addy.zip/ava/ava-screenshots.webp#3)
+
+Configurable CLI and admin colour themes available! Default theme is a collection of minimal, well commented templates (page, blog, post, search) for you to build on.
+
 ## Core Features
 
 | Feature | What it does for you |
@@ -52,21 +56,21 @@ Ava includes a friendly CLI for managing your site. Run commands from your proje
 ./ava status
 ```
 
-<pre><samp><span class="t-magenta">   ▄▄▄  ▄▄ ▄▄  ▄▄▄     ▄▄▄▄ ▄▄   ▄▄  ▄▄▄▄
+<pre><samp><span class="t-cyan">   ▄▄▄  ▄▄ ▄▄  ▄▄▄     ▄▄▄▄ ▄▄   ▄▄  ▄▄▄▄
   ██▀██ ██▄██ ██▀██   ██▀▀▀ ██▀▄▀██ ███▄▄
   ██▀██  ▀█▀  ██▀██   ▀████ ██   ██ ▄▄██▀</span>
 
-  <span class="t-dim">───</span> <span class="t-bold">Site</span> <span class="t-dim">──────────────────────────────────────────────</span>
+  <span class="t-dim">───</span> <span class="t-cyan t-bold">Site</span> <span class="t-dim">──────────────────────────────────────────────</span>
 
   <span class="t-dim">Name:</span>       <span class="t-white">My Site</span>
   <span class="t-dim">URL:</span>        <span class="t-cyan">https://example.com</span>
 
-  <span class="t-dim">───</span> <span class="t-bold">Content</span> <span class="t-dim">───────────────────────────────────────────</span>
+  <span class="t-dim">───</span> <span class="t-cyan t-bold">Content</span> <span class="t-dim">───────────────────────────────────────────</span>
 
   <span class="t-cyan">◆ Page:</span> <span class="t-white">5 published</span>
   <span class="t-cyan">◆ Post:</span> <span class="t-white">38 published</span> <span class="t-yellow">(4 drafts)</span>
 
-  <span class="t-dim">───</span> <span class="t-bold">Page Cache</span> <span class="t-dim">────────────────────────────────────────</span>
+  <span class="t-dim">───</span> <span class="t-cyan t-bold">Page Cache</span> <span class="t-dim">────────────────────────────────────────</span>
 
   <span class="t-dim">Status:</span>     <span class="t-green">● Enabled</span>
   <span class="t-dim">Cached:</span>     <span class="t-white">42 pages</span></samp></pre>

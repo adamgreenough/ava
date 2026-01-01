@@ -104,7 +104,7 @@ Use `disabled` for CI/CD pipelines or terminals that don't support ANSI colors.
 | `logs:clear` | Clear log files |
 | `stress:generate` | Generate test content |
 | `stress:clean` | Remove test content |
-| `test [filter] [-q]` | Run the [test suite](testing.md) |
+| `test [filter] [-q] [--release]` | Run the [test suite](testing.md) |
 
 ---
 
@@ -710,6 +710,14 @@ Run tests with minimal output (useful for CI/CD):
 <pre><samp>  <span class="t-bold">Ava CMS Test Suite</span>
   <span class="t-dim">──────────────────────────────────────────────────</span>
   <span class="t-bold">Tests:</span> <span class="t-green">355 passed</span> <span class="t-dim">(60ms)</span></samp></pre>
+
+Run release readiness checks (for maintainers preparing a release):
+
+```bash
+./ava test --release
+```
+
+This runs all standard tests plus additional checks that verify the project is ready for release — including configuration defaults, gitignore rules, version numbers, and documentation. See [Releasing](releasing.md) for details.
 
 See [Testing](testing.md) for details on writing tests and available assertions.
 

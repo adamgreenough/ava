@@ -34,14 +34,24 @@ final class TestRunner
     private array $failures = [];
     private bool $verbose = false;
     private bool $quiet = false;
+    private bool $release = false;
     private ?string $filter = null;
 
-    public function __construct(Application $app, bool $verbose = false, ?string $filter = null, bool $quiet = false)
+    public function __construct(Application $app, bool $verbose = false, ?string $filter = null, bool $quiet = false, bool $release = false)
     {
         $this->app = $app;
         $this->verbose = $verbose;
         $this->filter = $filter;
         $this->quiet = $quiet;
+        $this->release = $release;
+    }
+
+    /**
+     * Check if release mode is active.
+     */
+    public function isReleaseMode(): bool
+    {
+        return $this->release;
     }
 
     /**
@@ -51,7 +61,8 @@ final class TestRunner
     {
         $startTime = microtime(true);
 
-        echo $this->color("\n  Ava CMS Test Suite\n", self::PRIMARY, self::BOLD);
+        $title = $this->release ? "Ava CMS Release Test Suite" : "Ava CMS Test Suite";
+        echo $this->color("\n  {$title}\n", self::PRIMARY, self::BOLD);
         echo $this->color("  " . str_repeat('─', 50) . "\n", self::PRIMARY);
         
         if (!$this->quiet) {
@@ -60,6 +71,14 @@ final class TestRunner
 
         // Discover test files
         $testFiles = $this->discoverTests($testsPath);
+
+        // Filter out Release tests unless --release flag is set
+        if (!$this->release) {
+            $testFiles = array_filter($testFiles, function($file) use ($testsPath) {
+                $relativePath = str_replace($testsPath . DIRECTORY_SEPARATOR, '', $file);
+                return !str_starts_with($relativePath, 'Release' . DIRECTORY_SEPARATOR);
+            });
+        }
 
         if (empty($testFiles)) {
             echo $this->color("  No tests found in {$testsPath}\n\n", self::YELLOW);

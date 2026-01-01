@@ -176,11 +176,11 @@ cd ~/ava
 
 You'll see something like this:
 
-<pre><samp><span class="t-magenta">   ▄▄▄  ▄▄ ▄▄  ▄▄▄     ▄▄▄▄ ▄▄   ▄▄  ▄▄▄▄
+<pre><samp><span class="t-cyan">   ▄▄▄  ▄▄ ▄▄  ▄▄▄     ▄▄▄▄ ▄▄   ▄▄  ▄▄▄▄
   ██▀██ ██▄██ ██▀██   ██▀▀▀ ██▀▄▀██ ███▄▄
   ██▀██  ▀█▀  ██▀██   ▀████ ██   ██ ▄▄██▀</span>
 
-  <span class="t-dim">───</span> <span class="t-bold">Site Status</span> <span class="t-dim">─────────────────────────────────────</span>
+  <span class="t-dim">───</span> <span class="t-cyan t-bold">Site Status</span> <span class="t-dim">─────────────────────────────────────</span>
 
   <span class="t-cyan">▸ PHP Version</span>         8.3.14
   <span class="t-cyan">▸ Content Index</span>       Fresh (rebuilt 2 mins ago)

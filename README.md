@@ -1,4 +1,4 @@
-![Ava CMS Banner](https://addy.zip/ava/ava-banner.webp#2)
+![Ava CMS Banner](https://addy.zip/ava/ava-banner.webp#3)
 
 # Ava CMS
 
@@ -22,7 +22,7 @@ Thoughtfully [documented](https://ava.addy.zone/#/) and designed to be approacha
 
 ## Screenshots
 
-![Ava CMS Screenshots](https://addy.zip/ava/ava-screenshots.webp#2)
+![Ava CMS Screenshots](https://addy.zip/ava/ava-screenshots.webp#3)
 
 Configurable CLI and admin colour themes available! Default theme is a collection of minimal, well commented templates (page, blog, post, search) for you to build on.
 

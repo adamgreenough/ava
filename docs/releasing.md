@@ -11,11 +11,36 @@ We use date-based versioning: `YY.MM.Patch`.
 
 1. **Update Version:** Change `AVA_VERSION` in `bootstrap.php`.
 2. **Test:** Run `./ava lint` and `./ava rebuild` to make sure everything is solid.
-3. **Tag:** Create a git tag (e.g., `v25.12.1`).
-4. **Push:** Push the tag to GitHub.
-5. **Release:** Create a new Release on GitHub using that tag.
+3. **Release Tests:** Run `./ava test --release` to verify release readiness.
+4. **Tag:** Create a git tag (e.g., `v25.12.1`).
+5. **Push:** Push the tag to GitHub.
+6. **Release:** Create a new Release on GitHub using that tag.
 
 That's it! The update system will see the new tag and offer it to users.
+
+## Release Tests
+
+The `--release` flag runs additional tests that verify the project is ready for public release:
+
+```bash
+./ava test --release
+```
+
+**What it checks:**
+
+| Category | Checks |
+|----------|--------|
+| Security | users.php gitignored, .env gitignored, storage/cache gitignored |
+| Config defaults | debug disabled, admin disabled, theme = "default" |
+| Admin settings | path = "/admin", theme = "cyan" |
+| CLI settings | theme = "cyan" |
+| Site identity | name = "My Ava Site", base_url contains "localhost", timezone = "UTC", locale = "en_GB" |
+| Version | CalVer format, version higher than current GitHub release |
+| Structure | default theme exists, example content exists, no users.php file |
+| Documentation | README.md, LICENSE, docs/ exist |
+| Dependencies | composer.json valid, vendor/ exists |
+
+These tests live in `tests/Release/` and are skipped during normal test runs. They help ensure you haven't accidentally left development settings in place.
 
 ## Changelog Format
 

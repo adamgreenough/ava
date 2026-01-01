@@ -1047,6 +1047,7 @@ final class Application
         // Parse arguments
         $verbose = in_array('-v', $args, true) || in_array('--verbose', $args, true);
         $quiet = in_array('-q', $args, true) || in_array('--quiet', $args, true);
+        $release = in_array('--release', $args, true);
         $filter = null;
 
         // Get filter (first non-flag argument)
@@ -1071,7 +1072,7 @@ final class Application
         require_once $this->app->path('core/Testing/TestCase.php');
         require_once $this->app->path('core/Testing/TestRunner.php');
 
-        $runner = new \Ava\Testing\TestRunner($this->app, $verbose, $filter, $quiet);
+        $runner = new \Ava\Testing\TestRunner($this->app, $verbose, $filter, $quiet, $release);
         return $runner->run($testsPath);
     }
 
