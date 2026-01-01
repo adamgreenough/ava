@@ -10,7 +10,7 @@
 
 Ava is a friendly, flexible, flat-file CMS built in PHP for bespoke personal websites, blogs, and more.
 
-Content lives in plain Markdown files with YAML frontmatter, optional HTML, and extensible PHP shortcodes. Back it up however you like — copy a folder, sync to the cloud, or commit to Git. Your content stays portable, transparent, and fully under your control.
+Content lives in plain [Markdown files](https://ava.addy.zone/#/content) with YAML frontmatter, optional HTML, and extensible PHP shortcodes. Back it up however you like — copy a folder, sync to the cloud, or commit to Git. Your content stays portable, transparent, and fully under your control.
 
 An intuitive [command-line interface](https://ava.addy.zone/#/cli) lets you view statistics, manage cache, create content boilerplates, automate updates, inspect logs, and benchmark your setup — all without leaving your terminal.
 
