@@ -1363,11 +1363,11 @@ ASCII;
 
             $this->writeln('  Testing ' . $this->color($label, self::BOLD) . '...');
 
-            // In compare mode, rebuild with specific config
+            // Measure index build time
+            $buildTime = 0;
             if ($compareMode) {
-                $indexer = new \Ava\Content\Indexer($this->app);
-
                 // Temporarily override config for rebuild
+                $buildStart = hrtime(true);
                 if ($backendName === 'array') {
                     // We need to rebuild with specific igbinary setting
                     // This is a bit hacky but necessary for fair comparison
@@ -1375,7 +1375,16 @@ ASCII;
                 } elseif ($backendName === 'sqlite') {
                     $this->rebuildWithConfig($backendName, null);
                 }
+                $buildEnd = hrtime(true);
+                $buildTime = ($buildEnd - $buildStart) / 1_000_000;
+            } else {
+                // For non-compare mode, measure rebuild with current config
+                $buildStart = hrtime(true);
+                $this->rebuildWithConfig($currentBackend, $useIgbinary);
+                $buildEnd = hrtime(true);
+                $buildTime = ($buildEnd - $buildStart) / 1_000_000;
             }
+            $results[$label]['_build_time'] = $buildTime;
 
             // Force backend selection
             $repository->setBackendOverride($backendName);
@@ -1402,8 +1411,6 @@ ASCII;
                 'Sort by title' => fn() => (new \Ava\Content\Query($this->app))->type('post')->orderBy('title', 'asc')->perPage(10)->get(),
                 'Search' => fn() => (new \Ava\Content\Query($this->app))->type('post')->search('lorem')->perPage(10)->get(),
             ];
-
-            $results[$label] = [];
 
             foreach ($tests as $testName => $testFn) {
                 $times = [];
@@ -1497,6 +1504,15 @@ ASCII;
         // Memory and cache size
         $this->writeln('  ' . $this->color(str_repeat('─', 20 + 18 * count($backendLabels)), self::DIM));
 
+        // Build index time
+        $buildRow = str_pad('Build index', 20);
+        foreach ($backendLabels as $label) {
+            $buildTime = $results[$label]['_build_time'] ?? 0;
+            $formatted = $buildTime >= 1000 ? sprintf('%.1fs', $buildTime / 1000) : sprintf('%.0fms', $buildTime);
+            $buildRow .= str_pad($formatted, 18);
+        }
+        $this->writeln('  ' . $buildRow);
+
         $memRow = str_pad('Memory', 20);
         foreach ($backendLabels as $label) {
             $memRow .= str_pad($this->formatBytes($results[$label]['_memory']), 18);
@@ -1509,6 +1525,22 @@ ASCII;
         }
         $this->writeln('  ' . $cacheRow);
 
+        // Webpage rendering benchmarks (backend-independent)
+        $this->writeln('');
+        echo $this->color('  ─── Webpage Rendering ', self::PRIMARY, self::BOLD);
+        echo $this->color(str_repeat('─', 36), self::PRIMARY, self::BOLD) . "\n";
+        $this->writeln('');
+
+        $webpageResults = $this->benchmarkWebpageRendering($iterations);
+
+        $this->writeln('  ' . $this->color(str_pad('Operation', 30) . str_pad('Time', 15), self::BOLD));
+        $this->writeln('  ' . $this->color(str_repeat('─', 45), self::DIM));
+
+        foreach ($webpageResults as $testName => $avgTime) {
+            $formatted = $avgTime < 1 ? sprintf('%.2fms', $avgTime) : sprintf('%.1fms', $avgTime);
+            $this->writeln('  ' . str_pad($testName, 30) . str_pad($formatted, 15));
+        }
+
         $this->writeln('');
 
         if (!$compareMode) {
@@ -1519,6 +1551,112 @@ ASCII;
         $this->writeln('');
 
         return 0;
+    }
+
+    /**
+     * Benchmark webpage rendering operations.
+     */
+    private function benchmarkWebpageRendering(int $iterations): array
+    {
+        $results = [];
+        $repository = $this->app->repository();
+        $webpageCache = $this->app->webpageCache();
+        $renderer = $this->app->renderer();
+
+        // Get a sample post for testing
+        $sampleSlug = null;
+        try {
+            $recentResult = $repository->getRecentItems('post', 1, 1);
+            if (!empty($recentResult['items'])) {
+                $sampleSlug = $recentResult['items'][0]['slug'] ?? null;
+            }
+        } catch (\Throwable $e) {
+            // No posts available
+        }
+
+        if ($sampleSlug === null) {
+            return ['No posts available for test' => 0];
+        }
+
+        // Clear any existing webpage cache
+        $webpageCache->clear();
+
+        // Test 1: Render uncached (full pipeline)
+        $times = [];
+        $output = '';
+        for ($i = 0; $i < $iterations; $i++) {
+            // Load fresh item each time
+            $item = $repository->get('post', $sampleSlug);
+            if ($item === null) {
+                continue;
+            }
+
+            $start = hrtime(true);
+            // Render markdown content
+            $html = $renderer->renderMarkdown($item->rawContent());
+            // Render full template
+            $output = $renderer->render('single', [
+                'item' => $item->withHtml($html),
+                'content_type' => 'post',
+            ]);
+            $end = hrtime(true);
+            $times[] = ($end - $start) / 1_000_000;
+        }
+        if (!empty($times)) {
+            $results['Render post (uncached)'] = array_sum($times) / count($times);
+        }
+
+        // Test 2: Write to webpage cache
+        $cachePath = $this->app->configPath('storage') . '/cache/pages';
+        if (!is_dir($cachePath)) {
+            mkdir($cachePath, 0755, true);
+        }
+
+        $times = [];
+        for ($i = 0; $i < $iterations; $i++) {
+            $cacheFile = $cachePath . '/benchmark_test_' . $i . '.html';
+            $testHtml = $output ?? '<html><body>Test content</body></html>';
+
+            $start = hrtime(true);
+            file_put_contents($cacheFile, $testHtml, LOCK_EX);
+            $end = hrtime(true);
+            $times[] = ($end - $start) / 1_000_000;
+
+            // Clean up
+            if (file_exists($cacheFile)) {
+                unlink($cacheFile);
+            }
+        }
+        if (!empty($times)) {
+            $results['Cache write'] = array_sum($times) / count($times);
+        }
+
+        // Test 3: Read from webpage cache
+        // First, write a cache file
+        $cacheFile = $cachePath . '/benchmark_test.html';
+        $testHtml = $output ?? '<html><body>Test content</body></html>';
+        file_put_contents($cacheFile, $testHtml, LOCK_EX);
+
+        $times = [];
+        for ($i = 0; $i < $iterations; $i++) {
+            // Clear filesystem cache
+            clearstatcache(true, $cacheFile);
+
+            $start = hrtime(true);
+            $content = file_get_contents($cacheFile);
+            $end = hrtime(true);
+            $times[] = ($end - $start) / 1_000_000;
+        }
+        if (!empty($times)) {
+            $results['Cache read (HIT)'] = array_sum($times) / count($times);
+        }
+
+        // Clean up
+        if (file_exists($cacheFile)) {
+            unlink($cacheFile);
+        }
+
+        return $results;
     }
 
     /**

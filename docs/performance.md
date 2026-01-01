@@ -89,47 +89,51 @@ We tested all three backends with realistic content on a standard server. You ca
 
 | Operation | Array + igbinary | Array + serialize | SQLite |
 |-----------|------------------|-------------------|--------|
-| **Count all posts** | 2.5ms | 25ms | 0.6ms |
-| **Get by slug** | 3.5ms | 25ms | 0.1ms |
-| **Homepage** (Recent) | 0.1ms | 0.3ms | 1.5ms |
-| **Deep Archive** (Page 50) | 8ms | 33ms | 24ms |
-| **Sort by date** | 10ms | 29ms | 22ms |
-| **Sort by title** | 11ms | 33ms | 21ms |
-| **Search** | 8ms | 28ms | 29ms |
+| **Build index** | 244ms | 253ms | 286ms |
+| **Count all posts** | 2.1ms | 25ms | 0.6ms |
+| **Get by slug** | 0.5ms | 0.8ms | 1.0ms |
+| **Homepage** (Recent) | 0.2ms | 0.4ms | 1.7ms |
+| **Deep Archive** (Page 50) | 8ms | 30ms | 21ms |
+| **Sort by date** | 7ms | 34ms | 24ms |
+| **Sort by title** | 8ms | 30ms | 23ms |
+| **Search** | 8ms | 32ms | 25ms |
 | **Cache Size** | 0.6 MB | 4.4 MB | 1.2 MB |
 
 ### 10,000 Posts
 
 | Operation | Array + igbinary | Array + serialize | SQLite |
 |-----------|------------------|-------------------|--------|
-| **Count all posts** | 37ms | 262ms | 1ms |
-| **Get by slug** | 47ms | 271ms | 0.5ms |
-| **Homepage** (Recent) | 0.2ms | 0.3ms | 6ms |
-| **Deep Archive** (Page 50) | 124ms | 350ms | 287ms |
-| **Sort by date** | 119ms | 349ms | 287ms |
-| **Sort by title** | 151ms | 363ms | 285ms |
-| **Search** | 106ms | 322ms | 266ms |
-| **Cache Size** | 5.3 MB | 43 MB | 12 MB |
+| **Build index** | 2.7s | 2.7s | 3.7s |
+| **Count all posts** | 49ms | 373ms | 1.3ms |
+| **Get by slug** | 10ms | 16ms | 0.9ms |
+| **Homepage** (Recent) | 0.2ms | 0.5ms | 7ms |
+| **Deep Archive** (Page 50) | 137ms | 495ms | 314ms |
+| **Sort by date** | 126ms | 494ms | 332ms |
+| **Sort by title** | 156ms | 521ms | 336ms |
+| **Search** | 120ms | 475ms | 306ms |
+| **Cache Size** | 5.3 MB | 43 MB | 11.4 MB |
 
 ### 100,000 Posts
 
 | Operation | Array + igbinary | Array + serialize | SQLite |
 |-----------|------------------|-------------------|--------|
-| **Count all posts** | 448ms | 2600ms | 8ms |
-| **Get by slug** | 560ms | 2700ms | 1.0ms |
-| **Homepage** (Recent) | 0.2ms | 0.5ms | 51ms |
-| **Deep Archive** (Page 50) | 1700ms | 4100ms | 4200ms |
-| **Sort by date** | 1700ms | 4000ms | 4300ms |
-| **Sort by title** | 2100ms | 4100ms | 4300ms |
-| **Search** | 1500ms | 3700ms | 4500ms |
+| **Build index** | 29s | 31s | 34s |
+| **Count all posts** | 520ms | 2575ms | 8ms |
+| **Get by slug** | 111ms | 113ms | 0.8ms |
+| **Homepage** (Recent) | 0.3ms | 0.4ms | 51ms |
+| **Deep Archive** (Page 50) | 1695ms | 3936ms | 4572ms |
+| **Sort by date** | 1701ms | 3868ms | 5109ms |
+| **Sort by title** | 2171ms | 4105ms | 5129ms |
+| **Search** | 1645ms | 3463ms | 4910ms |
 | **Cache Size** | 54 MB | 432 MB | 116 MB |
 
 <details>
 <summary><strong>Benchmark Environment & Methodology</strong></summary>
 
 **Environment:**
+- **Ava:** v25.12.3
 - **OS:** Linux x86_64 (Ubuntu)
-- **PHP:** 8.3.29 (CLI) with OPcache
+- **PHP:** 8.3 (CLI)
 - **Hardware:** Standard cloud instance
 
 **Methodology:**
@@ -137,10 +141,14 @@ Benchmarks were run using the built-in Ava CLI tools.
 1. Content generated via `./ava stress:generate post <count>`
 2. Benchmarks run via `./ava benchmark --compare`
 3. Each test iterated 5 times, average result shown.
+4. Repository cache cleared between each iteration for accurate measurements.
+
+**Note:** OPcache is disabled for CLI by default. This doesn't affect results since OPcache only caches compiled PHP bytecode, not data operations. The benchmarks measure I/O, unserialization, and query performance—none of which OPcache influences.
 </details>
 
 ### Analysis
 
+- **Build Index:** All backends take roughly the same time to build the index (29-34 seconds at 100k posts), since the cost is dominated by parsing Markdown files. This is a one-time cost when content changes.
 - **Homepage:** Array backends are instant because they use the "Recent Cache" optimisation. SQLite is slightly slower as it must query the database.
 - **Counts:** SQLite is the clear winner for counting items (e.g. `{{ count('post') }}`).
 - **Single Item:** SQLite is extremely fast (~1ms) for looking up a post by slug, whereas Array backends must load the lookup table into memory.
@@ -151,13 +159,13 @@ Benchmarks were run using the built-in Ava CLI tools.
 
 You might expect a database to be faster than a file-based array, but PHP's arrays are incredibly optimised in-memory structures.
 
-- **Array Backend:** Loads the *entire* dataset into RAM. Sorting and filtering happen instantly in memory.
+- **Array Backend:** Loads the *entire* dataset into RAM. Sorting, searching and filtering happen instantly in memory.
 - **SQLite:** Must read from disk (or OS cache) and parse records.
 
 **The Catch:** The Array backend consumes memory *per concurrent request*.
-- 100k posts = ~54MB RAM.
-- 10 concurrent visitors = 540MB RAM.
-- 100 concurrent visitors = 5.4GB RAM.
+- 10k posts = ~5.3MB RAM.
+- 10 concurrent visitors searching/filtering/deep archive cache misses = 53MB RAM.
+- 100 concurrent visitors searching/filtering/deep archive cache misses = 530MB RAM.
 
 **SQLite** uses constant memory (~2MB). It won't be as fast for a single user, but it won't crash your server under load.
 
@@ -253,6 +261,23 @@ For the ultimate performance, enable Ava's full webpage cache. This saves a stat
 - **Subsequent visits:** ~1ms (serves static file)
 
 This bypasses the content index entirely for most visitors.
+
+### Webpage Rendering
+
+These benchmarks measure the end-to-end time to serve a webpage, which is what your visitors actually experience. The content index benchmarks above only measure data retrieval—webpage rendering adds template processing and Markdown conversion on top.
+
+| Operation | 1,000 Posts | 10,000 Posts | 100,000 Posts |
+|-----------|-------------|--------------|---------------|
+| **Render post (uncached)** | 4.9ms | 5.5ms | 5.9ms |
+| **Cache write** | 0.12ms | 0.13ms | 0.30ms |
+| **Cache read (HIT)** | 0.02ms | 0.02ms | 0.05ms |
+
+**Key insights:**
+- **Uncached rendering is fast** — Even with 100k posts, rendering a single post takes ~6ms. This includes loading the content item, converting Markdown to HTML, and rendering the full page template.
+- **Cached pages are instant** — Reading a cached HTML file takes just 0.02-0.05ms, making the webpage cache essential for high-traffic sites.
+- **Content count doesn't affect rendering** — The rendering time is nearly constant regardless of how many posts exist, since you're only rendering one item.
+
+?> **Note:** These benchmarks render a single post with no additional queries. Real-world themes often include sidebars, related posts, category lists, or recent post widgets—each adding extra query time. A theme with a "Recent Posts" sidebar would add ~0.2ms (from the Recent cache), while a "Related Posts" section using search could add 8-30ms depending on backend and content size. Design your templates with this in mind.
 
 ## Configuration
 

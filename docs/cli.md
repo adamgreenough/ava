@@ -731,8 +731,17 @@ Test the performance of your content index:
   Sort by title       10.5ms
   Search              7.3ms
   <span class="t-dim">──────────────────────────────────────</span>
+  Build index         45ms
   Memory              124 KB
   Cache size          592.2 KB
+
+  <span class="t-dim">───</span> <span class="t-bold">Webpage Rendering</span> <span class="t-dim">─────────────────────────────────</span>
+
+  <span class="t-bold">Operation                     Time</span>
+  <span class="t-dim">─────────────────────────────────────────────</span>
+  Render post (uncached)        4.9ms
+  Cache write                   0.12ms
+  Cache read (HIT)              0.02ms
 
   <span class="t-yellow">💡 Tip:</span> Run with <span class="t-cyan">--compare</span> to test all backends.
   <span class="t-blue">📚 Docs:</span> https://ava.addy.zone/#/performance</samp></pre>
@@ -745,6 +754,9 @@ Test the performance of your content index:
 | `--iterations=N` | Number of test iterations (default: 5) |
 
 **What it tests:**
+
+*Content Index:*
+- **Build index** — Time to rebuild the content index
 - **Count** — Counting all posts
 - **Get by slug** — Fetching a single post by URL
 - **Recent (page 1)** — Homepage/recent posts (uses fast cache)
@@ -752,6 +764,11 @@ Test the performance of your content index:
 - **Sort by date** — Sorting all posts by date
 - **Sort by title** — Sorting all posts by title
 - **Search** — Full-text search across content
+
+*Webpage Rendering:*
+- **Render post (uncached)** — Full render pipeline (load item, markdown, template)
+- **Cache write** — Time to write rendered HTML to disk
+- **Cache read (HIT)** — Time to serve a cached page
 
 **Typical workflow:**
 

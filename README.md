@@ -8,25 +8,32 @@
 [![Code size](https://img.shields.io/github/languages/code-size/adamgreenough/ava)](https://github.com/adamgreenough/ava)
 [![Discord](https://img.shields.io/discord/1028357262189801563)](https://discord.gg/Z7bF9YeK)
 
-Ava is a friendly, flexible, flat-file, PHP-based CMS for bespoke personal websites, blogs and more. Content is Markdown files (with YAML frontmatter), and Ava builds a fast cache so pages render quickly. No database required. 
+Ava is a friendly, flexible, flat-file, PHP-based CMS for bespoke personal websites, blogs and more. 
+
+Content is Markdown files with YAML frontmatter, HTML support and extensible PHP shortcodes. Back them up however you like—copy to a folder, sync to the cloud, or use Git. Your data is always portable and yours to control. 
+
+Ava automatically builds a fast cache so pages render quickly. There's no build step, no deploy queue, no waiting for static regeneration. Changes are immediate.
 
 Thoughtfully [documented](https://ava.addy.zone/#/) with beginners in mind and easy to customise, Ava gives you full control over your content and design without complexity.
 
-**Perfect for:** personal sites, blogs, portfolios, documentation, and any project where you want simplicity without sacrificing power.
+**Perfect for:** personal sites, blogs, portfolios, documentation, directories, and any project where you want simplicity without sacrificing power.
 
 ## Why Ava?
 
+### ✍️ Bring Your Own Editor. 
+No clunky WYSIWYG editors here. Write flexible Markdown/HTML (with easily extensible PHP shortcodes) in your favourite text editor, IDE or terminal. Focus on writing, not wrestling with a web interface.
+
 ### 📁 No Database, No Problem
-Content is just Markdown files. Back them up however you like—copy to a folder, sync to the cloud, or use Git. Your data is always portable and yours to control.
+No database required, but [SQLite is seamlessly available](https://ava.addy.zone/#/performance?id=backend-options) as a lightweight local file to scale massive content collections while keeping memory usage low. 
 
 ### ⚡ Truly Instant Updates
 Edit a file, refresh your browser, see it live. There's no build step, no deploy queue, no waiting for static regeneration. Changes are immediate.
 
 ### 🔍 Dynamic Features Built-In
-Unlike static site generators, Ava is a real PHP application. You get search, forms, and dynamic content without third-party services. Add any PHP functionality you need.
+Unlike static site generators, Ava is a real PHP application. You get search, forms, and dynamic content without third-party services. Easily add any PHP functionality you need.
 
 ### 🎨 Your HTML, Your Way
-Templates are plain PHP files, so there's no template language to learn. If you know some HTML, CSS, and a little PHP, you can build any design.
+Templates are plain PHP files, so there's no template language to learn. If you know a little HTML & CSS, you can build a theme.
 
 ### 🚀 Blazing Fast Performance
 Two-layer caching serves pages in under 1ms. Even without caching, 10,000 posts render in ~15ms. Optional SQLite backend scales to 100k+ posts with constant memory. [See benchmarks →](https://ava.addy.zone/#/performance)
@@ -39,6 +46,9 @@ Hooks, shortcodes, and a straightforward plugin system. Extend Ava without fight
 
 ### 💻 Works Anywhere PHP Runs
 Cheap shared hosting, a VPS, your laptop—if it runs PHP 8.3, it runs Ava. No special server requirements.
+
+### 🤖 AI Friendly
+The clean file-based structure, thorough integrated documentation and straightforward CLI makes it easy for AI assistants to read your content, understand your config and test your setup to help you build themes and extensions.
 
 ## Quick Start
 
