@@ -13,16 +13,12 @@ A friendly, flexible, flat-file PHP-based CMS for bespoke personal websites, blo
 
 Ava is designed for people who love the web. It sits in the sweet spot between a static site generator and a full-blown CMS:
 
-- **📂 Your Files, Your Rules.** Content is just Markdown. Configuration is readable PHP. Your files are the source of truth. Back them up however you like and you own your data forever.
-- **✍️ Bring Your Own Editor.** No clunky WYSIWYG editors here. Write in VS Code, Obsidian, or Notepad. If you can write a little HTML and CSS, you can build a theme.
-- **🚀 No Database Required.** Ava automatically indexes your content into fast PHP arrays, binaries or SQLite. You get the speed of a static site with the dynamic power of PHP.
-- **⚡ Edit Live.** Change a file, hit refresh, and see it instantly. No build steps or tooling required.
+- **📂 Your Files, Your Rules.** Content is just Markdown files with YAML frontmatter, optional HTML, and extensible PHP shortcodes. Configuration is readable PHP. Your files are the source of truth. Back them up however you like and you own your data forever.
+- **✍️ Bring Your Own Editor.** No clunky WYSIWYG editors here. Write in your favourite text editor, IDE or even the terminal. If you can write a little HTML and CSS, you can build a theme.
+- **🚀 No Database Required.** No database is required, but SQLite is seamlessly available as a lightweight local file to support large content collections while keeping memory usage low.
+- **⚡ Edit Live.** Edit a file, refresh your browser, see it live. There’s no build step, no deploy queue, and no waiting for static regeneration. Changes are immediate.
 - **🎨 Bespoke by Design.** Don't fight a platform. Create any content type you want: blogs, portfolios, recipe collections, changelogs and more without plugins or hacks.
 - **🤖 AI Friendly.** The clean file-based structure, thorough integrated documentation and straightforward CLI makes it easy for AI assistants to read your content, understand your config and test your setup to help you build themes and extensions.
-
-![Ava CMS Screenshots](https://addy.zip/ava/ava-screenshots.webp#3)
-
-Configurable CLI and admin colour themes available! Default theme is a collection of minimal, well commented templates (page, blog, post, search) for you to build on.
 
 ## Core Features
 
@@ -41,8 +37,8 @@ Configurable CLI and admin colour themes available! Default theme is a collectio
 
 Ava is designed to be fast by default, whether you have 100 posts or 100,000.
 
-- **Instant Publishing:** No build step. Edit a file, hit refresh, and it's live.
-- **Smart Caching:** A [tiered caching system](performance.md) ensures your most popular pages load instantly.
+- **Instant Publishing:** No build step. Edit a file, refresh your browser, see it live. There’s no build step, no deploy queue, and no waiting for static regeneration. Changes are immediate.
+- **Smart Caching:** A [tiered caching system](performance.md) keeps page generation extremely fast. Even without page caching, posts compile quickly, and large content updates can be indexed almost immediately for responsive search and sorting.
 - **Scalable Backends:** Start with the default Array backend for raw speed, or switch to [SQLite](performance.md?id=when-is-sqlite-faster) for constant memory usage at scale.
 - **Static Speed:** Enable [full page caching](performance.md?id=page-caching) to serve static HTML files, bypassing the application entirely for most visitors.
 
@@ -266,4 +262,14 @@ If you prefer a more conversational place to ask questions and share ideas, join
 https://discord.gg/Z7bF9YeK
 
 Even small notes help a lot at this stage.
+
+---
+
+## Community
+
+See what others are building with Ava:
+
+- [Community Plugins](community-plugins.md) — Extend Ava with plugins shared by the community
+- [Community Themes](community-themes.md) — Ready-to-use themes for your site
+- [Sites Built with Ava](community-sites.md) — Get inspired by what others have created
 

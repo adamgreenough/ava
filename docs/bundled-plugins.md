@@ -302,3 +302,11 @@ Then access the plugin admin pages at:
 - `/admin/sitemap`
 - `/admin/feeds`
 - `/admin/redirects`
+
+---
+
+## Community Plugins
+
+Looking for more plugins? Check out the [Community Plugins](community-plugins.md) page for plugins shared by other Ava users.
+
+Built a plugin you'd like to share? [Submit it to the community gallery!](community-plugins.md#submit-your-plugin)

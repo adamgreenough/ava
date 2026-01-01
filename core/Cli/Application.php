@@ -1388,8 +1388,7 @@ final class Application
                 // Temporarily override config for rebuild
                 $buildStart = hrtime(true);
                 if ($backendName === 'array') {
-                    // We need to rebuild with specific igbinary setting
-                    // This is a bit hacky but necessary for fair comparison
+                    // Rebuild with specific igbinary setting for fair A/B comparison
                     $this->rebuildWithConfig($backendName, $igbinaryEnabled);
                 } elseif ($backendName === 'sqlite') {
                     $this->rebuildWithConfig($backendName, null);

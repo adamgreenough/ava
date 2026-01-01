@@ -680,3 +680,11 @@ return function (\Ava\Application $app): void {
 ```
 
 This keeps your theme organised while maintaining portability—everything travels with your theme folder.
+
+---
+
+## Community Themes
+
+Looking for ready-made themes? Check out the [Community Themes](community-themes.md) page for themes shared by other Ava users.
+
+Built a theme you'd like to share? [Submit it to the community gallery!](community-themes.md#submit-your-theme)

@@ -195,7 +195,7 @@ final class Item
             return is_array($value) ? $value : [$value];
         }
 
-        // Return empty for all - would need taxonomy config to know keys
+        // Simple format can't return all terms without knowing which keys are taxonomies
         return [];
     }
 

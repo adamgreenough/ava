@@ -62,9 +62,8 @@
                         <?php $categories = $content->terms('category'); ?>
                         <?php if (!empty($categories)): ?>
                             <span>
-                                in
                                 <?php foreach ($categories as $i => $cat): ?>
-                                    <a href="<?= $ava->termUrl('category', $cat) ?>"><?= $ava->e($cat) ?></a><?= $i < count($categories) - 1 ? ', ' : '' ?>
+                                    <a href="<?= $ava->termUrl('category', $cat) ?>"><?= $ava->e($ava->termName('category', $cat)) ?></a><?= $i < count($categories) - 1 ? ', ' : '' ?>
                                 <?php endforeach; ?>
                             </span>
                         <?php endif; ?>

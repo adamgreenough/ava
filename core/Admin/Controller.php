@@ -1482,7 +1482,7 @@ JS;
             return ob_get_clean();
         }
 
-        // Legacy: render full view (for dashboard which has complex structure)
+        // Standalone view (login page only - no layout wrapper needed)
         extract($data);
         ob_start();
         include __DIR__ . '/views/' . $view . '.php';

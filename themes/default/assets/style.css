@@ -364,19 +364,38 @@ a:hover {
 /* Article meta (date, categories) */
 .entry-meta {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: var(--space-md);
+    gap: var(--space-sm);
     color: var(--color-text-light);
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
+    margin-top: var(--space-sm);
+}
+
+.entry-meta time {
+    font-weight: 500;
+}
+
+.entry-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.entry-meta span::before {
+    content: "·";
+    color: var(--color-border);
+    font-weight: bold;
 }
 
 .entry-meta a {
-    color: var(--color-text-light);
+    color: var(--color-primary);
+    font-weight: 500;
     transition: color var(--transition-fast);
 }
 
 .entry-meta a:hover {
-    color: var(--color-primary);
+    color: var(--color-primary-dark);
 }
 
 /* Article content - prose styles */

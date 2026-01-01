@@ -163,6 +163,20 @@ final class TemplateHelpers
         return $this->app->repository()->terms($taxonomy);
     }
 
+    /**
+     * Get the display name for a taxonomy term.
+     * Returns the proper name from taxonomy config, or title-cases the slug.
+     */
+    public function termName(string $taxonomy, string $slug): string
+    {
+        $terms = $this->app->repository()->terms($taxonomy);
+        if (isset($terms[$slug]['name'])) {
+            return $terms[$slug]['name'];
+        }
+        // Fallback: convert slug to title case
+        return ucwords(str_replace(['-', '_'], ' ', $slug));
+    }
+
     // === SEO Helpers ===
 
     /**

@@ -3,10 +3,10 @@ id: 01JGMK0000POST0000000000001
 title: Hello World
 slug: hello-world
 status: published
-date: 2025-01-01
+date: 2026-01-01
 excerpt: Welcome to your new Ava site! This sample post shows you how content works and what you can do with Markdown.
 category:
-  - getting-started
+  - general
 tag:
   - welcome
   - tutorial

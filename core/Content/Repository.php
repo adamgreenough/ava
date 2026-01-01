@@ -358,17 +358,6 @@ final class Repository
     }
 
     /**
-     * Get taxonomy configuration.
-     */
-    public function taxonomyConfig(string $taxonomy): ?array
-    {
-        $terms = $this->backend()->terms($taxonomy);
-        // The config is stored in the tax index, we need to check the underlying format
-        // For now, return null as config is loaded separately
-        return null;
-    }
-
-    /**
      * Get all taxonomy names.
      *
      * @return array<string>

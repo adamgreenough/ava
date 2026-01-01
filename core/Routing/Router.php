@@ -269,13 +269,11 @@ final class Router
     {
         $repository = $this->app->repository();
         $terms = $repository->terms($taxonomy);
-        $config = $repository->taxonomyConfig($taxonomy);
 
         return new RouteMatch(
             type: 'taxonomy_index',
             taxonomy: [
                 'name' => $taxonomy,
-                'config' => $config,
                 'terms' => $terms,
             ],
             template: 'taxonomy-index.php'
@@ -294,8 +292,6 @@ final class Router
             return null;
         }
 
-        $config = $repository->taxonomyConfig($taxonomy);
-
         // Build query for items with this term
         $query = $this->app->query()
             ->published()
@@ -307,7 +303,6 @@ final class Router
             query: $query,
             taxonomy: [
                 'name' => $taxonomy,
-                'config' => $config,
                 'term' => $term,
             ],
             template: 'taxonomy.php'

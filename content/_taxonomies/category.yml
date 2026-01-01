@@ -2,10 +2,6 @@
   name: General
   description: General posts and updates
 
-- slug: tutorials
-  name: Tutorials
-  description: How-to guides and tutorials
-
-- slug: news
-  name: News
-  description: News and announcements
+- slug: getting-started
+  name: Getting Started
+  description: Introduction and setup guides

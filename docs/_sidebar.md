@@ -12,7 +12,11 @@
 - [Hosting](hosting.md "Hosting | Ava CMS")
 - [Updates](updates.md "Updates | Ava CMS")
 - [API](api.md "API | Ava CMS")
-- [Showcase](showcase.md "Showcase | Ava CMS")
+
+**Community**
+- [Plugins](community-plugins.md "Community Plugins | Ava CMS")
+- [Themes](community-themes.md "Community Themes | Ava CMS")
+- [Sites](community-sites.md "Sites Built with Ava | Ava CMS")
 
 **Maintainers**
 - [Testing](testing.md "Testing | Ava CMS")
