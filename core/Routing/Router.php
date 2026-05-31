@@ -210,11 +210,11 @@ final class Router
             return null;
         }
 
-        // Normalize leading double-slashes to prevent protocol-relative open redirect
-        // (e.g., //evil.com/ would be interpreted by browsers as http://evil.com/)
-        if (str_starts_with($path, '//')) {
-            $path = '/' . ltrim($path, '/');
-        }
+        // Collapse any run of leading slashes AND backslashes into a single '/'
+        // to prevent protocol-relative open redirects. Browsers treat both
+        // //evil.com and /\evil.com (and \/evil.com) as http://evil.com, so a
+        // redirect Location built from such a path would send visitors off-site.
+        $path = preg_replace('#^[/\\\\]+#', '/', $path);
 
         // Paths with a file extension (e.g. .xml, .txt) should never be redirected
         if (pathinfo($path, PATHINFO_EXTENSION) !== '') {
@@ -257,7 +257,10 @@ final class Router
                 return null;
             }
 
-            $item = $repository->getByPath($routeData['file']);
+            // Parse the single file directly from its route entry. This avoids
+            // loading the full content index (with every item body) into memory
+            // just to render one page.
+            $item = $repository->getByFile($routeData['file'], $routeData['content_type'] ?? '');
 
             if ($item === null) {
                 return null;

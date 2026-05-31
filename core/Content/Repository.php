@@ -154,6 +154,44 @@ final class Repository
     }
 
     /**
+     * Get a content item directly from its content-relative file path.
+     *
+     * This is the fast path for rendering a single page: the route table
+     * (routes.bin) already carries the file path, so we can parse that one
+     * file directly instead of loading the entire content index into memory.
+     *
+     * SECURITY: the resolved file must live inside the configured content
+     * directory. realpath() is used to defeat path traversal (e.g. '../').
+     */
+    public function getByFile(string $relativeFile, string $type): ?Item
+    {
+        if ($relativeFile === '') {
+            return null;
+        }
+
+        $contentRoot = realpath($this->app->configPath('content'));
+        if ($contentRoot === false) {
+            return null;
+        }
+
+        $resolved = realpath($contentRoot . '/' . $relativeFile);
+        if ($resolved === false) {
+            return null;
+        }
+
+        // Containment check: the file must be within the content root.
+        $prefix = $contentRoot . DIRECTORY_SEPARATOR;
+        if ($resolved !== $contentRoot && !str_starts_with($resolved, $prefix)) {
+            return null;
+        }
+
+        $item = $this->parser->parseFile($resolved, $type);
+
+        // Allow hooks to modify the loaded item
+        return Hooks::apply('content.loaded', $item);
+    }
+
+    /**
      * Get a content item by type and content key with full index data.
      * 
      * Returns the cached item data from the backend.

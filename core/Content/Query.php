@@ -195,6 +195,12 @@ final class Query
 
     /**
      * Apply WP-style query parameters.
+     *
+     * SECURITY: `status` is intentionally NOT read from $params. Publication
+     * status is a security boundary (drafts must never be exposed to anonymous
+     * visitors), so it can only be changed programmatically via status() /
+     * published() / draft(). Allowing it here would let any visitor reveal
+     * unpublished content with `?status=draft` on an archive or taxonomy page.
      */
     public function fromParams(array $params): self
     {
@@ -202,9 +208,6 @@ final class Query
 
         if (isset($params['type'])) {
             $clone->type = $params['type'];
-        }
-        if (isset($params['status'])) {
-            $clone->status = $params['status'];
         }
         if (isset($params['orderby'])) {
             $clone->orderBy = $params['orderby'];
@@ -297,6 +300,14 @@ final class Query
     public function getOrder(): string
     {
         return $this->order;
+    }
+
+    /**
+     * Get the current publication status filter.
+     */
+    public function getStatus(): ?string
+    {
+        return $this->status;
     }
 
     /**

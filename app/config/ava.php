@@ -112,7 +112,10 @@ return [
             'format' => 'yaml',             // Only YAML supported currently
         ],
         'markdown' => [
-            // Security: disable raw HTML in Markdown by default for public release.\n            // This prevents XSS from untrusted content. Enable only if you trust authors.\n            'allow_html' => true,
+            // Allow raw HTML in Markdown content. Disallowed tags (below) are
+            // always stripped, and unsafe links are neutralised regardless.
+            // Set to false if your content authors are not fully trusted.
+            'allow_html' => true,
             'heading_ids' => true,          // Add id attributes to headings for deep links
             'disallowed_tags' => [          // Tags stripped even when allow_html is true
                 'script',                   // Prevents XSS attacks

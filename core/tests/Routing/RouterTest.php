@@ -309,4 +309,44 @@ final class RouterTest extends TestCase
         $this->assertEquals('date', $query->getOrderBy());
         $this->assertEquals('desc', $query->getOrder());
     }
+
+    // =========================================================================
+    // Open Redirect Protection
+    // =========================================================================
+
+    public function testTrailingSlashRedirectDoesNotLeakProtocolRelativeTarget(): void
+    {
+        // Enforce trailing slashes so a no-slash path triggers a 301 redirect.
+        $ref = new \ReflectionProperty($this->app, 'config');
+        $ref->setAccessible(true);
+        $config = $ref->getValue($this->app);
+        $original = $config['routing']['trailing_slash'] ?? false;
+        $config['routing']['trailing_slash'] = true;
+        $ref->setValue($this->app, $config);
+
+        try {
+            // Each of these leading slash/backslash runs would, before the fix,
+            // produce a Location header that browsers treat as an off-site,
+            // protocol-relative URL (e.g. //evil.com => http://evil.com).
+            foreach (['//evil.com', '/\\evil.com', '\\/evil.com', '\\\\evil.com'] as $hostile) {
+                $match = $this->router->match($this->createRequest($hostile));
+
+                if ($match === null || $match->getType() !== 'redirect') {
+                    continue;
+                }
+
+                $target = $match->getRedirectUrl();
+                $this->assertNotNull($target);
+                // Must be a single-slash, same-origin path.
+                $this->assertStringStartsWith('/', $target);
+                $this->assertFalse(
+                    str_starts_with($target, '//') || str_starts_with($target, '/\\'),
+                    'Redirect target is protocol-relative (open redirect): ' . $target
+                );
+            }
+        } finally {
+            $config['routing']['trailing_slash'] = $original;
+            $ref->setValue($this->app, $config);
+        }
+    }
 }

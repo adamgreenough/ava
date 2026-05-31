@@ -299,4 +299,15 @@ final class QueryTest extends TestCase
 
         $this->assertIsArray($results);
     }
+
+    public function testFromParamsIgnoresStatusToPreventDraftDisclosure(): void
+    {
+        // SECURITY: status is a security boundary and must never be settable by
+        // a visitor via query params, otherwise `?status=draft` would expose
+        // unpublished content. fromParams() must leave the status untouched.
+        $base = $this->createQuery()->published();
+        $tampered = $base->fromParams(['status' => 'draft']);
+
+        $this->assertEquals('published', $tampered->getStatus());
+    }
 }
