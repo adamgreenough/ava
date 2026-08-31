@@ -448,13 +448,8 @@ final class Query
     {
         // Get raw data (arrays, not Item objects)
         $rawItems = [];
-        if ($this->type !== null) {
-            $rawItems = $this->repository->allRaw($this->type);
-        } else {
-            // Query across all types
-            foreach ($this->repository->types() as $type) {
-                $rawItems = array_merge($rawItems, $this->repository->allRaw($type));
-            }
+        foreach ($this->queryTypes() as $type) {
+            $rawItems = array_merge($rawItems, $this->repository->allRaw($type));
         }
 
         // Apply filters on raw arrays
@@ -504,5 +499,33 @@ final class Query
             fn(array $data) => Item::fromArray($data, ''),
             $slice
         );
+    }
+
+    /**
+     * Get content types eligible for the query's taxonomy filters.
+     *
+     * @return array<string>
+     */
+    private function queryTypes(): array
+    {
+        $types = $this->type !== null ? [$this->type] : $this->repository->types();
+
+        if (empty($this->taxonomyFilters)) {
+            return $types;
+        }
+
+        $contentTypes = $this->app->contentTypes();
+
+        return array_values(array_filter($types, function (string $type) use ($contentTypes): bool {
+            $declaredTaxonomies = $contentTypes[$type]['taxonomies'] ?? [];
+
+            foreach (array_keys($this->taxonomyFilters) as $taxonomy) {
+                if (!in_array($taxonomy, $declaredTaxonomies, true)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
     }
 }

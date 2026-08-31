@@ -631,6 +631,10 @@ final class Indexer
                 $contentKey = $this->contentKey($item, $typeConfig);
 
                 foreach ($taxonomies as $taxName => $taxConfig) {
+                    if (!in_array($taxName, $typeConfig['taxonomies'] ?? [], true)) {
+                        continue;
+                    }
+
                     $terms = $item->terms($taxName);
 
                     foreach ($terms as $term) {

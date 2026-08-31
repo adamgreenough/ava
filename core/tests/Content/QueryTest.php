@@ -87,6 +87,26 @@ final class QueryTest extends TestCase
         $this->assertNotSame($query1, $query2);
     }
 
+    public function testTaxonomyFilterOnlyQueriesDeclaringContentTypes(): void
+    {
+        $query = $this->createQuery()->whereTax('category', 'tutorials');
+        $method = new \ReflectionMethod($query, 'queryTypes');
+        $method->setAccessible(true);
+
+        $this->assertEquals(['post'], $method->invoke($query));
+    }
+
+    public function testTaxonomyFilterRejectsExplicitUndeclaredContentType(): void
+    {
+        $query = $this->createQuery()
+            ->whereTax('category', 'tutorials')
+            ->fromParams(['type' => 'page']);
+        $method = new \ReflectionMethod($query, 'queryTypes');
+        $method->setAccessible(true);
+
+        $this->assertEquals([], $method->invoke($query));
+    }
+
     public function testOrderByMethodReturnsNewInstance(): void
     {
         $query1 = $this->createQuery();
