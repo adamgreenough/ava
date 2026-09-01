@@ -277,14 +277,16 @@ return [
     |   ],
     */
 
+    // Modes: always, never, opt_in (frontmatter defaults off),
+    // or opt_out (frontmatter defaults on).
     'markdown_extensions' => [
-        'footnotes' => false,
-        'description_lists' => false,
-        'highlight' => false,
-        'smart_punctuation' => false,
-        'external_links' => false,
-        'attributes' => false,
-        'table_of_contents' => false,
+        'footnotes' => 'never',
+        'description_lists' => 'never',
+        'highlight' => 'never',
+        'smart_punctuation' => 'never',
+        'external_links' => 'never',
+        'attributes' => 'never',
+        'table_of_contents' => 'never',
     ],
 
 

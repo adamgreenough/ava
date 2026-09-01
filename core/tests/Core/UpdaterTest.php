@@ -72,7 +72,7 @@ final class UpdaterTest extends TestCase
      */
     public function testBundledPluginsExist(): void
     {
-        $bundledPlugins = ['sitemap', 'feed', 'redirects'];
+        $bundledPlugins = ['sitemap', 'feed', 'redirects', 'markdown-extensions'];
         
         foreach ($bundledPlugins as $plugin) {
             $pluginDir = AVA_ROOT . '/app/plugins/' . $plugin;
@@ -88,7 +88,7 @@ final class UpdaterTest extends TestCase
      */
     public function testBundledPluginStructure(): void
     {
-        $plugins = ['sitemap', 'feed', 'redirects'];
+        $plugins = ['sitemap', 'feed', 'redirects', 'markdown-extensions'];
         
         foreach ($plugins as $plugin) {
             $pluginDir = AVA_ROOT . '/app/plugins/' . $plugin;
@@ -307,10 +307,10 @@ final class UpdaterTest extends TestCase
      */
     public function testBundledPluginsNotEmpty(): void
     {
-        $plugins = ['sitemap', 'feed', 'redirects'];
+        $plugins = ['sitemap', 'feed', 'redirects', 'markdown-extensions'];
         
         $this->assertTrue(count($plugins) > 0);
-        $this->assertEquals(3, count($plugins));
+        $this->assertEquals(4, count($plugins));
     }
 
     /**

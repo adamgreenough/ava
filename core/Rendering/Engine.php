@@ -50,9 +50,9 @@ final class Engine
     /**
      * Render Markdown to HTML.
      */
-    public function renderMarkdown(string $markdown): string
+    public function renderMarkdown(string $markdown, array $options = []): string
     {
-        $converter = $this->getMarkdownConverter();
+        $converter = $this->getMarkdownConverter($options);
         $html = $converter->convert($markdown)->getContent();
 
         // Apply shortcodes after markdown
@@ -98,7 +98,10 @@ final class Engine
             }
         }
 
-        return $this->renderMarkdown($item->rawContent());
+        $markdownExtensions = $item->get('markdown_extensions', []);
+        $options = is_array($markdownExtensions) ? ['markdown_extensions' => $markdownExtensions] : [];
+
+        return $this->renderMarkdown($item->rawContent(), $options);
     }
 
     /**
@@ -209,9 +212,9 @@ final class Engine
     /**
      * Get the shared Markdown converter.
      */
-    private function getMarkdownConverter(): \League\CommonMark\MarkdownConverter
+    private function getMarkdownConverter(array $options = []): \League\CommonMark\MarkdownConverter
     {
-        return $this->app->markdown();
+        return $this->app->markdown($options);
     }
 
     /**

@@ -175,7 +175,7 @@ final class UpdateCommand
         if (!in_array('--yes', $args) && !in_array('-y', $args)) {
             $this->output->writeln($this->output->color('  Will be replaced:', Output::BOLD));
             echo "    " . $this->output->color('▸', Output::GREEN) . " core/ directory (fully replaced)\n";
-            echo "    " . $this->output->color('▸', Output::GREEN) . " Bundled plugins (sitemap, feed, redirects)\n";
+            echo "    " . $this->output->color('▸', Output::GREEN) . " Bundled plugins (sitemap, feed, redirects, markdown-extensions)\n";
             echo "    " . $this->output->color('▸', Output::GREEN) . " bootstrap.php, composer.json, composer.lock\n";
             echo "    " . $this->output->color('▸', Output::GREEN) . " ava CLI, public/index.php, public/.htaccess\n";
             echo "    " . $this->output->color('▸', Output::GREEN) . " .htaccess, nginx.conf.example (root)\n";

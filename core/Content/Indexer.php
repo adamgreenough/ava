@@ -518,9 +518,6 @@ final class Indexer
         $cache = [];
         $contentTypes = $this->loadContentTypes();
         
-        // Use shared markdown converter from Application
-        $converter = $this->app->markdown();
-        
         // Path aliases for expansion
         $aliases = $this->app->config('paths.aliases', []);
         
@@ -542,6 +539,9 @@ final class Indexer
                 $key = $typeName . ':' . $contentKey;
                 
                 try {
+                    $markdownExtensions = $item->get('markdown_extensions', []);
+                    $options = is_array($markdownExtensions) ? ['markdown_extensions' => $markdownExtensions] : [];
+                    $converter = $this->app->markdown($options);
                     $html = $converter->convert($item->rawContent())->getContent();
                     
                     // Expand path aliases

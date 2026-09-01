@@ -533,6 +533,73 @@ a:hover {
     background: var(--color-bg-alt);
 }
 
+/* Optional Markdown extensions */
+.entry-content mark {
+    padding: 0.1em 0.2em;
+    border-radius: var(--radius-sm);
+    background: #fef08a;
+    color: var(--color-text);
+}
+
+.entry-content dl {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 3fr);
+    gap: var(--space-sm) var(--space-lg);
+}
+
+.entry-content dt {
+    font-weight: 600;
+}
+
+.entry-content dd {
+    color: var(--color-text-light);
+}
+
+.entry-content .table-of-contents {
+    padding: var(--space-lg) var(--space-xl);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-primary);
+    border-radius: var(--radius);
+    background: var(--color-bg-alt);
+}
+
+.entry-content .table-of-contents li {
+    margin: var(--space-xs) 0;
+}
+
+.entry-content .heading-permalink {
+    margin-right: var(--space-xs);
+    color: var(--color-text-light);
+    text-decoration: none;
+    opacity: 0;
+}
+
+.entry-content :is(h1, h2, h3, h4, h5, h6):is(:hover, :focus-within) .heading-permalink,
+.entry-content .heading-permalink:focus {
+    opacity: 1;
+}
+
+.entry-content .footnotes {
+    margin-top: var(--space-2xl);
+    color: var(--color-text-light);
+    font-size: 0.875rem;
+}
+
+.entry-content .footnotes ol {
+    padding-left: 1.25em;
+}
+
+.entry-content .footnote:target {
+    color: var(--color-text);
+    background: var(--color-bg-alt);
+}
+
+.entry-content .footnote-ref,
+.entry-content .footnote-backref {
+    font-weight: 600;
+    text-decoration: none;
+}
+
 /* Article footer (tags) */
 .entry-footer {
     margin-top: var(--space-2xl);
@@ -855,6 +922,18 @@ a:hover {
 @media (max-width: 768px) {
     :root {
         --space-3xl: 2.5rem;
+    }
+
+    .entry-content dl {
+        display: block;
+    }
+
+    .entry-content dd + dt {
+        margin-top: var(--space-md);
+    }
+
+    .entry-content .table-of-contents {
+        padding: var(--space-md) var(--space-lg);
     }
     
     .entry-header h1 {

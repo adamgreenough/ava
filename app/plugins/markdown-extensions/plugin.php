@@ -21,13 +21,13 @@ return [
 
     'boot' => function (Application $app): void {
         $config = array_merge([
-            'footnotes' => false,
-            'description_lists' => false,
-            'highlight' => false,
-            'smart_punctuation' => false,
-            'external_links' => false,
-            'attributes' => false,
-            'table_of_contents' => false,
+            'footnotes' => 'never',
+            'description_lists' => 'never',
+            'highlight' => 'never',
+            'smart_punctuation' => 'never',
+            'external_links' => 'never',
+            'attributes' => 'never',
+            'table_of_contents' => 'never',
         ], $app->config('markdown_extensions', []));
 
         $extensions = [
@@ -40,17 +40,41 @@ return [
             'table_of_contents' => TableOfContentsExtension::class,
         ];
 
-        if ($config['table_of_contents'] === true) {
-            Hooks::addFilter('markdown.config', function (array $markdownConfig): array {
-                $markdownConfig['heading_permalink']['insert'] = 'before';
+        $isEnabled = static function (string $name, array $options) use ($config): bool {
+            $mode = $config[$name];
+            $mode = $mode === true ? 'always' : ($mode === false ? 'never' : $mode);
+            $overrides = $options['markdown_extensions'] ?? [];
+            $override = is_array($overrides) ? ($overrides[$name] ?? null) : null;
 
-                return $markdownConfig;
-            });
-        }
+            return match ($mode) {
+                'always' => true,
+                'opt_in' => $override === true,
+                'opt_out' => $override !== false,
+                default => false,
+            };
+        };
 
-        Hooks::addAction('markdown.configure', function (EnvironmentBuilderInterface $environment) use ($config, $extensions): void {
+        Hooks::addFilter('markdown.profile', function (array $options) use ($extensions, $isEnabled): array {
+            $profile = [];
+            foreach ($extensions as $name => $_extension) {
+                $profile[$name] = $isEnabled($name, $options);
+            }
+
+            return $profile;
+        });
+
+        Hooks::addFilter('markdown.config', function (array $markdownConfig, array $options = []) use ($isEnabled): array {
+            if ($isEnabled('table_of_contents', $options)) {
+                $markdownConfig['heading_permalink']['insert'] = 'after';
+                $markdownConfig['heading_permalink']['symbol'] = '#';
+            }
+
+            return $markdownConfig;
+        });
+
+        Hooks::addAction('markdown.configure', function (EnvironmentBuilderInterface $environment, array $options = []) use ($extensions, $isEnabled): void {
             foreach ($extensions as $name => $extension) {
-                if ($config[$name] === true) {
+                if ($isEnabled($name, $options)) {
                     $environment->addExtension(new $extension());
                 }
             }

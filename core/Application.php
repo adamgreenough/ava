@@ -249,9 +249,12 @@ final class Application
      * This is used by both the rendering engine and the indexer to ensure
      * consistent Markdown processing and avoid duplicating setup code.
      */
-    public function markdown(): MarkdownConverter
+    public function markdown(array $options = []): MarkdownConverter
     {
-        return $this->service('markdown', function () {
+        $profile = Hooks::apply('markdown.profile', $options);
+        $serviceName = $profile === [] ? 'markdown' : 'markdown:' . hash('sha256', serialize($profile));
+
+        return $this->service($serviceName, function () use ($options) {
             $enableHeadingIds = $this->config('content.markdown.heading_ids', true);
 
             $config = [
@@ -273,7 +276,7 @@ final class Application
                 ];
             }
 
-            $config = Hooks::apply('markdown.config', $config);
+            $config = Hooks::apply('markdown.config', $config, $options);
 
             $environment = new Environment($config);
             $environment->addExtension(new CommonMarkCoreExtension());
@@ -283,7 +286,7 @@ final class Application
             }
 
             // Allow plugins to add extensions
-            Hooks::doAction('markdown.configure', $environment);
+            Hooks::doAction('markdown.configure', $environment, $options);
 
             return new MarkdownConverter($environment);
         });

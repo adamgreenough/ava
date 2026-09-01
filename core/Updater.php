@@ -15,7 +15,7 @@ namespace Ava;
  * - core/, ava (CLI), bootstrap.php, composer.json
  * - public/index.php, public/.htaccess
  * - index.php, .htaccess, nginx.conf.example (root files)
- * - Bundled plugins in app/plugins/ (sitemap, feed, redirects)
+ * - Bundled plugins in app/plugins/ (sitemap, feed, redirects, markdown-extensions)
  *
  * What is preserved (never touched):
  * - content/, app/config/, app/themes/, app/snippets/, storage/, vendor/
@@ -47,6 +47,7 @@ final class Updater
         'sitemap',
         'feed',
         'redirects',
+        'markdown-extensions',
     ];
 
     /** @var string[] Default paths that the updater expects */
