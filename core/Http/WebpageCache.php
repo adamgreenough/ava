@@ -180,13 +180,10 @@ final class WebpageCache
      */
     public function put(Request $request, Response $response, ?bool $contentCacheOverride = null): void
     {
-        // Check if content explicitly disables caching
-        if ($contentCacheOverride === false) {
-            return;
-        }
-
-        // If content doesn't explicitly enable caching, check if request is cacheable for writing
-        if ($contentCacheOverride !== true && !$this->isCacheableForWrite($request)) {
+        // Content may opt out of caching, but it may never override request-level
+        // safety rules. In particular, preview/query-string and non-GET requests
+        // must not be able to populate the public path-only page cache.
+        if ($contentCacheOverride === false || !$this->isCacheableForWrite($request)) {
             return;
         }
 
