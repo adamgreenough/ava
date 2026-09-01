@@ -105,12 +105,30 @@ final class WebpageCacheTest extends TestCase
         $this->assertEquals('no-referrer', $response->header('Referrer-Policy'));
     }
 
+    public function testPreBootCacheIsBypassedInAutomaticIndexMode(): void
+    {
+        $app = $this->createApplication('auto');
+        $request = new Request('GET', '/public-page');
+        $app->webpageCache()->put($request, Response::html('cached'));
+
+        $this->assertNull($app->tryCachedResponse($request));
+    }
+
+    public function testPreBootCacheIsAllowedInManualIndexMode(): void
+    {
+        $app = $this->createApplication('never');
+        $request = new Request('GET', '/public-page');
+        $app->webpageCache()->put($request, Response::html('cached'));
+
+        $this->assertNotNull($app->tryCachedResponse($request));
+    }
+
     private function createCache(): WebpageCache
     {
         return new WebpageCache($this->createApplication());
     }
 
-    private function createApplication(): Application
+    private function createApplication(string $indexMode = 'auto'): Application
     {
         return new Application([
             'paths' => [
@@ -120,6 +138,9 @@ final class WebpageCacheTest extends TestCase
                 'enabled' => true,
                 'ttl' => null,
                 'exclude' => ['/private/*'],
+            ],
+            'content_index' => [
+                'mode' => $indexMode,
             ],
             'generator_comment' => false,
         ]);

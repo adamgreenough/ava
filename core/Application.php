@@ -41,8 +41,8 @@ final class Application
     /**
      * Try to serve a cached page without full boot.
      * 
-     * This is the fast path - if we have a cached page, serve it immediately
-     * without loading plugins, themes, or checking content freshness.
+     * This pre-boot fast path is only safe in manual index mode. Automatic
+     * modes must run their source freshness check before serving cached HTML.
      * 
      * @return Response|null Cached response if available, null to continue with full boot
      */
@@ -50,6 +50,10 @@ final class Application
     {
         // Only attempt if webpage cache is enabled
         if (!$this->config('webpage_cache.enabled', false)) {
+            return null;
+        }
+
+        if ($this->config('content_index.mode', 'auto') !== 'never') {
             return null;
         }
 
@@ -65,9 +69,8 @@ final class Application
             return null;
         }
 
-        // Try to get from cache
-        // Note: We serve cached pages to everyone for static-site speeds.
-        // If the cache file exists, it was valid when generated (pages with cache:false don't get cached).
+        // In manual mode, a rebuild is the publication boundary and clears the
+        // page cache. A hit is therefore valid without booting the application.
         $webpageCache = $this->webpageCache();
         $cached = $webpageCache->getWithoutFullCheck($request);
         return $cached !== null ? $this->applyPublicSecurityHeaders($cached, $request) : null;

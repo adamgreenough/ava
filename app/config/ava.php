@@ -79,6 +79,8 @@ return [
     |───────────────────────────────────────────────────────────────────────────
     | Stores fully-rendered HTML for instant serving (~0.1ms vs ~30ms).
     | Cache is cleared automatically on ./ava rebuild.
+    | The pre-bootstrap ultra-fast path is used with content_index.mode = never;
+    | automatic modes check source freshness before serving cached HTML.
     */
 
     'webpage_cache' => [

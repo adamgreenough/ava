@@ -18,7 +18,8 @@ define('AVA_ROOT', dirname(__DIR__));
 // ULTRA-FAST PATH: Serve cached HTML with minimal PHP overhead
 // ─────────────────────────────────────────────────────────────────────────────
 // This runs BEFORE composer autoload for maximum speed (~0.5ms).
-// Only applies to: GET requests, no query params, webpage_cache enabled.
+// Only applies to: GET requests, no query params, webpage_cache enabled, and
+// manual index mode. Automatic modes must check source freshness before a hit.
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     // Quick config load (avoid full bootstrap)
@@ -34,7 +35,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             return is_string($value) && $value !== '' ? $value : null;
         };
         
-        if (!empty($config['webpage_cache']['enabled'])) {
+        $indexMode = $config['content_index']['mode'] ?? 'auto';
+        if (!empty($config['webpage_cache']['enabled']) && $indexMode === 'never') {
             $uri = $_SERVER['REQUEST_URI'] ?? '/';
             $path = parse_url($uri, PHP_URL_PATH) ?: '/';
             
@@ -109,8 +111,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
 
 $app = require AVA_ROOT . '/bootstrap.php';
 
-// Fast path: Try to serve a cached page without full boot
-// This is a fallback if ultra-fast path didn't match (shouldn't happen often)
+// Manual-mode fallback if the ultra-fast path did not serve the file.
+// Automatic modes intentionally continue to boot for source freshness checks.
 $request = Ava\Http\Request::capture();
 $cached = $app->tryCachedResponse($request);
 if ($cached !== null) {
