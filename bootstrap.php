@@ -72,12 +72,13 @@ if (!file_exists($configPath)) {
 
 $config = require $configPath;
 
-// Configure error handling based on debug settings
-$debug = $config['debug'] ?? [];
-$debugEnabled = $debug['enabled'] ?? false;
-$displayErrors = $debugEnabled && ($debug['display_errors'] ?? false);
-$logErrors = $debugEnabled && ($debug['log_errors'] ?? true);
-$errorLevel = $debug['level'] ?? 'errors';
+// Configure error handling. Logging is independent from browser debug output so
+// production errors remain observable without exposing their details to users.
+$errorSettings = \Ava\Support\ErrorSettings::resolve($config['debug'] ?? []);
+$debugEnabled = $errorSettings['debug_enabled'];
+$displayErrors = $errorSettings['display_errors'];
+$logErrors = $errorSettings['log_errors'];
+$errorLevel = $errorSettings['level'];
 
 // Set error reporting level
 $errorReporting = match ($errorLevel) {
@@ -89,8 +90,8 @@ $errorReporting = match ($errorLevel) {
 error_reporting($errorReporting);
 
 // Display errors (only in debug mode with display_errors enabled)
-ini_set('display_errors', ($debugEnabled && $displayErrors) ? '1' : '0');
-ini_set('display_startup_errors', ($debugEnabled && $displayErrors) ? '1' : '0');
+ini_set('display_errors', $displayErrors ? '1' : '0');
+ini_set('display_startup_errors', $displayErrors ? '1' : '0');
 
 // Log errors to file
 if ($logErrors) {

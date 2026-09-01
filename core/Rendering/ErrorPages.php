@@ -136,7 +136,7 @@ HTML;
         $homeLink = $showHomeLink ? '<a href="/" class="btn">Go Home</a>' : '';
         $logHint = $loggingEnabled
             ? 'Check <code>storage/logs/error.log</code> for details.'
-            : 'Enable <code>debug.enabled</code> and <code>debug.log_errors</code> in config to log errors.';
+            : 'Enable <code>debug.log_errors</code> in config to log errors.';
         
         return <<<HTML
 <!DOCTYPE html>

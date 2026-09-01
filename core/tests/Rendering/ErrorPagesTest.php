@@ -99,8 +99,8 @@ final class ErrorPagesTest extends TestCase
     {
         $html = ErrorPages::render500(null, null, false);
         $this->assertStringContains('Enable', $html);
-        $this->assertStringContains('debug.enabled', $html);
         $this->assertStringContains('debug.log_errors', $html);
+        $this->assertStringNotContains('debug.enabled', $html);
     }
 
     public function testRender500IncludesErrorId(): void
