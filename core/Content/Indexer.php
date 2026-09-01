@@ -7,6 +7,7 @@ namespace Ava\Content;
 use Ava\Application;
 use Ava\Content\Backends\SqliteBackend;
 use Ava\Plugins\Hooks;
+use Ava\Support\AtomicFile;
 use Ava\Support\Path;
 
 /**
@@ -22,6 +23,7 @@ use Ava\Support\Path;
 final class Indexer
 {
     private const int FINGERPRINT_VERSION = 2;
+    private const int MAX_REBUILD_ATTEMPTS = 3;
     private const array FINGERPRINT_HASH_EXTENSIONS = [
         'css',
         'htm',
@@ -50,12 +52,40 @@ final class Indexer
     /** @var bool|null Override igbinary setting for benchmark comparison */
     private ?bool $igbinaryOverride = null;
 
+    /** @var resource|null Shared lock held while a request reads cache artifacts. */
+    private $readLock = null;
+
+    private bool $rebuilding = false;
+
     public function __construct(Application $app, ?string $backendOverride = null, ?bool $igbinaryOverride = null)
     {
         $this->app = $app;
         $this->parser = new Parser();
         $this->backendOverride = $backendOverride;
         $this->igbinaryOverride = $igbinaryOverride;
+    }
+
+    public function __destruct()
+    {
+        $this->releaseReadLock();
+    }
+
+    /**
+     * Hold a shared generation lock for the lifetime of the current request.
+     */
+    public function acquireReadLock(): void
+    {
+        if (is_resource($this->readLock)) {
+            return;
+        }
+
+        $lock = $this->openRebuildLock();
+        if (!flock($lock, LOCK_SH)) {
+            fclose($lock);
+            throw new \RuntimeException('Unable to acquire content index read lock.');
+        }
+
+        $this->readLock = $lock;
     }
 
     /**
@@ -93,6 +123,27 @@ final class Indexer
      */
     public function rebuild(bool $clearWebpageCache = true): void
     {
+        $this->withRebuildLock(
+            fn() => $this->rebuildUnlocked($clearWebpageCache)
+        );
+    }
+
+    /**
+     * Rebuild only if another process has not already refreshed the cache.
+     */
+    public function rebuildIfStale(bool $clearWebpageCache = true): void
+    {
+        $this->withRebuildLock(function () use ($clearWebpageCache): void {
+            if (!$this->isCacheFresh()) {
+                $this->rebuildUnlocked($clearWebpageCache);
+            }
+        });
+    }
+
+    private function rebuildUnlocked(bool $clearWebpageCache, int $attempt = 1): void
+    {
+        $fingerprint = $this->computeFingerprint();
+
         // Reset seen IDs for duplicate detection
         $this->seenIds = [];
 
@@ -114,7 +165,24 @@ final class Indexer
         $routes = $this->buildRoutes($allItems, $contentTypes, $taxonomies);
         $recentCache = $this->buildRecentCache($allItems);
         $slugLookup = $this->buildSlugLookup($allItems, $contentTypes);
-        $fingerprint = $this->computeFingerprint();
+        $synonyms = $this->buildSynonymsCache();
+        $stopWords = $this->loadStopWords();
+        $htmlCache = $this->app->config('content_index.prerender_html', false)
+            ? $this->buildHtmlCache($allItems)
+            : null;
+
+        // Do not publish a mixed snapshot if files changed while being parsed.
+        // Retry before writing any cache artifact so readers retain the prior
+        // complete generation until a stable source snapshot is available.
+        if ($fingerprint !== $this->computeFingerprint()) {
+            if ($attempt >= self::MAX_REBUILD_ATTEMPTS) {
+                throw new \RuntimeException(
+                    'Source files kept changing during the content index rebuild.'
+                );
+            }
+            $this->rebuildUnlocked($clearWebpageCache, $attempt + 1);
+            return;
+        }
 
         // Determine which backend to build (use override if set, otherwise config)
         $backendConfig = $this->backendOverride ?? $this->app->config('content_index.backend', 'array');
@@ -124,15 +192,13 @@ final class Indexer
         $this->writeBinaryCacheFile('routes.bin', $routes);
         $this->writeBinaryCacheFile('recent_cache.bin', $recentCache);
         $this->writeBinaryCacheFile('slug_lookup.bin', $slugLookup);
-        $this->writeJsonCacheFile('fingerprint.json', $fingerprint);
 
         // Build search config caches (synonyms and stop words)
-        $this->writeSearchCache('synonyms.bin', $this->buildSynonymsCache());
-        $this->writeSearchCache('stopwords.bin', $this->loadStopWords());
+        $this->writeSearchCache('synonyms.bin', $synonyms);
+        $this->writeSearchCache('stopwords.bin', $stopWords);
 
         // Pre-render HTML if enabled (trades rebuild time for faster page loads)
-        if ($this->app->config('content_index.prerender_html', false)) {
-            $htmlCache = $this->buildHtmlCache($allItems);
+        if ($htmlCache !== null) {
             $this->writeBinaryCacheFile('html_cache.bin', $htmlCache);
         } else {
             // Clean up old HTML cache if it exists
@@ -161,10 +227,27 @@ final class Indexer
             $this->cleanupUnusedSqliteIndex();
         }
 
+        // A source may also change during the disk publication phase. Readers
+        // are still excluded, so overwrite this unpublished generation with a
+        // fresh one before clearing webpages or committing the fingerprint.
+        if ($fingerprint !== $this->computeFingerprint()) {
+            if ($attempt >= self::MAX_REBUILD_ATTEMPTS) {
+                throw new \RuntimeException(
+                    'Source files kept changing during the content index rebuild.'
+                );
+            }
+            $this->rebuildUnlocked($clearWebpageCache, $attempt + 1);
+            return;
+        }
+
         // Clear webpage cache when content cache is rebuilt (unless skipped)
         if ($clearWebpageCache) {
             $this->clearWebpageCache();
         }
+
+        // Publish freshness last. In automatic mode this is the commit marker:
+        // readers cannot observe a fresh fingerprint with old index artifacts.
+        $this->writeJsonCacheFile('fingerprint.json', $fingerprint);
 
         // Trigger rebuild hook (allows observing plugins to run actions)
         Hooks::doAction('indexer.rebuild', $this->app);
@@ -173,6 +256,70 @@ final class Indexer
         if (!empty($errors)) {
             $this->logErrors($errors);
         }
+    }
+
+    /**
+     * Run a rebuild while excluding readers and other rebuild processes.
+     */
+    private function withRebuildLock(callable $callback): void
+    {
+        if ($this->rebuilding) {
+            throw new \LogicException('A content index rebuild is already in progress.');
+        }
+
+        $hadReadLock = is_resource($this->readLock);
+        $this->releaseReadLock();
+        $lock = $this->openRebuildLock();
+
+        if (!flock($lock, LOCK_EX)) {
+            fclose($lock);
+            if ($hadReadLock) {
+                $this->acquireReadLock();
+            }
+            throw new \RuntimeException('Unable to acquire content index rebuild lock.');
+        }
+
+        $this->rebuilding = true;
+        try {
+            $callback();
+        } finally {
+            $this->rebuilding = false;
+            flock($lock, LOCK_UN);
+            fclose($lock);
+            if ($hadReadLock) {
+                $this->acquireReadLock();
+            }
+        }
+    }
+
+    /**
+     * @return resource
+     */
+    private function openRebuildLock()
+    {
+        $cachePath = $this->getCachePath();
+        if (!is_dir($cachePath) && !mkdir($cachePath, 0755, true) && !is_dir($cachePath)) {
+            throw new \RuntimeException('Unable to create content cache directory.');
+        }
+
+        $lock = @fopen($cachePath . '/.rebuild.lock', 'c+b');
+        if ($lock === false) {
+            throw new \RuntimeException('Unable to open content index rebuild lock.');
+        }
+
+        return $lock;
+    }
+
+    private function releaseReadLock(): void
+    {
+        if (!is_resource($this->readLock)) {
+            $this->readLock = null;
+            return;
+        }
+
+        flock($this->readLock, LOCK_UN);
+        fclose($this->readLock);
+        $this->readLock = null;
     }
 
     /**
@@ -273,8 +420,10 @@ final class Indexer
         }
 
         $files = glob($webpageCachePath . '/*.html');
-        foreach ($files as $file) {
-            @unlink($file);
+        foreach ($files ?: [] as $file) {
+            if (!@unlink($file) && is_file($file)) {
+                throw new \RuntimeException("Unable to clear cached webpage: {$file}");
+            }
         }
     }
 
@@ -1051,7 +1200,6 @@ final class Indexer
         }
 
         $targetPath = $cachePath . '/' . $filename;
-        $tmpPath = $cachePath . '/.' . $filename . '.tmp';
 
         // Check if igbinary is enabled (use override if set, otherwise config)
         $useIgbinary = $this->igbinaryOverride ?? $this->app->config('content_index.use_igbinary', true);
@@ -1072,9 +1220,9 @@ final class Indexer
         $hmac = hash_hmac('sha256', $payload, $key, true);
         $content = $hmac . $payload;
 
-        file_put_contents($tmpPath, $content, LOCK_EX);
-        rename($tmpPath, $targetPath);
-        chmod($targetPath, 0644);
+        if (!AtomicFile::write($targetPath, $content)) {
+            throw new \RuntimeException("Unable to publish cache file: {$filename}");
+        }
     }
 
     /**
@@ -1145,13 +1293,15 @@ final class Indexer
         }
 
         $targetPath = $cachePath . '/' . $filename;
-        $tmpPath = $cachePath . '/.' . $filename . '.tmp';
 
-        $content = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $content = json_encode(
+            $data,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        );
 
-        file_put_contents($tmpPath, $content, LOCK_EX);
-        rename($tmpPath, $targetPath);
-        chmod($targetPath, 0644);
+        if (!AtomicFile::write($targetPath, $content)) {
+            throw new \RuntimeException("Unable to publish cache file: {$filename}");
+        }
     }
 
     /**

@@ -337,13 +337,23 @@ final class Application
     private function ensureCacheFresh(): void
     {
         $mode = $this->config('content_index.mode', 'auto');
+        $indexer = $this->indexer();
+
+        // Keep all cache files on one generation for the duration of the
+        // request. Rebuilds wait until active readers have finished.
+        $indexer->acquireReadLock();
 
         if ($mode === 'never') {
             return;
         }
 
-        if ($mode === 'always' || !$this->indexer()->isCacheFresh()) {
-            $this->indexer()->rebuild();
+        if ($mode === 'always') {
+            $indexer->rebuild();
+            return;
+        }
+
+        if (!$indexer->isCacheFresh()) {
+            $indexer->rebuildIfStale();
         }
     }
 
