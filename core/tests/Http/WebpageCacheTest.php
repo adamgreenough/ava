@@ -70,6 +70,14 @@ final class WebpageCacheTest extends TestCase
         $this->assertEquals(0, $cache->stats()['count']);
     }
 
+    public function testWildcardExclusionOnlyMatchesIntendedPathPrefix(): void
+    {
+        $cache = $this->createCache();
+
+        $this->assertFalse($cache->isCacheableForWrite(new Request('GET', '/private/page')));
+        $this->assertTrue($cache->isCacheableForWrite(new Request('GET', '/private-page')));
+    }
+
     public function testCleanGetCanStillBeCachedWhenContentEnablesCaching(): void
     {
         $cache = $this->createCache();

@@ -332,7 +332,7 @@ final class WebpageCache
         // Use pre-compiled pattern if available, or compile and cache it
         if (!isset($this->excludePatterns[$pattern])) {
             $regex = str_replace(
-                ['*', '?'],
+                ['\\*', '\\?'],
                 ['.*', '.'],
                 preg_quote($pattern, '/')
             );
