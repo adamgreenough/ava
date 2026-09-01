@@ -31,4 +31,4 @@ $app = require AVA_ROOT . '/bootstrap.php';
 
 // Get CLI instance with app
 $cli = new Ava\Cli\Application($app);
-$cli->run($argv);
+exit($cli->run($argv));
