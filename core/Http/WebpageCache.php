@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ava\Http;
 
 use Ava\Application;
+use Ava\Support\AtomicFile;
 
 /**
  * On-Demand Webpage Cache
@@ -206,7 +207,7 @@ final class WebpageCache
             $content = $this->addCacheComment($content, $timestamp);
         }
 
-        file_put_contents($cacheFile, $content, LOCK_EX);
+        AtomicFile::write($cacheFile, $content);
     }
 
     /**
