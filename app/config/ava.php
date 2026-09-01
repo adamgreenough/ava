@@ -242,13 +242,15 @@ return [
     | ACTIVE PLUGINS
     |───────────────────────────────────────────────────────────────────────────
     | Plugin folder names to activate. Plugins load in the order listed.
-    | Available: sitemap, feed, redirects (bundled), or add your own.
+    | Available: sitemap, feed, redirects, markdown-extensions (bundled),
+    | or add your own.
     */
 
     'plugins' => [
         'sitemap',
         'feed',
         'redirects',
+        'markdown-extensions',
     ],
 
     /*
@@ -274,6 +276,16 @@ return [
     |       'full_content' => true,
     |   ],
     */
+
+    'markdown_extensions' => [
+        'footnotes' => false,
+        'description_lists' => false,
+        'highlight' => false,
+        'smart_punctuation' => false,
+        'external_links' => false,
+        'attributes' => false,
+        'table_of_contents' => false,
+    ],
 
 
     /*

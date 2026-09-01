@@ -36,6 +36,7 @@ app/plugins/*/
 !app/plugins/feed/
 !app/plugins/sitemap/
 !app/plugins/redirects/
+!app/plugins/markdown-extensions/
 
 # Static site generator output
 /dist/

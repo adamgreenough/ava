@@ -273,6 +273,8 @@ final class Application
                 ];
             }
 
+            $config = Hooks::apply('markdown.config', $config);
+
             $environment = new Environment($config);
             $environment->addExtension(new CommonMarkCoreExtension());
             $environment->addExtension(new GithubFlavoredMarkdownExtension());
