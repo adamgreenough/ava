@@ -330,4 +330,59 @@ final class QueryTest extends TestCase
 
         $this->assertEquals('published', $tampered->getStatus());
     }
+
+    public function testFromParamsRejectsNestedAndMalformedValues(): void
+    {
+        $query = $this->createQuery()
+            ->type('post')
+            ->fromParams([
+                'type' => ['page'],
+                'orderby' => ['title'],
+                'order' => ['asc'],
+                'per_page' => ['100'],
+                'paged' => ['2'],
+                'q' => ['hello'],
+                'tax_category' => ['tutorials'],
+                0 => 'numeric key',
+            ]);
+
+        $pagination = $query->pagination();
+        $this->assertEquals(10, $pagination['per_page']);
+        $this->assertEquals(1, $query->currentPage());
+        $this->assertEquals('date', $query->getOrderBy());
+        $this->assertEquals('desc', $query->getOrder());
+    }
+
+    public function testFromParamsRejectsUnknownTypeAndSortField(): void
+    {
+        $query = $this->createQuery()
+            ->type('post')
+            ->fromParams([
+                'type' => 'unknown',
+                'orderby' => 'private_field',
+                'order' => 'sideways',
+            ]);
+        $method = new \ReflectionMethod($query, 'queryTypes');
+        $method->setAccessible(true);
+
+        $this->assertEquals(['post'], $method->invoke($query));
+        $this->assertEquals('date', $query->getOrderBy());
+        $this->assertEquals('desc', $query->getOrder());
+    }
+
+    public function testPageIsBounded(): void
+    {
+        $query = $this->createQuery()->fromParams(['paged' => '999999999']);
+
+        $this->assertEquals(1_000_000, $query->currentPage());
+    }
+
+    public function testSearchLengthIsBounded(): void
+    {
+        $query = $this->createQuery()->search(str_repeat('x', 1_000));
+        $property = new \ReflectionProperty($query, 'search');
+        $property->setAccessible(true);
+
+        $this->assertEquals(200, strlen($property->getValue($query)));
+    }
 }

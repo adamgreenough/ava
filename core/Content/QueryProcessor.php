@@ -15,6 +15,8 @@ namespace Ava\Content;
  */
 final class QueryProcessor
 {
+    private const int MAX_SEARCH_TOKENS = 10;
+
     /**
      * Filter raw items by status, taxonomy, and field conditions.
      */
@@ -145,6 +147,7 @@ final class QueryProcessor
         ?array $weights = null
     ): array {
         $phrase = strtolower($search);
+        $expandedTokens = array_slice($expandedTokens, 0, self::MAX_SEARCH_TOKENS);
 
         $scored = [];
         foreach ($items as $data) {
@@ -284,7 +287,7 @@ final class QueryProcessor
     public static function tokenize(string $search): array
     {
         $query = strtolower($search);
-        return preg_split('/\s+/', $query, -1, PREG_SPLIT_NO_EMPTY);
+        return preg_split('/\s+/', $query, -1, PREG_SPLIT_NO_EMPTY) ?: [];
     }
 
     /**
@@ -299,6 +302,7 @@ final class QueryProcessor
         if (empty($tokens)) {
             return [];
         }
+        $tokens = array_slice($tokens, 0, self::MAX_SEARCH_TOKENS);
 
         return array_map(
             fn($t) => array_unique(array_merge([$t], $synonyms[$t] ?? [])),

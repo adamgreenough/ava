@@ -122,6 +122,42 @@ final class RequestTest extends TestCase
         $this->assertNull($request->query('missing'));
     }
 
+    public function testQueryStringRejectsNestedArrayValues(): void
+    {
+        $request = new Request('GET', '/path', ['q' => ['malformed']]);
+
+        $this->assertEquals('', $request->queryString('q', ''));
+    }
+
+    public function testQueryStringCanBoundLength(): void
+    {
+        $request = new Request('GET', '/path', ['q' => str_repeat('x', 1_000)]);
+
+        $this->assertEquals(200, strlen($request->queryString('q', '', 200) ?? ''));
+    }
+
+    public function testQueryIntParsesAndBoundsIntegers(): void
+    {
+        $request = new Request('GET', '/path', [
+            'page' => '00042',
+            'too_high' => '999',
+        ]);
+
+        $this->assertEquals(42, $request->queryInt('page', 1, 1, 100));
+        $this->assertEquals(100, $request->queryInt('too_high', 1, 1, 100));
+    }
+
+    public function testQueryIntRejectsMalformedValues(): void
+    {
+        $request = new Request('GET', '/path', [
+            'text' => '1foo',
+            'nested' => ['2'],
+        ]);
+
+        $this->assertEquals(1, $request->queryInt('text', 1, 1));
+        $this->assertEquals(1, $request->queryInt('nested', 1, 1));
+    }
+
     // =========================================================================
     // Headers
     // =========================================================================

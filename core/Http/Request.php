@@ -117,6 +117,58 @@ final class Request
     }
 
     /**
+     * Get a string query parameter, rejecting PHP's nested array syntax.
+     */
+    public function queryString(string $key, ?string $default = null, ?int $maxLength = null): ?string
+    {
+        $value = $this->query[$key] ?? null;
+        if (!is_string($value)) {
+            return $default;
+        }
+        if ($maxLength !== null) {
+            if ($maxLength < 0) {
+                throw new \InvalidArgumentException('Maximum query length cannot be negative.');
+            }
+            $value = substr($value, 0, $maxLength);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Get a bounded integer query parameter.
+     */
+    public function queryInt(
+        string $key,
+        int $default = 0,
+        int $min = PHP_INT_MIN,
+        int $max = PHP_INT_MAX
+    ): int {
+        if ($min > $max) {
+            throw new \InvalidArgumentException('Minimum query value cannot exceed maximum.');
+        }
+        $default = max($min, min($max, $default));
+
+        $value = $this->query[$key] ?? null;
+        if (is_int($value)) {
+            $integer = $value;
+        } elseif (is_string($value) && preg_match('/^-?\d+$/D', $value) === 1) {
+            $negative = str_starts_with($value, '-');
+            $digits = ltrim($value, '-0');
+            $normalized = ($negative ? '-' : '') . ($digits === '' ? '0' : $digits);
+            $integer = filter_var($normalized, FILTER_VALIDATE_INT);
+
+            if ($integer === false) {
+                return $default;
+            }
+        } else {
+            return $default;
+        }
+
+        return max($min, min($max, $integer));
+    }
+
+    /**
      * Get a header value.
      */
     public function header(string $name, ?string $default = null): ?string

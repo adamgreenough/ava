@@ -549,7 +549,7 @@ final class Application
         // Preview URLs carry a secret and may expose unpublished content. Never
         // allow browsers, proxies, or CDNs to retain them, and avoid leaking the
         // query-string token through a referrer.
-        if ($request->query('preview')) {
+        if ($request->queryString('preview')) {
             $response = $response->withHeaders([
                 'Cache-Control' => 'private, no-store, max-age=0',
                 'Pragma' => 'no-cache',

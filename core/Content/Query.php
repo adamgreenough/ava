@@ -15,6 +15,18 @@ use Ava\Support\Arr;
  */
 final class Query
 {
+    private const int MAX_PAGE = 1_000_000;
+    private const int MAX_SEARCH_LENGTH = 200;
+    private const int MAX_TAXONOMY_FILTERS = 10;
+    private const int MAX_TAXONOMY_TERM_LENGTH = 200;
+    private const array PUBLIC_ORDER_FIELDS = [
+        'date',
+        'updated',
+        'title',
+        'order',
+        'menu_order',
+    ];
+
     private Application $app;
     private Repository $repository;
 
@@ -129,7 +141,7 @@ final class Query
     {
         $clone = clone $this;
         $clone->orderBy = $field;
-        $clone->order = strtolower($direction);
+        $clone->order = strtolower($direction) === 'asc' ? 'asc' : 'desc';
         $clone->results = null;
         return $clone;
     }
@@ -151,7 +163,7 @@ final class Query
     public function page(int $page): self
     {
         $clone = clone $this;
-        $clone->page = max(1, $page);
+        $clone->page = max(1, min(self::MAX_PAGE, $page));
         $clone->results = null;
         return $clone;
     }
@@ -162,7 +174,7 @@ final class Query
     public function search(string $query): self
     {
         $clone = clone $this;
-        $clone->search = trim($query);
+        $clone->search = self::normalizeSearch($query);
         $clone->results = null;
         return $clone;
     }
@@ -206,35 +218,111 @@ final class Query
     {
         $clone = clone $this;
 
-        if (isset($params['type'])) {
-            $clone->type = $params['type'];
+        $type = self::stringParam($params['type'] ?? null, 64);
+        if ($type !== null && array_key_exists($type, $this->app->contentTypes())) {
+            $clone->type = $type;
         }
-        if (isset($params['orderby'])) {
-            $clone->orderBy = $params['orderby'];
+
+        $orderBy = self::stringParam($params['orderby'] ?? null, 32);
+        if ($orderBy !== null && in_array($orderBy, self::PUBLIC_ORDER_FIELDS, true)) {
+            $clone->orderBy = $orderBy;
         }
-        if (isset($params['order'])) {
-            $clone->order = strtolower($params['order']);
+
+        $order = self::stringParam($params['order'] ?? null, 4);
+        if ($order !== null) {
+            $order = strtolower($order);
+            if (in_array($order, ['asc', 'desc'], true)) {
+                $clone->order = $order;
+            }
         }
-        if (isset($params['per_page'])) {
-            $clone->perPage = max(1, min(100, (int) $params['per_page']));
+
+        $perPage = self::integerParam($params['per_page'] ?? null);
+        if ($perPage !== null) {
+            $clone->perPage = max(1, min(100, $perPage));
         }
-        if (isset($params['paged'])) {
-            $clone->page = max(1, (int) $params['paged']);
+
+        $page = self::integerParam($params['paged'] ?? null);
+        if ($page !== null) {
+            $clone->page = max(1, min(self::MAX_PAGE, $page));
         }
-        if (isset($params['q']) || isset($params['search'])) {
-            $clone->search = trim($params['q'] ?? $params['search'] ?? '');
+
+        $search = self::stringParam($params['q'] ?? null, self::MAX_SEARCH_LENGTH);
+        if ($search === null) {
+            $search = self::stringParam($params['search'] ?? null, self::MAX_SEARCH_LENGTH);
+        }
+        if ($search !== null) {
+            $clone->search = self::normalizeSearch($search);
         }
 
         // Taxonomy filters (tax_<taxonomy>=term)
+        $allowedTaxonomies = $this->configuredTaxonomies();
         foreach ($params as $key => $value) {
-            if (str_starts_with($key, 'tax_')) {
-                $taxonomy = substr($key, 4);
-                $clone->taxonomyFilters[$taxonomy] = $value;
+            if (count($clone->taxonomyFilters) >= self::MAX_TAXONOMY_FILTERS) {
+                break;
+            }
+            if (!is_string($key) || !str_starts_with($key, 'tax_')) {
+                continue;
+            }
+
+            $taxonomy = substr($key, 4);
+            $term = self::stringParam($value, self::MAX_TAXONOMY_TERM_LENGTH);
+            if ($term !== null && $term !== '' && isset($allowedTaxonomies[$taxonomy])) {
+                $clone->taxonomyFilters[$taxonomy] = $term;
             }
         }
 
         $clone->results = null;
         return $clone;
+    }
+
+    /**
+     * Get taxonomy names declared by at least one configured content type.
+     *
+     * @return array<string, true>
+     */
+    private function configuredTaxonomies(): array
+    {
+        $taxonomies = [];
+        foreach ($this->app->contentTypes() as $contentType) {
+            foreach ($contentType['taxonomies'] ?? [] as $taxonomy) {
+                if (is_string($taxonomy) && $taxonomy !== '') {
+                    $taxonomies[$taxonomy] = true;
+                }
+            }
+        }
+
+        return $taxonomies;
+    }
+
+    private static function normalizeSearch(string $search): string
+    {
+        return trim(substr($search, 0, self::MAX_SEARCH_LENGTH));
+    }
+
+    private static function stringParam(mixed $value, int $maxLength): ?string
+    {
+        if (!is_string($value) || strlen($value) > $maxLength) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private static function integerParam(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (!is_string($value) || preg_match('/^-?\d+$/D', $value) !== 1) {
+            return null;
+        }
+
+        $negative = str_starts_with($value, '-');
+        $digits = ltrim($value, '-0');
+        $normalized = ($negative ? '-' : '') . ($digits === '' ? '0' : $digits);
+        $integer = filter_var($normalized, FILTER_VALIDATE_INT);
+
+        return $integer === false ? null : $integer;
     }
 
     // -------------------------------------------------------------------------

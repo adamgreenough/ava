@@ -556,6 +556,15 @@ final class QueryProcessorTest extends TestCase
         $this->assertCount(2, $result);
     }
 
+    public function testExpandTokensCapsSearchWorkAfterStopWords(): void
+    {
+        $tokens = array_merge(['the'], array_map('strval', range(1, 100)));
+        $result = QueryProcessor::expandTokens($tokens, ['the' => true], []);
+
+        $this->assertCount(10, $result);
+        $this->assertContains('1', $result[0]);
+    }
+
     public function testExpandTokensWithSynonyms(): void
     {
         $synonyms = ['cms' => ['content management system']];

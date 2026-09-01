@@ -59,9 +59,9 @@ return function (Application $app): void {
         }
 
         // Get the search query from ?q= parameter
-        // $request->query() safely retrieves GET parameters with a default value
-        $searchQuery = trim($request->query('q', ''));
-        $page = max(1, (int) $request->query('page', 1));
+        // Typed accessors reject nested query-string arrays and bound work.
+        $searchQuery = trim($request->queryString('q', '', 200) ?? '');
+        $page = $request->queryInt('page', 1, 1, 1_000_000);
 
         /**
          * Build a content query using Ava's fluent query API.

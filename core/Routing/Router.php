@@ -426,12 +426,12 @@ final class Router
      */
     private function hasPreviewAccess(Request $request): bool
     {
-        if (!$request->query('preview')) {
+        if (!$request->queryString('preview')) {
             return false;
         }
 
-        $token = $request->query('token');
-        if (!$token || !is_string($token)) {
+        $token = $request->queryString('token');
+        if (!$token) {
             return false;
         }
 
