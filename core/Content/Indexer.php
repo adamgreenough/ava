@@ -21,6 +21,23 @@ use Ava\Support\Path;
  */
 final class Indexer
 {
+    private const int FINGERPRINT_VERSION = 2;
+    private const array FINGERPRINT_HASH_EXTENSIONS = [
+        'css',
+        'htm',
+        'html',
+        'js',
+        'json',
+        'md',
+        'mjs',
+        'php',
+        'phtml',
+        'svg',
+        'twig',
+        'yaml',
+        'yml',
+    ];
+
     private Application $app;
     private Parser $parser;
 
@@ -52,8 +69,17 @@ final class Indexer
             return false;
         }
 
-        $stored = json_decode(file_get_contents($fingerprintPath), true);
-        if (!$stored) {
+        $contents = @file_get_contents($fingerprintPath);
+        if ($contents === false) {
+            return false;
+        }
+
+        try {
+            $stored = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return false;
+        }
+        if (!is_array($stored)) {
             return false;
         }
 
@@ -876,63 +902,130 @@ final class Indexer
      */
     private function computeFingerprint(): array
     {
-        $fingerprint = [];
-
         $activeTheme = $this->app->config('theme', 'default');
+        if (!is_string($activeTheme) || !preg_match('/^[a-z0-9_-]+$/i', $activeTheme)) {
+            $activeTheme = 'default';
+        }
 
         $watchDirs = [
             'content' => $this->app->configPath('content'),
             'config' => $this->app->path('app/config'),
             'theme' => $this->app->configPath('themes') . '/' . $activeTheme,
+            'snippets' => $this->app->configPath('snippets'),
         ];
 
-        foreach ($watchDirs as $name => $path) {
-            if (!is_dir($path)) {
+        $plugins = $this->app->config('plugins', []);
+        foreach (is_array($plugins) ? $plugins : [] as $plugin) {
+            if (!is_string($plugin) || !preg_match('/^[a-z0-9_-]+$/i', $plugin)) {
                 continue;
             }
+            $watchDirs['plugin:' . $plugin] = $this->app->configPath('plugins') . '/' . $plugin;
+        }
 
-            $mtime = 0;
-            $count = 0;
+        $directories = [];
+        foreach ($watchDirs as $name => $path) {
+            $directories[$name] = $this->fingerprintDirectory($path);
+        }
 
+        return [
+            'version' => self::FINGERPRINT_VERSION,
+            'directories' => $directories,
+            'files' => [
+                'redirects' => $this->fingerprintFile(
+                    $this->app->configPath('storage') . '/redirects.json'
+                ),
+            ],
+        ];
+    }
+
+    /**
+     * Build a deterministic digest for a source directory.
+     *
+     * Text/source files are content-hashed so same-size edits within one
+     * filesystem timestamp tick are still detected. Binary assets use size and
+     * mtime to avoid rereading potentially large files on every auto-mode hit.
+     *
+     * @return array{exists: bool, count: int, digest: string|null}
+     */
+    private function fingerprintDirectory(string $path): array
+    {
+        if (!is_dir($path)) {
+            return ['exists' => false, 'count' => 0, 'digest' => null];
+        }
+
+        $files = [];
+        try {
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS)
             );
-
             foreach ($iterator as $file) {
-                if ($file->isFile()) {
-                    // Skip files that shouldn't trigger reindex
-                    $filename = $file->getFilename();
-                    $ext = strtolower($file->getExtension());
-                    
-                    // Skip log files, cache files, and other non-content files
-                    if (str_starts_with($filename, '.') || 
-                        in_array($ext, ['log', 'cache', 'tmp', 'lock'], true)) {
-                        continue;
-                    }
-                    
-                    $mtime = max($mtime, $file->getMTime());
-                    $count++;
+                if (!$file->isFile() || $this->skipFingerprintFile($file)) {
+                    continue;
                 }
+                $files[] = $file->getPathname();
             }
-
-            $fingerprint[$name] = [
-                'mtime' => $mtime,
-                'count' => $count,
-            ];
+        } catch (\UnexpectedValueException) {
+            return ['exists' => true, 'count' => 0, 'digest' => 'unreadable'];
         }
 
-        // Hash config files
-        $configFiles = ['ava.php', 'content_types.php', 'taxonomies.php'];
-        $configHashes = [];
-        foreach ($configFiles as $file) {
-            $path = $this->app->path('app/config/' . $file);
-            if (file_exists($path)) {
-                $configHashes[$file] = md5_file($path);
-            }
-        }
-        $fingerprint['config_hashes'] = $configHashes;
+        sort($files, SORT_STRING);
+        $context = hash_init('sha256');
+        $root = rtrim(str_replace('\\', '/', $path), '/');
 
-        return $fingerprint;
+        foreach ($files as $file) {
+            $normalized = str_replace('\\', '/', $file);
+            $relative = ltrim(substr($normalized, strlen($root)), '/');
+            hash_update($context, $relative . "\0");
+            $this->updateFingerprintHash($context, $file);
+        }
+
+        return [
+            'exists' => true,
+            'count' => count($files),
+            'digest' => hash_final($context),
+        ];
+    }
+
+    /**
+     * @return array{exists: bool, digest: string|null}
+     */
+    private function fingerprintFile(string $path): array
+    {
+        if (!is_file($path)) {
+            return ['exists' => false, 'digest' => null];
+        }
+
+        $context = hash_init('sha256');
+        $this->updateFingerprintHash($context, $path);
+
+        return ['exists' => true, 'digest' => hash_final($context)];
+    }
+
+    private function skipFingerprintFile(\SplFileInfo $file): bool
+    {
+        return str_starts_with($file->getFilename(), '.')
+            || in_array(strtolower($file->getExtension()), ['log', 'cache', 'tmp', 'lock'], true);
+    }
+
+    /**
+     * @param \HashContext $context
+     */
+    private function updateFingerprintHash(\HashContext $context, string $path): void
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (in_array($extension, self::FINGERPRINT_HASH_EXTENSIONS, true)) {
+            $digest = @hash_file('sha256', $path);
+            hash_update($context, 'content:' . ($digest === false ? 'unreadable' : $digest) . "\0");
+            return;
+        }
+
+        $stat = @stat($path);
+        if ($stat === false) {
+            hash_update($context, "metadata:unreadable\0");
+            return;
+        }
+
+        hash_update($context, 'metadata:' . $stat['size'] . ':' . $stat['mtime'] . "\0");
     }
 
     /**
