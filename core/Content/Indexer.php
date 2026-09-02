@@ -702,7 +702,8 @@ final class Indexer
 
         foreach ($allItems as $typeName => $items) {
             // Get cache_fields config for this type
-            $cacheFields = $contentTypes[$typeName]['cache_fields'] ?? [];
+            $typeConfig = $contentTypes[$typeName] ?? [];
+            $cacheFields = $typeConfig['cache_fields'] ?? [];
             
             // Filter to published only and collect minimal data
             $published = [];
