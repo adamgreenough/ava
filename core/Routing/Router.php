@@ -456,6 +456,8 @@ final class Router
         $routes = $repository->routes();
 
         // Use reverse lookup for O(1) performance (vs O(n) linear scan)
+        // For hierarchical content, $slug is the path-based content key
+        // (for example, "about/team"). Pattern content still uses its slug.
         $url = $routes['reverse'][$type . ':' . $slug] ?? null;
 
         return $url !== null ? $this->applyTrailingSlash($url) : null;

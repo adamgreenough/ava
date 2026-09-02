@@ -48,6 +48,7 @@ final class IndexerRoutesTest extends TestCase
 
         $this->assertArrayHasKey('exact', $routes);
         $this->assertArrayHasKey('/posts/unlisted-test', $routes['exact']);
+        $this->assertEquals('/posts/unlisted-test', $routes['reverse']['post:unlisted-test'] ?? null);
     }
 
     public function testBuildRoutesExcludesDraftFromExactRoutes(): void
@@ -88,5 +89,39 @@ final class IndexerRoutesTest extends TestCase
 
         $this->assertArrayHasKey('exact', $routes);
         $this->assertFalse(isset($routes['exact']['/posts/draft-test']));
+    }
+
+    public function testHierarchicalReverseRoutesUsePathBasedContentKeys(): void
+    {
+        $indexer = new Indexer($this->app);
+        $contentPath = rtrim($this->app->configPath('content'), '/');
+        $items = [
+            new Item(
+                ['title' => 'About Team', 'slug' => 'team', 'status' => 'published'],
+                '',
+                $contentPath . '/pages/about/team.md',
+                'page'
+            ),
+            new Item(
+                ['title' => 'Company Team', 'slug' => 'team', 'status' => 'published'],
+                '',
+                $contentPath . '/pages/company/team.md',
+                'page'
+            ),
+        ];
+        $contentTypes = [
+            'page' => [
+                'url' => ['type' => 'hierarchical', 'base' => '/'],
+                'templates' => ['single' => 'page.php'],
+            ],
+        ];
+
+        $method = new \ReflectionMethod($indexer, 'buildRoutes');
+        $method->setAccessible(true);
+        $routes = $method->invoke($indexer, ['page' => $items], $contentTypes, []);
+
+        $this->assertEquals('/about/team', $routes['reverse']['page:about/team'] ?? null);
+        $this->assertEquals('/company/team', $routes['reverse']['page:company/team'] ?? null);
+        $this->assertFalse(isset($routes['reverse']['page:team']));
     }
 }

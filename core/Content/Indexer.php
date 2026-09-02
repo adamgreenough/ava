@@ -734,6 +734,7 @@ final class Indexer
                 $itemData = [
                     'id' => $item->id(),
                     'slug' => $item->slug(),
+                    'content_key' => $this->contentKey($item, $typeConfig),
                     'title' => $item->title(),
                     'type' => $typeName,
                     'date' => $item->date()?->format('c'),
@@ -964,7 +965,7 @@ final class Indexer
             'exact' => [],          // Exact path => handler
             'patterns' => [],       // Pattern routes for CPTs
             'taxonomy' => [],       // Taxonomy archive routes
-            'reverse' => [],        // Reverse lookup: type:slug => url (O(1) URL generation)
+            'reverse' => [],        // Reverse lookup: type:contentKey => url (O(1) URL generation)
         ];
 
         foreach ($allItems as $typeName => $items) {
@@ -991,8 +992,11 @@ final class Indexer
                     'template' => $item->template() ?? $typeConfig['templates']['single'] ?? 'single.php',
                 ];
 
-                // Add to reverse lookup for O(1) URL generation
-                $routes['reverse'][$typeName . ':' . $item->slug()] = $url;
+                // Hierarchical types need their path-based key here; using only
+                // the basename slug makes siblings such as about/team and
+                // company/team overwrite one another.
+                $contentKey = $this->contentKey($item, $typeConfig);
+                $routes['reverse'][$typeName . ':' . $contentKey] = $url;
 
                 // Add redirect_from routes
                 foreach ($item->redirectFrom() as $fromUrl) {

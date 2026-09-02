@@ -366,6 +366,17 @@ final class ItemTest extends TestCase
         $this->assertTrue($item->isHtml());
     }
 
+    public function testContentKeyIsRestoredFromIndexedData(): void
+    {
+        $item = Item::fromArray([
+            'frontmatter' => ['title' => 'Team', 'slug' => 'team'],
+            'content_key' => 'about/team',
+            'type' => 'page',
+        ]);
+
+        $this->assertEquals('about/team', $item->get('content_key'));
+    }
+
     // =========================================================================
     // Helper
     // =========================================================================

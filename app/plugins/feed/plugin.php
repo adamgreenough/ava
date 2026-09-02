@@ -84,8 +84,8 @@ return [
 
                 // Find URL for this item using reverse routes (O(1) lookup)
                 $type = $item->type();
-                $key = $type . ':' . $item->slug();
-                $url = $reverseRoutes[$key] ?? null;
+                $key = $type . ':' . ($item->get('content_key') ?? $item->slug());
+                $url = $reverseRoutes[$key] ?? $reverseRoutes[$type . ':' . $item->slug()] ?? null;
 
                 if ($url === null) {
                     $typeConfig = $contentTypes[$type] ?? [];

@@ -69,7 +69,8 @@ final class TemplateHelpers
     // === URL Helpers ===
 
     /**
-     * Get URL for a content item.
+     * Get URL for a content item. Hierarchical content uses its path-based
+     * content key (for example, "about/team") in place of a simple slug.
      */
     public function url(string $type, string $slug): ?string
     {

@@ -108,8 +108,8 @@ return [
                     }
 
                     // Find URL for this item from reverse routes (O(1))
-                    $key = $type . ':' . $item->slug();
-                    $url = $reverseRoutes[$key] ?? null;
+                    $key = $type . ':' . ($item->get('content_key') ?? $item->slug());
+                    $url = $reverseRoutes[$key] ?? $reverseRoutes[$type . ':' . $item->slug()] ?? null;
 
                     // Fallback: generate from pattern
                     if ($url === null) {

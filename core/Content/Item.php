@@ -358,8 +358,13 @@ final class Item
      */
     public static function fromArray(array $data, string $rawContent = ''): self
     {
+        $frontmatter = $data['frontmatter'] ?? $data;
+        if (isset($data['content_key'])) {
+            $frontmatter['content_key'] = $data['content_key'];
+        }
+
         return new self(
-            $data['frontmatter'] ?? $data,
+            $frontmatter,
             $rawContent,
             $data['file_path'] ?? '',
             $data['type'] ?? '',
