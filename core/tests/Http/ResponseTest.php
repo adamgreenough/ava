@@ -40,6 +40,23 @@ final class ResponseTest extends TestCase
         $this->assertEquals(200, $response->status());
     }
 
+    public function testHeaderLookupIsCaseInsensitive(): void
+    {
+        $response = new Response('', 200, ['Content-Type' => 'text/plain']);
+
+        $this->assertEquals('text/plain', $response->header('content-type'));
+    }
+
+    public function testConstructorCollapsesHeaderNamesThatDifferOnlyByCase(): void
+    {
+        $response = new Response('', 200, [
+            'X-Test' => 'first',
+            'x-test' => 'second',
+        ]);
+
+        $this->assertEquals(['X-Test' => 'second'], $response->headers());
+    }
+
     // =========================================================================
     // Static Factories
     // =========================================================================
@@ -123,6 +140,14 @@ final class ResponseTest extends TestCase
         $this->assertInstanceOf(Response::class, $response);
     }
 
+    public function testWithHeaderReplacesExistingHeaderCaseInsensitively(): void
+    {
+        $response = (new Response('', 200, ['Content-Type' => 'text/plain']))
+            ->withHeader('content-type', 'application/json');
+
+        $this->assertEquals(['Content-Type' => 'application/json'], $response->headers());
+    }
+
     public function testWithHeadersAddMultipleHeaders(): void
     {
         $response = (new Response())->withHeaders([
@@ -131,6 +156,14 @@ final class ResponseTest extends TestCase
         ]);
 
         $this->assertInstanceOf(Response::class, $response);
+    }
+
+    public function testWithHeadersReplacesExistingHeadersCaseInsensitively(): void
+    {
+        $response = (new Response('', 200, ['X-Frame-Options' => 'DENY']))
+            ->withHeaders(['x-frame-options' => 'SAMEORIGIN']);
+
+        $this->assertEquals(['X-Frame-Options' => 'SAMEORIGIN'], $response->headers());
     }
 
     public function testWithStatusReturnsNewInstance(): void

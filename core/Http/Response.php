@@ -22,7 +22,7 @@ final class Response
     ) {
         $this->content = $content;
         $this->status = $status;
-        $this->headers = $headers;
+        $this->headers = self::normalizeHeaders($headers);
     }
 
     /**
@@ -90,7 +90,13 @@ final class Response
      */
     public function header(string $name): ?string
     {
-        return $this->headers[$name] ?? null;
+        foreach ($this->headers as $headerName => $value) {
+            if (strcasecmp($headerName, $name) === 0) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -108,7 +114,7 @@ final class Response
     {
         self::assertValidHeader($name, $value);
         $response = clone $this;
-        $response->headers[$name] = $value;
+        self::setHeader($response->headers, $name, $value);
         return $response;
     }
 
@@ -117,15 +123,49 @@ final class Response
      */
     public function withHeaders(array $headers): self
     {
+        $response = clone $this;
+        foreach (self::normalizeHeaders($headers) as $name => $value) {
+            self::setHeader($response->headers, $name, $value);
+        }
+        return $response;
+    }
+
+    /**
+     * Validate and collapse headers with names that differ only by case.
+     *
+     * @return array<string, string>
+     */
+    private static function normalizeHeaders(array $headers): array
+    {
+        $normalized = [];
+
         foreach ($headers as $name => $value) {
             if (!is_string($name) || !is_string($value)) {
                 throw new \InvalidArgumentException('Header names and values must be strings');
             }
+
             self::assertValidHeader($name, $value);
+            self::setHeader($normalized, $name, $value);
         }
-        $response = clone $this;
-        $response->headers = array_merge($response->headers, $headers);
-        return $response;
+
+        return $normalized;
+    }
+
+    /**
+     * Replace a header using HTTP's case-insensitive name semantics.
+     *
+     * @param array<string, string> $headers
+     */
+    private static function setHeader(array &$headers, string $name, string $value): void
+    {
+        foreach ($headers as $headerName => $_) {
+            if (strcasecmp($headerName, $name) === 0) {
+                $headers[$headerName] = $value;
+                return;
+            }
+        }
+
+        $headers[$name] = $value;
     }
 
     /**
