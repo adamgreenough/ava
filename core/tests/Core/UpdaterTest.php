@@ -16,6 +16,67 @@ use Ava\Testing\TestCase;
  */
 final class UpdaterTest extends TestCase
 {
+    public function testUpdaterOnlyAllowsHttpsGitHubDownloads(): void
+    {
+        $updater = new Updater($this->app);
+        $method = new \ReflectionMethod($updater, 'validateDownloadUrl');
+        $method->setAccessible(true);
+
+        $method->invoke($updater, 'https://api.github.com/repos/avacms/ava/zipball/v1.0.0');
+        $method->invoke($updater, 'https://codeload.github.com/avacms/ava/legacy.zip/v1.0.0');
+
+        foreach ([
+            'http://api.github.com/repos/avacms/ava/zipball/v1.0.0',
+            'https://api.github.com.evil.example/update.zip',
+            'https://user@example.com/update.zip',
+            'https://github.com/attacker/repository/archive/v1.0.0.zip',
+        ] as $url) {
+            $this->assertThrows(
+                \RuntimeException::class,
+                fn() => $method->invoke($updater, $url)
+            );
+        }
+    }
+
+    public function testUpdaterRejectsArchiveTraversal(): void
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            $this->markSkipped('ZipArchive extension is not available');
+        }
+
+        $directory = $this->app->configPath('storage') . '/tmp/test-updater-zip-'
+            . bin2hex(random_bytes(6));
+        mkdir($directory, 0700, true);
+        $zipPath = $directory . '/malicious.zip';
+        $destination = $directory . '/extract';
+
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($zipPath, \ZipArchive::CREATE) === true);
+        $this->assertTrue($zip->addFromString('release/../../escaped.php', 'unsafe'));
+        $zip->close();
+
+        try {
+            $updater = new Updater($this->app);
+            $method = new \ReflectionMethod($updater, 'extract');
+            $method->setAccessible(true);
+
+            $this->assertThrows(
+                \RuntimeException::class,
+                fn() => $method->invoke($updater, $zipPath, $destination)
+            );
+            $this->assertFalse(file_exists($directory . '/escaped.php'));
+            $this->assertFalse(is_dir($destination));
+        } finally {
+            if (is_file($zipPath)) {
+                unlink($zipPath);
+            }
+            if (is_dir($destination)) {
+                rmdir($destination);
+            }
+            rmdir($directory);
+        }
+    }
+
     public function testUpdaterWorkspacesAreUniqueAndPrivate(): void
     {
         $updater = new Updater($this->app);

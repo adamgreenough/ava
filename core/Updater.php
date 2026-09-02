@@ -25,6 +25,16 @@ namespace Ava;
  */
 final class Updater
 {
+    private const int MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024;
+    private const int MAX_ARCHIVE_ENTRIES = 20_000;
+    private const int MAX_EXTRACTED_BYTES = 256 * 1024 * 1024;
+    private const int MAX_COMPRESSION_RATIO = 200;
+    private const array ALLOWED_DOWNLOAD_HOSTS = [
+        'api.github.com',
+        'codeload.github.com',
+        'github.com',
+    ];
+
     private Application $app;
     private string $githubRepo = 'avacms/ava';
     private string $cacheFile;
@@ -555,6 +565,8 @@ final class Updater
      */
     private function download(string $url, string $destination): void
     {
+        $this->validateDownloadUrl($url);
+
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
@@ -564,15 +576,77 @@ final class Updater
                 ],
                 'timeout' => 120,
                 'follow_location' => 1,
+                'max_redirects' => 5,
+                'protocol_version' => 1.1,
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+                'allow_self_signed' => false,
             ],
         ]);
 
-        if (@copy($url, $destination, $context)) {
-            return;
+        $source = @fopen($url, 'rb', false, $context);
+        if ($source === false) {
+            $error = error_get_last()['message'] ?? 'Unknown error';
+            throw new \RuntimeException('Failed to download update file: ' . $error);
         }
 
-        $error = error_get_last()['message'] ?? 'Unknown error';
-        throw new \RuntimeException('Failed to download update file: ' . $error);
+        $metadata = stream_get_meta_data($source);
+        if (isset($metadata['uri']) && is_string($metadata['uri'])) {
+            $this->validateDownloadUrl($metadata['uri']);
+        }
+
+        $target = @fopen($destination, 'xb');
+        if ($target === false) {
+            fclose($source);
+            throw new \RuntimeException('Failed to create update download file');
+        }
+
+        $complete = false;
+        try {
+            $written = stream_copy_to_stream($source, $target, self::MAX_DOWNLOAD_BYTES + 1);
+            if ($written === false) {
+                throw new \RuntimeException('Failed while downloading update file');
+            }
+            if ($written > self::MAX_DOWNLOAD_BYTES) {
+                throw new \RuntimeException('Update archive exceeds the 64 MiB download limit');
+            }
+            if (!fflush($target)) {
+                throw new \RuntimeException('Failed to flush update download file');
+            }
+            $complete = true;
+        } finally {
+            fclose($source);
+            fclose($target);
+            if (!$complete && is_file($destination)) {
+                @unlink($destination);
+            }
+        }
+    }
+
+    private function validateDownloadUrl(string $url): void
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower($parts['scheme'] ?? '');
+        $host = strtolower(rtrim($parts['host'] ?? '', '.'));
+        $path = $parts['path'] ?? '';
+        $expectedPath = match ($host) {
+            'api.github.com' => '/repos/' . $this->githubRepo . '/',
+            'codeload.github.com', 'github.com' => '/' . $this->githubRepo . '/',
+            default => '',
+        };
+
+        if (
+            $scheme !== 'https'
+            || !in_array($host, self::ALLOWED_DOWNLOAD_HOSTS, true)
+            || $expectedPath === ''
+            || !str_starts_with($path, $expectedPath)
+            || isset($parts['user'])
+            || isset($parts['pass'])
+        ) {
+            throw new \RuntimeException('Update download URL is not an approved HTTPS GitHub URL');
+        }
     }
 
     /**
@@ -593,43 +667,65 @@ final class Updater
             throw new \RuntimeException('Failed to open update zip file');
         }
 
-        // Security: Check for ZIP slip (path traversal) before extraction
-        $realDestination = realpath($destination) ?: $destination;
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $entryName = $zip->getNameIndex($i);
-            if ($entryName === false) {
-                continue;
+        try {
+            if ($zip->numFiles < 1 || $zip->numFiles > self::MAX_ARCHIVE_ENTRIES) {
+                throw new \RuntimeException('Update archive has an invalid number of entries');
             }
-            
-            // Normalize and check for path traversal attempts
-            $normalizedEntry = str_replace('\\', '/', $entryName);
-            if (
-                str_contains($normalizedEntry, '../') ||
-                str_starts_with($normalizedEntry, '/') ||
-                str_starts_with($normalizedEntry, '..') ||
-                preg_match('/^[a-zA-Z]:/', $normalizedEntry) // Windows absolute path
-            ) {
-                $zip->close();
-                throw new \RuntimeException(
-                    'ZIP slip attack detected: suspicious path in archive: ' . $entryName
-                );
-            }
-        }
 
-        // Create destination if it doesn't exist
-        if (!is_dir($destination)) {
-            if (!@mkdir($destination, 0755, true)) {
-                $zip->close();
+            $totalSize = 0;
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                $entryName = $zip->getNameIndex($i);
+                if (!is_array($stat) || $entryName === false) {
+                    throw new \RuntimeException('Update archive contains an unreadable entry');
+                }
+
+                $this->validateArchiveEntryName($entryName);
+
+                $size = $stat['size'] ?? null;
+                $compressedSize = $stat['comp_size'] ?? null;
+                if (!is_int($size) || !is_int($compressedSize) || $size < 0 || $compressedSize < 0) {
+                    throw new \RuntimeException('Update archive contains invalid entry sizes');
+                }
+                if ($size > self::MAX_EXTRACTED_BYTES - $totalSize) {
+                    throw new \RuntimeException('Update archive exceeds the 256 MiB extraction limit');
+                }
+                $totalSize += $size;
+
+                if (
+                    $size > 1024 * 1024
+                    && $size / max(1, $compressedSize) > self::MAX_COMPRESSION_RATIO
+                ) {
+                    throw new \RuntimeException('Update archive contains a suspicious compression ratio');
+                }
+
+                if (($stat['encryption_method'] ?? 0) !== 0) {
+                    throw new \RuntimeException('Encrypted update archives are not supported');
+                }
+
+                $operatingSystem = 0;
+                $attributes = 0;
+                if ($zip->getExternalAttributesIndex($i, $operatingSystem, $attributes)) {
+                    $fileType = ($attributes >> 16) & 0170000;
+                    if (!in_array($fileType, [0, 0040000, 0100000], true)) {
+                        throw new \RuntimeException('Update archive contains a special file');
+                    }
+                }
+            }
+
+            if (file_exists($destination)) {
+                throw new \RuntimeException('Update extraction directory already exists');
+            }
+            if (!@mkdir($destination, 0700, true)) {
                 throw new \RuntimeException('Failed to create extraction directory');
             }
-        }
 
-        if (!$zip->extractTo($destination)) {
+            if (!$zip->extractTo($destination)) {
+                throw new \RuntimeException('Failed to extract update files');
+            }
+        } finally {
             $zip->close();
-            throw new \RuntimeException('Failed to extract update files');
         }
-
-        $zip->close();
 
         // Post-extraction verification: ensure no files escaped
         $realDestination = realpath($destination);
@@ -643,14 +739,46 @@ final class Updater
         );
         
         foreach ($iterator as $file) {
+            if ($file->isLink()) {
+                $this->removeDirectory($destination);
+                throw new \RuntimeException('Update archive extracted a symbolic link');
+            }
             $realPath = realpath($file->getPathname());
-            if ($realPath !== false && !str_starts_with($realPath, $realDestination)) {
+            if (
+                $realPath === false
+                || (
+                    $realPath !== $realDestination
+                    && !str_starts_with($realPath, $realDestination . DIRECTORY_SEPARATOR)
+                )
+            ) {
                 // A file escaped the destination directory - this shouldn't happen
                 // but let's be paranoid
                 $this->removeDirectory($destination);
                 throw new \RuntimeException(
                     'ZIP slip attack detected: file extracted outside destination'
                 );
+            }
+        }
+    }
+
+    private function validateArchiveEntryName(string $entryName): void
+    {
+        $normalized = str_replace('\\', '/', $entryName);
+        if (
+            $normalized === ''
+            || strlen($normalized) > 4096
+            || str_contains($normalized, "\0")
+            || str_starts_with($normalized, '/')
+            || preg_match('/^[a-z]:/i', $normalized)
+            || str_contains($normalized, ':')
+        ) {
+            throw new \RuntimeException('Update archive contains an unsafe path');
+        }
+
+        $segments = explode('/', rtrim($normalized, '/'));
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                throw new \RuntimeException('Update archive contains a traversal path');
             }
         }
     }
