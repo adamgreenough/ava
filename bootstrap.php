@@ -96,19 +96,41 @@ ini_set('display_startup_errors', $displayErrors ? '1' : '0');
 // Honour the configured logging policy even when the host php.ini enables
 // logging globally.
 ini_set('log_errors', $logErrors ? '1' : '0');
+$reportedError = false;
 
 // Log errors to Ava's file
 if ($logErrors) {
-    ini_set('error_log', AVA_ROOT . '/storage/logs/error.log');
+    $errorLog = AVA_ROOT . '/storage/logs/error.log';
+    ini_set('error_log', $errorLog);
+
+    // Native PHP errors are written after the custom handler returns. Rotate
+    // at shutdown only when an error occurred, avoiding work on clean requests.
+    register_shutdown_function(static function () use ($errorLog, $config, &$reportedError): void {
+        $lastError = error_get_last();
+        $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
+        $fatalError = $lastError !== null && in_array($lastError['type'], $fatalTypes, true);
+
+        if (!$reportedError && !$fatalError) {
+            return;
+        }
+
+        \Ava\Support\LogRotator::rotateIfNeeded(
+            $errorLog,
+            (int) ($config['logs']['max_size'] ?? 10 * 1024 * 1024),
+            (int) ($config['logs']['max_files'] ?? 3)
+        );
+    });
 }
 
 // Custom error handler for enhanced logging (only if debugging or logging enabled)
 if ($debugEnabled || $logErrors) {
-    set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline) use ($logErrors) {
+    set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline) use ($logErrors, &$reportedError) {
         // Skip errors suppressed with @
         if (!(error_reporting() & $errno)) {
             return false;
         }
+
+        $reportedError = true;
         
         $type = match ($errno) {
             E_ERROR, E_USER_ERROR => 'ERROR',
@@ -138,7 +160,7 @@ if ($debugEnabled || $logErrors) {
 }
 
 // Exception handler - always registered to show custom error pages
-set_exception_handler(function (\Throwable $e) use ($debugEnabled, $displayErrors, $logErrors) {
+set_exception_handler(function (\Throwable $e) use ($debugEnabled, $displayErrors, $logErrors, $config) {
     $message = sprintf(
         "[%s] EXCEPTION: %s in %s on line %d\nStack trace:\n%s",
         date('Y-m-d H:i:s'),
@@ -151,6 +173,11 @@ set_exception_handler(function (\Throwable $e) use ($debugEnabled, $displayError
     if ($logErrors) {
         $logFile = AVA_ROOT . '/storage/logs/error.log';
         @file_put_contents($logFile, $message . "\n\n", FILE_APPEND | LOCK_EX);
+        \Ava\Support\LogRotator::rotateIfNeeded(
+            $logFile,
+            (int) ($config['logs']['max_size'] ?? 10 * 1024 * 1024),
+            (int) ($config['logs']['max_files'] ?? 3)
+        );
     }
     
     if ($debugEnabled && $displayErrors) {
