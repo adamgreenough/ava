@@ -216,7 +216,7 @@ final class Indexer
                     "Install it or set backend to 'array' in config."
                 );
             }
-            $this->writeSqliteIndex($allItems, $taxIndex, $routes, $fingerprint);
+            $this->writeSqliteIndex($allItems, $contentTypes, $taxIndex, $routes, $fingerprint);
             // If we are using SQLite, remove any stale binary array index to avoid wasting disk
             // and to prevent confusion when inspecting cache size.
             $this->cleanupUnusedBinaryIndex();
@@ -357,7 +357,13 @@ final class Indexer
     /**
      * Write the SQLite index database.
      */
-    private function writeSqliteIndex(array $allItems, array $taxIndex, array $routes, array $fingerprint): void
+    private function writeSqliteIndex(
+        array $allItems,
+        array $contentTypes,
+        array $taxIndex,
+        array $routes,
+        array $fingerprint
+    ): void
     {
         $sqlite = new SqliteBackend(
             $this->app->configPath('storage'),
@@ -371,9 +377,11 @@ final class Indexer
 
             // Insert all content items
             foreach ($allItems as $typeName => $items) {
+                $typeConfig = $contentTypes[$typeName] ?? [];
                 foreach ($items as $item) {
                     $data = $item->toArray();
                     $data['type'] = $typeName;
+                    $data['content_key'] = $this->contentKey($item, $typeConfig);
                     $data['file_path'] = $this->getRelativePath($item->filePath());
                     $sqlite->insertContent($data);
                 }

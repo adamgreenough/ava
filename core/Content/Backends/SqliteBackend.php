@@ -105,7 +105,7 @@ final class SqliteBackend implements BackendInterface
     public function getBySlug(string $type, string $slug): ?array
     {
         $stmt = $this->stmt('get_by_slug', '
-            SELECT * FROM content WHERE type = :type AND slug = :slug LIMIT 1
+            SELECT * FROM content WHERE type = :type AND content_key = :slug LIMIT 1
         ');
         $stmt->execute(['type' => $type, 'slug' => $slug]);
         $row = $stmt->fetch();
@@ -209,7 +209,7 @@ final class SqliteBackend implements BackendInterface
     public function exists(string $type, string $slug): bool
     {
         $stmt = $this->stmt('exists', '
-            SELECT 1 FROM content WHERE type = :type AND slug = :slug LIMIT 1
+            SELECT 1 FROM content WHERE type = :type AND content_key = :slug LIMIT 1
         ');
         $stmt->execute(['type' => $type, 'slug' => $slug]);
         return $stmt->fetch() !== false;
@@ -548,10 +548,12 @@ final class SqliteBackend implements BackendInterface
         $pdo = $this->pdo();
 
         // Content table - main index
-        // Primary key is (type, slug) since id is optional
+        // content_key is a slug for pattern types and a path for hierarchical
+        // types, matching the array backend's lookup semantics.
         $pdo->exec('
             CREATE TABLE IF NOT EXISTS content (
                 type TEXT NOT NULL,
+                content_key TEXT NOT NULL,
                 slug TEXT NOT NULL,
                 id TEXT,
                 title TEXT NOT NULL,
@@ -564,7 +566,7 @@ final class SqliteBackend implements BackendInterface
                 taxonomies TEXT DEFAULT "{}",
                 meta TEXT DEFAULT "{}",
                 frontmatter TEXT DEFAULT "{}",
-                PRIMARY KEY(type, slug)
+                PRIMARY KEY(type, content_key)
             )
         ');
 
@@ -656,14 +658,15 @@ final class SqliteBackend implements BackendInterface
     {
         $stmt = $this->stmt('insert_content', '
             INSERT OR REPLACE INTO content 
-            (type, slug, id, title, status, date, updated_at, file_path, template, excerpt, taxonomies, meta, frontmatter)
-            VALUES (:type, :slug, :id, :title, :status, :date, :updated_at, :file_path, :template, :excerpt, :taxonomies, :meta, :frontmatter)
+            (type, content_key, slug, id, title, status, date, updated_at, file_path, template, excerpt, taxonomies, meta, frontmatter)
+            VALUES (:type, :content_key, :slug, :id, :title, :status, :date, :updated_at, :file_path, :template, :excerpt, :taxonomies, :meta, :frontmatter)
         ');
 
         $id = $item['id'] ?? null;
 
         $stmt->execute([
             'type' => $item['type'] ?? '',
+            'content_key' => $item['content_key'] ?? $item['slug'] ?? '',
             'slug' => $item['slug'] ?? '',
             'id' => $id ?: null,  // Store NULL if empty, not empty string
             'title' => $item['title'] ?? '',
@@ -798,6 +801,7 @@ final class SqliteBackend implements BackendInterface
         return [
             'id' => $row['id'],
             'type' => $row['type'],
+            'content_key' => $row['content_key'],
             'slug' => $row['slug'],
             'title' => $row['title'],
             'status' => $row['status'],

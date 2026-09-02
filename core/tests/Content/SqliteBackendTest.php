@@ -1,0 +1,71 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Ava\Tests\Content;
+
+use Ava\Content\Backends\SqliteBackend;
+use Ava\Testing\TestCase;
+
+final class SqliteBackendTest extends TestCase
+{
+    public function testHierarchicalItemsWithTheSameSlugRemainDistinct(): void
+    {
+        if (!extension_loaded('pdo_sqlite')) {
+            $this->markSkipped('pdo_sqlite extension is not available');
+        }
+
+        $directory = $this->app->configPath('storage') . '/tmp/test-sqlite-backend-'
+            . bin2hex(random_bytes(6));
+        $storage = $directory . '/storage';
+        $content = $directory . '/content';
+        mkdir($storage . '/cache', 0700, true);
+        mkdir($content, 0700, true);
+        $backend = new SqliteBackend($storage, $content);
+
+        try {
+            $backend->createDatabase();
+            $backend->beginTransaction();
+            $backend->insertContent($this->item('company/team', 'Company team'));
+            $backend->insertContent($this->item('support/team', 'Support team'));
+            $backend->commit();
+
+            $this->assertEquals(2, $backend->count('page'));
+            $this->assertEquals('Company team', $backend->getBySlug('page', 'company/team')['title'] ?? null);
+            $this->assertEquals('Support team', $backend->getBySlug('page', 'support/team')['title'] ?? null);
+            $this->assertTrue($backend->exists('page', 'company/team'));
+            $this->assertTrue($backend->exists('page', 'support/team'));
+        } finally {
+            $backend->clearMemoryCache();
+            $this->removeDirectory($directory);
+        }
+    }
+
+    private function item(string $contentKey, string $title): array
+    {
+        return [
+            'type' => 'page',
+            'content_key' => $contentKey,
+            'slug' => 'team',
+            'title' => $title,
+            'status' => 'published',
+            'file_path' => 'pages/' . $contentKey . '.md',
+        ];
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($directory);
+    }
+}
