@@ -93,9 +93,12 @@ error_reporting($errorReporting);
 ini_set('display_errors', $displayErrors ? '1' : '0');
 ini_set('display_startup_errors', $displayErrors ? '1' : '0');
 
-// Log errors to file
+// Honour the configured logging policy even when the host php.ini enables
+// logging globally.
+ini_set('log_errors', $logErrors ? '1' : '0');
+
+// Log errors to Ava's file
 if ($logErrors) {
-    ini_set('log_errors', '1');
     ini_set('error_log', AVA_ROOT . '/storage/logs/error.log');
 }
 
