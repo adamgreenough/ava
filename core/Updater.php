@@ -209,6 +209,7 @@ final class Updater
     {
         $currentVersion = $this->currentVersion();
         $workspace = null;
+        $updateLock = null;
 
         // Check path safety before proceeding - block entirely if custom paths
         $pathCheck = $this->checkPathSafety();
@@ -223,6 +224,8 @@ final class Updater
         }
 
         try {
+            $updateLock = $this->acquireUpdateLock();
+
             // Dev mode: get latest commit from main branch
             if ($dev) {
                 $commit = $this->fetchLatestCommit();
@@ -319,6 +322,10 @@ final class Updater
             ];
         } finally {
             $this->cleanupTemporaryWorkspace($workspace);
+            if (is_resource($updateLock)) {
+                flock($updateLock, LOCK_UN);
+                fclose($updateLock);
+            }
         }
     }
 
@@ -456,6 +463,33 @@ final class Updater
         } finally {
             $this->cleanupTemporaryWorkspace($workspace);
         }
+    }
+
+    /**
+     * Prevent concurrent update processes from changing the installation.
+     *
+     * @return resource
+     */
+    private function acquireUpdateLock(?string $lockFile = null)
+    {
+        $lockFile ??= dirname($this->cacheFile) . '/update_install.lock';
+        $lockDir = dirname($lockFile);
+        if (!is_dir($lockDir) && !@mkdir($lockDir, 0755, true)) {
+            throw new \RuntimeException('Failed to create updater lock directory');
+        }
+
+        $lock = @fopen($lockFile, 'c');
+        if ($lock === false) {
+            throw new \RuntimeException('Failed to open updater lock file');
+        }
+        @chmod($lockFile, 0600);
+
+        if (!flock($lock, LOCK_EX | LOCK_NB)) {
+            fclose($lock);
+            throw new \RuntimeException('Another update is already in progress');
+        }
+
+        return $lock;
     }
 
     /**

@@ -16,6 +16,38 @@ use Ava\Testing\TestCase;
  */
 final class UpdaterTest extends TestCase
 {
+    public function testUpdaterPreventsConcurrentInstallations(): void
+    {
+        $directory = $this->app->configPath('storage') . '/tmp/test-updater-lock-'
+            . bin2hex(random_bytes(6));
+        mkdir($directory, 0700, true);
+        $lockFile = $directory . '/update.lock';
+        $firstLock = null;
+
+        try {
+            $updater = new Updater($this->app);
+            $method = new \ReflectionMethod($updater, 'acquireUpdateLock');
+            $method->setAccessible(true);
+            $firstLock = $method->invoke($updater, $lockFile);
+
+            $this->assertThrows(
+                \RuntimeException::class,
+                fn() => $method->invoke($updater, $lockFile)
+            );
+        } finally {
+            if (is_resource($firstLock)) {
+                flock($firstLock, LOCK_UN);
+                fclose($firstLock);
+            }
+            if (is_file($lockFile)) {
+                unlink($lockFile);
+            }
+            if (is_dir($directory)) {
+                rmdir($directory);
+            }
+        }
+    }
+
     public function testUpdaterRestoresOriginalFilesAfterActivationFailure(): void
     {
         $directory = $this->app->configPath('storage') . '/tmp/test-updater-rollback-'
