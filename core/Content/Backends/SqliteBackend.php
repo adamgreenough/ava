@@ -683,7 +683,7 @@ final class SqliteBackend implements BackendInterface
             'template' => $item['template'] ?? null,
             'excerpt' => $item['excerpt'] ?? $item['meta']['excerpt'] ?? null,
             'taxonomies' => json_encode($item['taxonomies'] ?? []),
-            'meta' => json_encode($item['meta'] ?? []),
+            'meta' => json_encode($item['meta'] ?? $item['frontmatter'] ?? []),
             'frontmatter' => json_encode($item['frontmatter'] ?? []),
         ]);
     }

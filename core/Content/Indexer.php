@@ -386,6 +386,11 @@ final class Indexer
                     $data['type'] = $typeName;
                     $data['content_key'] = $this->contentKey($item, $typeConfig);
                     $data['file_path'] = $this->getRelativePath($item->filePath());
+                    $data['meta'] = $data['frontmatter'] ?? [];
+                    $data['taxonomies'] = [];
+                    foreach ($typeConfig['taxonomies'] ?? [] as $taxonomy) {
+                        $data['taxonomies'][$taxonomy] = $item->terms($taxonomy);
+                    }
                     $sqlite->insertContent($data);
                 }
             }

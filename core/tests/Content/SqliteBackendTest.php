@@ -102,6 +102,49 @@ final class SqliteBackendTest extends TestCase
         }
     }
 
+    public function testQueriesFilterIndexedTaxonomiesAndCustomFields(): void
+    {
+        if (!extension_loaded('pdo_sqlite')) {
+            $this->markSkipped('pdo_sqlite extension is not available');
+        }
+
+        $directory = $this->app->configPath('storage') . '/tmp/test-sqlite-filters-'
+            . bin2hex(random_bytes(6));
+        $storage = $directory . '/storage';
+        $content = $directory . '/content';
+        mkdir($storage . '/cache', 0700, true);
+        mkdir($content, 0700, true);
+        $backend = new SqliteBackend($storage, $content);
+
+        try {
+            $backend->createDatabase();
+            $item = $this->item('case-study', 'Case study');
+            $item['taxonomies'] = ['category' => ['design', 'accessibility']];
+            $item['frontmatter'] = ['featured' => true, 'client' => 'Acme'];
+            $backend->insertContent($item);
+
+            $result = $backend->query([
+                'type' => 'page',
+                'taxonomies' => ['category' => 'design'],
+                'fields' => [[
+                    'field' => 'client',
+                    'value' => 'Acme',
+                    'operator' => '=',
+                ]],
+                'page' => 1,
+                'perPage' => 10,
+            ]);
+
+            $this->assertEquals(1, $result['total']);
+            $this->assertEquals('Case study', $result['items'][0]['title'] ?? null);
+            $this->assertEquals(['design', 'accessibility'], $result['items'][0]['taxonomies']['category'] ?? null);
+            $this->assertEquals('Acme', $result['items'][0]['meta']['client'] ?? null);
+        } finally {
+            $backend->clearMemoryCache();
+            $this->removeDirectory($directory);
+        }
+    }
+
     public function testCompletedDatabaseCanBePublishedWithoutWalFiles(): void
     {
         if (!extension_loaded('pdo_sqlite')) {
