@@ -136,7 +136,13 @@ return [
             }
 
             foreach ($types as $type) {
-                foreach ($repository->published($type) as $item) {
+                // Excerpt feeds only need indexed metadata. Avoid parsing every
+                // content file just to discard all but the newest few items.
+                $items = $config['full_content']
+                    ? $repository->published($type)
+                    : $repository->publishedMeta($type);
+
+                foreach ($items as $item) {
                     if (!$item->noindex()) {
                         $allItems[] = $item;
                     }
@@ -176,7 +182,9 @@ return [
                 return null;
             }
 
-            $items = $repository->published($type);
+            $items = $config['full_content']
+                ? $repository->published($type)
+                : $repository->publishedMeta($type);
 
             // Filter out noindex
             $items = array_filter($items, fn($item) => !$item->noindex());
