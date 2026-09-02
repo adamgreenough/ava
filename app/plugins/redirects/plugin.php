@@ -17,6 +17,7 @@ declare(strict_types=1);
  */
 
 use Ava\Application;
+use Ava\Http\RedirectTarget;
 use Ava\Http\Request;
 use Ava\Http\Response;
 use Ava\Plugins\Hooks;
@@ -76,40 +77,8 @@ return [
             file_put_contents($redirectsFile, json_encode($redirects, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
         };
 
-        // Validate/sanitize redirect targets to prevent unsafe schemes.
-        $sanitizeRedirectTarget = function (string $to): ?string {
-            $to = trim($to);
-
-            if ($to === '') {
-                return '';
-            }
-
-            // Block dangerous schemes
-            if (preg_match('/^\s*(javascript|data|vbscript):/i', $to)) {
-                return null;
-            }
-
-            // Allow internal absolute paths
-            if (str_starts_with($to, '/')) {
-                return $to;
-            }
-
-            // Allow http(s) only for external redirects
-            $parts = parse_url($to);
-            if ($parts === false || !isset($parts['scheme'])) {
-                return null;
-            }
-
-            $scheme = strtolower($parts['scheme']);
-            if (!in_array($scheme, ['http', 'https'], true)) {
-                return null;
-            }
-
-            return $to;
-        };
-
         // Register redirects with router via hook (runs early in routing)
-        Hooks::addFilter('router.before_match', function ($match, Request $request) use ($loadRedirects, $sanitizeRedirectTarget) {
+        Hooks::addFilter('router.before_match', function ($match, Request $request) use ($loadRedirects) {
             if ($match !== null) {
                 return $match; // Already matched
             }
@@ -131,7 +100,7 @@ return [
                     
                     // Check if this is a true redirect or a status-only response
                     if ($codeInfo['redirect']) {
-                        $target = $sanitizeRedirectTarget((string) ($redirect['to'] ?? '/'));
+                        $target = RedirectTarget::sanitize((string) ($redirect['to'] ?? '/'));
                         if ($target === null) {
                             return null;
                         }
@@ -259,6 +228,14 @@ return [
                 if ($codeInfo['redirect'] && empty($to)) {
                     $output->error("Destination URL required for {$code} redirects.");
                     return 1;
+                }
+
+                if ($codeInfo['redirect']) {
+                    $to = RedirectTarget::sanitize((string) $to);
+                    if ($to === null) {
+                        $output->error('Destination must be a local /path or an explicit http(s) URL.');
+                        return 1;
+                    }
                 }
 
                 // Normalize from path
