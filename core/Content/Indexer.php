@@ -365,9 +365,12 @@ final class Indexer
         array $fingerprint
     ): void
     {
+        $livePath = $this->getCachePath('content_index.sqlite');
+        $temporaryPath = $livePath . '.' . bin2hex(random_bytes(8)) . '.tmp';
         $sqlite = new SqliteBackend(
             $this->app->configPath('storage'),
-            $this->app->configPath('content')
+            $this->app->configPath('content'),
+            $temporaryPath
         );
         
         try {
@@ -410,10 +413,79 @@ final class Indexer
             $sqlite->setMetadata('built_at', date('c'));
 
             $sqlite->commit();
+            $sqlite->prepareForPublication();
+            $this->app->repository()->clearCache();
+            $this->publishSqliteDatabase($temporaryPath, $livePath);
         } catch (\Throwable $e) {
             $sqlite->rollback();
-            // Log error but don't fail - array backend is still available
-            $this->logErrors(['SQLite index build failed: ' . $e->getMessage()]);
+            $sqlite->clearMemoryCache();
+            throw new \RuntimeException('SQLite index build failed: ' . $e->getMessage(), 0, $e);
+        } finally {
+            foreach ([$temporaryPath, $temporaryPath . '-wal', $temporaryPath . '-shm'] as $file) {
+                if (is_file($file)) {
+                    @unlink($file);
+                }
+            }
+        }
+    }
+
+    /**
+     * Replace the live SQLite database and restore it if activation fails.
+     */
+    private function publishSqliteDatabase(string $temporaryPath, string $livePath): void
+    {
+        if (!is_file($temporaryPath)) {
+            throw new \RuntimeException('Completed SQLite index file is missing');
+        }
+
+        $backupBase = $livePath . '.' . bin2hex(random_bytes(8)) . '.backup';
+        $backups = [];
+        $published = false;
+
+        try {
+            foreach (['', '-wal', '-shm'] as $suffix) {
+                $liveFile = $livePath . $suffix;
+                if (!is_file($liveFile)) {
+                    continue;
+                }
+
+                $backupFile = $backupBase . $suffix;
+                if (!@rename($liveFile, $backupFile)) {
+                    throw new \RuntimeException('Failed to back up the live SQLite index');
+                }
+                $backups[$liveFile] = $backupFile;
+            }
+
+            if (!@rename($temporaryPath, $livePath)) {
+                throw new \RuntimeException('Failed to publish the new SQLite index');
+            }
+            @chmod($livePath, 0644);
+            $published = true;
+        } catch (\Throwable $e) {
+            $restoreErrors = [];
+            foreach (array_reverse($backups, true) as $liveFile => $backupFile) {
+                if (is_file($backupFile) && !@rename($backupFile, $liveFile)) {
+                    $restoreErrors[] = $backupFile;
+                }
+            }
+
+            if ($restoreErrors !== []) {
+                throw new \RuntimeException(
+                    $e->getMessage() . '; old SQLite files preserved at: '
+                        . implode(', ', $restoreErrors),
+                    0,
+                    $e
+                );
+            }
+            throw $e;
+        } finally {
+            if ($published) {
+                foreach ($backups as $backupFile) {
+                    if (is_file($backupFile)) {
+                        @unlink($backupFile);
+                    }
+                }
+            }
         }
     }
 

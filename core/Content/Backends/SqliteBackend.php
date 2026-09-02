@@ -30,9 +30,10 @@ final class SqliteBackend implements BackendInterface
 
     public function __construct(
         private string $storagePath,
-        private string $contentPath
+        private string $contentPath,
+        ?string $databasePath = null
     ) {
-        $this->dbPath = $this->storagePath . '/cache/content_index.sqlite';
+        $this->dbPath = $databasePath ?? $this->storagePath . '/cache/content_index.sqlite';
     }
 
     /**
@@ -634,7 +635,7 @@ final class SqliteBackend implements BackendInterface
      */
     public function rollback(): void
     {
-        if ($this->pdo()->inTransaction()) {
+        if ($this->pdo !== null && $this->pdo->inTransaction()) {
             $this->pdo()->rollBack();
         }
     }
@@ -777,16 +778,42 @@ final class SqliteBackend implements BackendInterface
             mkdir($dir, 0755, true);
         }
 
+        // Close any prior connection before replacing its files.
+        $this->clearMemoryCache();
+
         // Remove existing database
         if (file_exists($this->dbPath)) {
             unlink($this->dbPath);
         }
-
-        // Clear cached connection
-        $this->clearMemoryCache();
+        @unlink($this->dbPath . '-wal');
+        @unlink($this->dbPath . '-shm');
 
         // Initialize schema
         $this->initializeSchema();
+    }
+
+    /**
+     * Flush a completed standalone build into one portable database file.
+     */
+    public function prepareForPublication(): void
+    {
+        $pdo = $this->pdo();
+        if ($pdo->inTransaction()) {
+            throw new \LogicException('Cannot publish a SQLite database with an active transaction');
+        }
+
+        $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
+        $mode = strtolower((string) $pdo->query('PRAGMA journal_mode = DELETE')->fetchColumn());
+        if ($mode !== 'delete') {
+            throw new \RuntimeException('Failed to finalize SQLite journal before publication');
+        }
+
+        $this->clearMemoryCache();
+        foreach ([$this->dbPath . '-wal', $this->dbPath . '-shm'] as $sidecar) {
+            if (is_file($sidecar) && !@unlink($sidecar)) {
+                throw new \RuntimeException("Failed to remove temporary SQLite sidecar: {$sidecar}");
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
