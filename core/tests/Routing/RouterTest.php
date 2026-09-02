@@ -19,10 +19,29 @@ use Ava\Testing\TestCase;
 final class RouterTest extends TestCase
 {
     private Router $router;
+    private bool $originalTrailingSlash;
 
     public function setUp(): void
     {
+        // Extension-route tests must not inherit a site's canonical URL policy:
+        // trailing-slash redirects intentionally run before exact system routes.
+        $ref = new \ReflectionProperty($this->app, 'config');
+        $ref->setAccessible(true);
+        $config = $ref->getValue($this->app);
+        $this->originalTrailingSlash = (bool) ($config['routing']['trailing_slash'] ?? false);
+        $config['routing']['trailing_slash'] = false;
+        $ref->setValue($this->app, $config);
+
         $this->router = $this->app->router();
+    }
+
+    public function tearDown(): void
+    {
+        $ref = new \ReflectionProperty($this->app, 'config');
+        $ref->setAccessible(true);
+        $config = $ref->getValue($this->app);
+        $config['routing']['trailing_slash'] = $this->originalTrailingSlash;
+        $ref->setValue($this->app, $config);
     }
 
     /**

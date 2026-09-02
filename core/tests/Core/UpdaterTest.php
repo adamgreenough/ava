@@ -363,12 +363,14 @@ final class UpdaterTest extends TestCase
      */
     public function testCustomThemesDirectory(): void
     {
-        $themesDir = AVA_ROOT . '/app/themes';
+        $themesDir = $this->app->configPath('themes');
+        $activeTheme = (string) $this->app->config('theme', 'default');
         
         $this->assertTrue(is_dir($themesDir));
-        
-        // Default theme should exist
-        $this->assertTrue(is_dir($themesDir . '/default'));
+        $this->assertTrue(
+            is_dir($themesDir . '/' . $activeTheme),
+            "Configured theme '{$activeTheme}' should exist"
+        );
     }
 
     /**

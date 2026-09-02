@@ -187,6 +187,10 @@ final class SnippetTest extends TestCase
 
     public function testCtaSnippetRenders(): void
     {
+        if (!is_file($this->snippetDir . '/cta.php')) {
+            $this->markSkipped('Optional bundled CTA snippet is not installed');
+        }
+
         $result = $this->app->shortcodes()->process(
             '[snippet name="cta" heading="Test" button_text="Click" button_url="/test"]'
         );
