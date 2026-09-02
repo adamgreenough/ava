@@ -500,7 +500,9 @@ final class SqliteBackend implements BackendInterface
         $routes = [
             'redirects' => [],
             'exact' => [],
+            'patterns' => [],
             'taxonomy' => [],
+            'reverse' => [],
         ];
 
         foreach ($rows as $row) {
@@ -516,6 +518,9 @@ final class SqliteBackend implements BackendInterface
                     break;
                 case 'taxonomy':
                     $routes['taxonomy'][$row['name']] = $data;
+                    break;
+                case 'reverse':
+                    $routes['reverse'][$path] = $data['url'] ?? null;
                     break;
             }
         }

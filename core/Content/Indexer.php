@@ -407,6 +407,9 @@ final class Indexer
             foreach ($routes['taxonomy'] ?? [] as $name => $data) {
                 $sqlite->insertRoute($data['base'] ?? '/' . $name, 'taxonomy', $data, $name);
             }
+            foreach ($routes['reverse'] ?? [] as $key => $url) {
+                $sqlite->insertRoute($key, 'reverse', ['url' => $url]);
+            }
 
             // Store fingerprint
             $sqlite->setMetadata('fingerprint', $fingerprint);

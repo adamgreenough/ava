@@ -69,6 +69,39 @@ final class SqliteBackendTest extends TestCase
         }
     }
 
+    public function testRoutesIncludeReverseUrlLookups(): void
+    {
+        if (!extension_loaded('pdo_sqlite')) {
+            $this->markSkipped('pdo_sqlite extension is not available');
+        }
+
+        $directory = $this->app->configPath('storage') . '/tmp/test-sqlite-routes-'
+            . bin2hex(random_bytes(6));
+        $storage = $directory . '/storage';
+        $content = $directory . '/content';
+        mkdir($storage . '/cache', 0700, true);
+        mkdir($content, 0700, true);
+        $backend = new SqliteBackend($storage, $content);
+
+        try {
+            $backend->createDatabase();
+            $backend->insertRoute(
+                'post:release-notes',
+                'reverse',
+                ['url' => '/2026/09/release-notes']
+            );
+
+            $routes = $backend->routes();
+            $this->assertEquals(
+                '/2026/09/release-notes',
+                $routes['reverse']['post:release-notes'] ?? null
+            );
+        } finally {
+            $backend->clearMemoryCache();
+            $this->removeDirectory($directory);
+        }
+    }
+
     public function testCompletedDatabaseCanBePublishedWithoutWalFiles(): void
     {
         if (!extension_loaded('pdo_sqlite')) {
