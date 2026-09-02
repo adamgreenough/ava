@@ -21,7 +21,8 @@ namespace Ava;
  * - content/, app/config/, app/themes/, app/snippets/, storage/, vendor/
  * - Custom plugins, public/robots.txt, .git, .env
  *
- * Updates sync directories via clean delete+copy to remove stale files.
+ * Updates are staged and installed with rollback backups to remove stale files
+ * without leaving a partially updated installation after an ordinary failure.
  */
 final class Updater
 {
@@ -786,66 +787,169 @@ final class Updater
     /**
      * Apply updates from extracted source.
      */
-    private function applyUpdates(string $sourceDir): void
+    private function applyUpdates(string $sourceDir, ?string $rootDir = null): void
     {
-        $rootDir = $this->app->path('');
+        $rootDir ??= $this->app->path('');
+        $targets = $this->collectUpdateTargets($sourceDir, $rootDir);
+        $transactionDir = $rootDir . '/.ava-update-' . bin2hex(random_bytes(12));
+        $stagingDir = $transactionDir . '/staged';
+        $backupDir = $transactionDir . '/backup';
+        $activated = [];
+        $backedUp = [];
+        $preserveTransaction = false;
 
-        // Update core directories/files
-        foreach ($this->updateDirs as $path) {
-            $sourcePath = $sourceDir . '/' . $path;
-            $destPath = $rootDir . '/' . $path;
+        if (!@mkdir($transactionDir, 0700)) {
+            throw new \RuntimeException('Failed to create update transaction directory');
+        }
 
-            if (!file_exists($sourcePath)) {
-                continue;
+        try {
+            if (!@mkdir($stagingDir, 0700) || !@mkdir($backupDir, 0700)) {
+                throw new \RuntimeException('Failed to prepare update transaction directory');
             }
 
-            if (is_dir($sourcePath)) {
-                // For directories, delete first for clean sync (removes stale files)
-                if (is_dir($destPath)) {
-                    $this->removeDirectory($destPath);
+            // Copy every replacement before changing live files.
+            foreach ($targets as $path => $sourcePath) {
+                $stagedPath = $stagingDir . '/' . $path;
+                if (is_dir($sourcePath)) {
+                    $this->syncDirectory($sourcePath, $stagedPath);
+                } else {
+                    $this->syncFile($sourcePath, $stagedPath);
+                    $destination = $rootDir . '/' . $path;
+                    if (is_file($destination)) {
+                        @chmod($stagedPath, fileperms($destination) & 0777);
+                    }
                 }
-                $this->syncDirectory($sourcePath, $destPath);
-            } else {
-                $this->syncFile($sourcePath, $destPath);
+            }
+
+            foreach (array_keys($targets) as $path) {
+                $stagedPath = $stagingDir . '/' . $path;
+                $destination = $rootDir . '/' . $path;
+                $backup = $backupDir . '/' . $path;
+
+                if (file_exists($destination) || is_link($destination)) {
+                    if (!is_dir(dirname($backup)) && !@mkdir(dirname($backup), 0700, true)) {
+                        throw new \RuntimeException('Failed to create update backup directory: ' . dirname($backup));
+                    }
+                    if (!@rename($destination, $backup)) {
+                        throw new \RuntimeException("Failed to back up update target: {$path}");
+                    }
+                    $backedUp[] = $path;
+                }
+
+                if (!is_dir(dirname($destination)) && !@mkdir(dirname($destination), 0755, true)) {
+                    throw new \RuntimeException('Failed to create update destination: ' . dirname($destination));
+                }
+                if (!@rename($stagedPath, $destination)) {
+                    throw new \RuntimeException("Failed to activate update target: {$path}");
+                }
+                $activated[] = $path;
+            }
+        } catch (\Throwable $updateError) {
+            $rollbackErrors = $this->restoreUpdateTargets(
+                $rootDir,
+                $backupDir,
+                $activated,
+                $backedUp
+            );
+
+            $message = $updateError->getMessage();
+            if ($rollbackErrors !== []) {
+                $preserveTransaction = true;
+                $message .= '; rollback errors: ' . implode('; ', $rollbackErrors)
+                    . "; recovery files preserved at {$transactionDir}";
+            }
+            throw new \RuntimeException($message, 0, $updateError);
+        } finally {
+            if (!$preserveTransaction && is_dir($transactionDir)) {
+                try {
+                    $this->removeDirectory($transactionDir);
+                } catch (\Throwable $e) {
+                    error_log('Failed to clean update transaction: ' . $e->getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Remove activated replacements and restore their original paths.
+     *
+     * @param string[] $activated
+     * @param string[] $backedUp
+     * @return string[] Rollback errors
+     */
+    private function restoreUpdateTargets(
+        string $rootDir,
+        string $backupDir,
+        array $activated,
+        array $backedUp
+    ): array {
+        $errors = [];
+
+        foreach (array_reverse($activated) as $path) {
+            try {
+                $this->removePath($rootDir . '/' . $path);
+            } catch (\Throwable $e) {
+                $errors[] = $e->getMessage();
             }
         }
 
-        // Update bundled plugins to app/plugins/
+        foreach (array_reverse($backedUp) as $path) {
+            $backup = $backupDir . '/' . $path;
+            $destination = $rootDir . '/' . $path;
+            if ((file_exists($backup) || is_link($backup)) && !@rename($backup, $destination)) {
+                $errors[] = "Failed to restore update target: {$path}";
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Build the complete set of release files that may replace live files.
+     * Missing required files abort before any live path is changed.
+     *
+     * @return array<string, string> Relative destination => source path
+     */
+    private function collectUpdateTargets(string $sourceDir, string $rootDir): array
+    {
+        $targets = [];
+        foreach ($this->updateDirs as $path) {
+            $sourcePath = $sourceDir . '/' . $path;
+            if (!file_exists($sourcePath)) {
+                throw new \RuntimeException("Update package is missing required path: {$path}");
+            }
+            $expectsDirectory = $path === 'core';
+            if ($expectsDirectory !== is_dir($sourcePath)) {
+                throw new \RuntimeException("Update package has invalid path type: {$path}");
+            }
+            $targets[$path] = $sourcePath;
+        }
+
         $pluginsSource = $sourceDir . '/app/plugins';
-        // Fall back to old location for releases that still use plugins/
         if (!is_dir($pluginsSource)) {
             $pluginsSource = $sourceDir . '/plugins';
         }
-        $pluginsDest = $rootDir . '/app/plugins';
+        if ($this->bundledPlugins !== [] && !is_dir($pluginsSource)) {
+            throw new \RuntimeException('Update package is missing bundled plugins');
+        }
 
-        if (is_dir($pluginsSource)) {
-            foreach ($this->bundledPlugins as $plugin) {
-                $pluginSource = $pluginsSource . '/' . $plugin;
-                if (is_dir($pluginSource)) {
-                    // Clean sync for bundled plugins too
-                    $pluginDest = $pluginsDest . '/' . $plugin;
-                    if (is_dir($pluginDest)) {
-                        $this->removeDirectory($pluginDest);
-                    }
-                    $this->syncDirectory($pluginSource, $pluginDest);
-                }
+        foreach ($this->bundledPlugins as $plugin) {
+            $pluginSource = $pluginsSource . '/' . $plugin;
+            if (!is_dir($pluginSource)) {
+                throw new \RuntimeException("Update package is missing bundled plugin: {$plugin}");
             }
+            $targets['app/plugins/' . $plugin] = $pluginSource;
+        }
 
-            // Also copy any NEW bundled plugins from the release
-            $releaseBundled = glob($pluginsSource . '/*', GLOB_ONLYDIR);
-            foreach ($releaseBundled as $pluginDir) {
-                $pluginName = basename($pluginDir);
-                $destDir = $pluginsDest . '/' . $pluginName;
-
-                // Only sync bundled plugins, don't overwrite custom plugins
-                if (!in_array($pluginName, $this->bundledPlugins) && !is_dir($destDir)) {
-                    // This is a new bundled plugin - copy it
-                    $this->syncDirectory($pluginDir, $destDir);
-                    $this->bundledPlugins[] = $pluginName;
-                }
+        foreach (glob($pluginsSource . '/*', GLOB_ONLYDIR) ?: [] as $pluginDir) {
+            $pluginName = basename($pluginDir);
+            $destination = $rootDir . '/app/plugins/' . $pluginName;
+            if (!in_array($pluginName, $this->bundledPlugins, true) && !is_dir($destination)) {
+                $targets['app/plugins/' . $pluginName] = $pluginDir;
             }
         }
 
+        return $targets;
     }
 
     /**
@@ -1060,7 +1164,9 @@ final class Updater
         );
 
         foreach ($iterator as $item) {
-            if ($item->isDir()) {
+            if ($item->isLink()) {
+                unlink($item->getPathname());
+            } elseif ($item->isDir()) {
                 rmdir($item->getPathname());
             } else {
                 unlink($item->getPathname());
@@ -1068,5 +1174,22 @@ final class Updater
         }
 
         rmdir($dir);
+    }
+
+    /**
+     * Remove either a file, link, or directory without following links.
+     */
+    private function removePath(string $path): void
+    {
+        if (is_link($path) || is_file($path)) {
+            if (!unlink($path)) {
+                throw new \RuntimeException("Failed to remove update target: {$path}");
+            }
+            return;
+        }
+
+        if (is_dir($path)) {
+            $this->removeDirectory($path);
+        }
     }
 }

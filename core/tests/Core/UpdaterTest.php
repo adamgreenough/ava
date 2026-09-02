@@ -16,6 +16,77 @@ use Ava\Testing\TestCase;
  */
 final class UpdaterTest extends TestCase
 {
+    public function testUpdaterRestoresOriginalFilesAfterActivationFailure(): void
+    {
+        $directory = $this->app->configPath('storage') . '/tmp/test-updater-rollback-'
+            . bin2hex(random_bytes(6));
+        $root = $directory . '/root';
+        $backup = $directory . '/backup';
+        mkdir($root . '/core', 0700, true);
+        mkdir($backup . '/core', 0700, true);
+        file_put_contents($root . '/core/version.txt', 'new');
+        file_put_contents($root . '/bootstrap.php', 'new bootstrap');
+        file_put_contents($backup . '/core/version.txt', 'old');
+        file_put_contents($backup . '/bootstrap.php', 'old bootstrap');
+
+        try {
+            $updater = new Updater($this->app);
+            $method = new \ReflectionMethod($updater, 'restoreUpdateTargets');
+            $method->setAccessible(true);
+            $errors = $method->invoke(
+                $updater,
+                $root,
+                $backup,
+                ['core', 'bootstrap.php'],
+                ['core', 'bootstrap.php']
+            );
+
+            $this->assertEquals([], $errors);
+            $this->assertEquals('old', file_get_contents($root . '/core/version.txt'));
+            $this->assertEquals('old bootstrap', file_get_contents($root . '/bootstrap.php'));
+            $this->assertFalse(file_exists($backup . '/core'));
+            $this->assertFalse(file_exists($backup . '/bootstrap.php'));
+        } finally {
+            if (is_dir($directory)) {
+                $this->removeTestDirectory($directory);
+            }
+        }
+    }
+
+    public function testUpdaterRejectsIncompletePackageBeforeChangingFiles(): void
+    {
+        $directory = $this->app->configPath('storage') . '/tmp/test-updater-incomplete-'
+            . bin2hex(random_bytes(6));
+        $source = $directory . '/source';
+        $root = $directory . '/root';
+        mkdir($source, 0700, true);
+        mkdir($root, 0700, true);
+        file_put_contents($root . '/required.php', 'old');
+
+        try {
+            $updater = new Updater($this->app);
+            $updateDirs = new \ReflectionProperty($updater, 'updateDirs');
+            $updateDirs->setAccessible(true);
+            $updateDirs->setValue($updater, ['required.php']);
+            $bundledPlugins = new \ReflectionProperty($updater, 'bundledPlugins');
+            $bundledPlugins->setAccessible(true);
+            $bundledPlugins->setValue($updater, []);
+
+            $method = new \ReflectionMethod($updater, 'applyUpdates');
+            $method->setAccessible(true);
+            $this->assertThrows(
+                \RuntimeException::class,
+                fn() => $method->invoke($updater, $source, $root)
+            );
+
+            $this->assertEquals('old', file_get_contents($root . '/required.php'));
+        } finally {
+            if (is_dir($directory)) {
+                $this->removeTestDirectory($directory);
+            }
+        }
+    }
+
     public function testUpdaterOnlyAllowsHttpsGitHubDownloads(): void
     {
         $updater = new Updater($this->app);
@@ -440,5 +511,17 @@ final class UpdaterTest extends TestCase
         $this->assertFalse($errorResult['available']);
         $this->assertNotNull($errorResult['error']);
         $this->assertStringContains('GitHub', $errorResult['error']);
+    }
+
+    private function removeTestDirectory(string $directory): void
+    {
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($directory);
     }
 }
