@@ -83,8 +83,17 @@ final class Repository
             if ($sqlite->isAvailable()) {
                 return $sqlite;
             }
-            // If user explicitly set sqlite but it's not available, that's a config error
-            // Fall back to array with a warning would be ideal, but for now just fall back
+
+            if (!extension_loaded('pdo_sqlite')) {
+                throw new \RuntimeException(
+                    "SQLite is configured but the pdo_sqlite extension is unavailable. " .
+                    "Install it or set content_index.backend to 'array'."
+                );
+            }
+
+            throw new \RuntimeException(
+                'SQLite is configured but its content index is unavailable. Run: php ava rebuild'
+            );
         }
 
         return new ArrayBackend($storagePath, $contentPath);

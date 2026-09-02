@@ -4,12 +4,28 @@ declare(strict_types=1);
 
 namespace Ava\Tests\Content;
 
+use Ava\Application;
 use Ava\Content\Backends\SqliteBackend;
 use Ava\Content\Indexer;
+use Ava\Content\Repository;
 use Ava\Testing\TestCase;
 
 final class SqliteBackendTest extends TestCase
 {
+    public function testConfiguredSqliteBackendDoesNotSilentlyUseMissingArrayIndex(): void
+    {
+        $config = $this->app->allConfig();
+        $config['content_index']['backend'] = 'sqlite';
+        $config['paths']['storage'] = 'storage/tmp/missing-sqlite-' . bin2hex(random_bytes(6));
+        $app = new Application($config);
+        $repository = new Repository($app);
+
+        $this->assertThrows(
+            \RuntimeException::class,
+            fn() => $repository->backend()
+        );
+    }
+
     public function testPublishingDatabaseReplacesTheWholeSqliteGeneration(): void
     {
         $directory = $this->app->configPath('storage') . '/tmp/test-sqlite-swap-'
