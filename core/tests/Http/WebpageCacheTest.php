@@ -103,6 +103,7 @@ final class WebpageCacheTest extends TestCase
         $this->assertEquals('private, no-store, max-age=0', $response->header('Cache-Control'));
         $this->assertEquals('no-cache', $response->header('Pragma'));
         $this->assertEquals('no-referrer', $response->header('Referrer-Policy'));
+        $this->assertEquals('noindex, nofollow', $response->header('X-Robots-Tag'));
     }
 
     public function testPreBootCacheIsBypassedInAutomaticIndexMode(): void
