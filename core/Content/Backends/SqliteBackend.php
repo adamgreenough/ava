@@ -253,10 +253,12 @@ final class SqliteBackend implements BackendInterface
         $taxIndex = 0;
         foreach ($taxonomies as $taxonomy => $term) {
             $paramName = 'tax_' . $taxIndex++;
-            // Search for term in JSON array using JSON functions
-            $conditions[] = "json_extract(taxonomies, :tax_path_{$paramName}) LIKE :tax_val_{$paramName}";
+            $conditions[] = "EXISTS (
+                SELECT 1 FROM json_each(json_extract(content.taxonomies, :tax_path_{$paramName}))
+                WHERE value = :tax_val_{$paramName}
+            )";
             $bindings["tax_path_{$paramName}"] = '$.' . $taxonomy;
-            $bindings["tax_val_{$paramName}"] = '%' . json_encode($term) . '%';
+            $bindings["tax_val_{$paramName}"] = $term;
         }
 
         // Field filters
@@ -270,10 +272,45 @@ final class SqliteBackend implements BackendInterface
             // Validate field name to prevent SQL injection via JSON path
             // Only allow alphanumeric and underscore, with reasonable length limit
             if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/', $field)) {
-                continue; // Skip invalid field names
+                $conditions[] = '0 = 1';
+                continue;
+            }
+            if (!in_array($operator, ['=', '!=', '>', '>=', '<', '<=', 'like', 'in', 'not_in'], true)) {
+                $conditions[] = '0 = 1';
+                continue;
             }
 
-            // Try to match against both direct column and meta JSON
+            if (in_array($field, ['title', 'slug', 'status', 'date', 'type'], true)) {
+                $expression = $field;
+            } else {
+                $expression = "json_extract(meta, '\$.{$field}')";
+            }
+
+            if (in_array($operator, ['in', 'not_in'], true)) {
+                if (!is_array($value)) {
+                    $conditions[] = '0 = 1';
+                    continue;
+                }
+                if ($value === []) {
+                    if ($operator === 'in') {
+                        $conditions[] = '0 = 1';
+                    }
+                    continue;
+                }
+
+                $placeholders = [];
+                foreach ($value as $i => $entry) {
+                    $placeholder = "{$paramName}_{$i}";
+                    $placeholders[] = ":{$placeholder}";
+                    $bindings[$placeholder] = $entry;
+                }
+                $list = implode(',', $placeholders);
+                $conditions[] = $operator === 'not_in'
+                    ? "({$expression} IS NULL OR {$expression} NOT IN ({$list}))"
+                    : "{$expression} IN ({$list})";
+                continue;
+            }
+
             $sqlOp = match ($operator) {
                 '=' => '=',
                 '!=' => '!=',
@@ -284,33 +321,10 @@ final class SqliteBackend implements BackendInterface
                 'like' => 'LIKE',
                 default => '=',
             };
-
-            if (in_array($field, ['title', 'slug', 'status', 'date', 'type'], true)) {
-                // Direct column
-                if ($operator === 'like') {
-                    $conditions[] = "{$field} LIKE :{$paramName}";
-                    $bindings[$paramName] = '%' . $value . '%';
-                } else {
-                    $conditions[] = "{$field} {$sqlOp} :{$paramName}";
-                    $bindings[$paramName] = $value;
-                }
-            } else {
-                // JSON meta field
-                if ($operator === 'like') {
-                    $conditions[] = "json_extract(meta, '\$.{$field}') LIKE :{$paramName}";
-                    $bindings[$paramName] = '%' . $value . '%';
-                } elseif ($operator === 'in' && is_array($value)) {
-                    $placeholders = [];
-                    foreach ($value as $i => $v) {
-                        $placeholders[] = ":{$paramName}_{$i}";
-                        $bindings["{$paramName}_{$i}"] = $v;
-                    }
-                    $conditions[] = "json_extract(meta, '\$.{$field}') IN (" . implode(',', $placeholders) . ")";
-                } else {
-                    $conditions[] = "json_extract(meta, '\$.{$field}') {$sqlOp} :{$paramName}";
-                    $bindings[$paramName] = $value;
-                }
-            }
+            $conditions[] = $operator === '!='
+                ? "({$expression} IS NULL OR {$expression} != :{$paramName})"
+                : "{$expression} {$sqlOp} :{$paramName}";
+            $bindings[$paramName] = $operator === 'like' ? '%' . $value . '%' : $value;
         }
 
         // Build WHERE clause
@@ -333,7 +347,9 @@ final class SqliteBackend implements BackendInterface
             'updated' => 'updated_at',
             'title' => 'title',
             'order', 'menu_order' => "json_extract(meta, '\$.order')",
-            default => 'date',
+            default => preg_match('/^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/', $orderBy)
+                ? "json_extract(meta, '\$.{$orderBy}')"
+                : 'date',
         };
 
         // Validate order direction

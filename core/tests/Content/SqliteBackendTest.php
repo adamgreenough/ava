@@ -120,8 +120,12 @@ final class SqliteBackendTest extends TestCase
             $backend->createDatabase();
             $item = $this->item('case-study', 'Case study');
             $item['taxonomies'] = ['category' => ['design', 'accessibility']];
-            $item['frontmatter'] = ['featured' => true, 'client' => 'Acme'];
+            $item['frontmatter'] = ['featured' => true, 'client' => 'Acme', 'score' => 10];
             $backend->insertContent($item);
+            $other = $this->item('other', 'Other page');
+            $other['taxonomies'] = ['category' => ['design-systems']];
+            $other['frontmatter'] = ['client' => 'Other', 'score' => 5];
+            $backend->insertContent($other);
 
             $result = $backend->query([
                 'type' => 'page',
@@ -139,6 +143,21 @@ final class SqliteBackendTest extends TestCase
             $this->assertEquals('Case study', $result['items'][0]['title'] ?? null);
             $this->assertEquals(['design', 'accessibility'], $result['items'][0]['taxonomies']['category'] ?? null);
             $this->assertEquals('Acme', $result['items'][0]['meta']['client'] ?? null);
+
+            $notIn = $backend->query([
+                'type' => 'page',
+                'fields' => [[
+                    'field' => 'client',
+                    'value' => ['Other'],
+                    'operator' => 'not_in',
+                ]],
+                'orderBy' => 'score',
+                'order' => 'desc',
+                'page' => 1,
+                'perPage' => 1,
+            ]);
+            $this->assertEquals(1, $notIn['total']);
+            $this->assertEquals('Case study', $notIn['items'][0]['title'] ?? null);
         } finally {
             $backend->clearMemoryCache();
             $this->removeDirectory($directory);

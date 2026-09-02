@@ -534,6 +534,29 @@ final class Query
      */
     private function executeFromFullIndex(): void
     {
+        // Let SQLite perform filtering, sorting, counting, and pagination so
+        // large-site queries do not hydrate the entire index into PHP memory.
+        // Relevance search still uses the shared scorer below.
+        if ($this->repository->backendName() === 'sqlite' && ($this->search === null || $this->search === '')) {
+            $result = $this->repository->backend()->query([
+                'type' => $this->type,
+                'status' => $this->status,
+                'taxonomies' => $this->taxonomyFilters,
+                'fields' => $this->fieldFilters,
+                'orderBy' => $this->orderBy,
+                'order' => $this->order,
+                'page' => $this->page,
+                'perPage' => $this->perPage,
+            ]);
+
+            $this->totalCount = $result['total'];
+            $this->results = array_map(
+                fn(array $data) => Item::fromArray($data, ''),
+                $result['items']
+            );
+            return;
+        }
+
         // Get raw data (arrays, not Item objects)
         $rawItems = [];
         foreach ($this->queryTypes() as $type) {
