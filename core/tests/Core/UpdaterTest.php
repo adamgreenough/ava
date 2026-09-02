@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ava\Tests\Core;
 
+use Ava\Updater;
 use Ava\Testing\TestCase;
 
 /**
@@ -15,6 +16,41 @@ use Ava\Testing\TestCase;
  */
 final class UpdaterTest extends TestCase
 {
+    public function testUpdaterWorkspacesAreUniqueAndPrivate(): void
+    {
+        $updater = new Updater($this->app);
+        $method = new \ReflectionMethod($updater, 'createTemporaryWorkspace');
+        $method->setAccessible(true);
+
+        $first = $method->invoke($updater, 'test');
+        $second = null;
+
+        try {
+            $second = $method->invoke($updater, 'test');
+            $tempRoot = realpath($this->app->configPath('storage') . '/tmp');
+            if ($tempRoot === false) {
+                $this->fail('Updater temporary root could not be resolved.');
+            }
+            $this->assertNotEquals($first, $second);
+            $this->assertTrue(is_dir($first));
+            $this->assertTrue(is_dir($second));
+            $this->assertStringStartsWith($tempRoot . DIRECTORY_SEPARATOR, $first);
+            $this->assertStringStartsWith($tempRoot . DIRECTORY_SEPARATOR, $second);
+
+            if (DIRECTORY_SEPARATOR === '/') {
+                $this->assertEquals(0700, fileperms($first) & 0777);
+                $this->assertEquals(0700, fileperms($second) & 0777);
+            }
+        } finally {
+            if (is_dir($first)) {
+                rmdir($first);
+            }
+            if (is_string($second) && is_dir($second)) {
+                rmdir($second);
+            }
+        }
+    }
+
     /**
      * Test current version returns constant
      */

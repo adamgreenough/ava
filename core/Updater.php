@@ -197,6 +197,7 @@ final class Updater
     public function apply(?string $version = null, bool $dev = false): array
     {
         $currentVersion = $this->currentVersion();
+        $workspace = null;
 
         // Check path safety before proceeding - block entirely if custom paths
         $pathCheck = $this->checkPathSafety();
@@ -258,14 +259,11 @@ final class Updater
                 ];
             }
 
-            // Download zip
-            $tempDir = $this->app->path('storage/tmp');
-            if (!is_dir($tempDir)) {
-                mkdir($tempDir, 0755, true);
-            }
-
-            $zipFile = $tempDir . '/ava-update-' . $newVersion . '.zip';
-            $extractDir = $tempDir . '/ava-update-' . $newVersion;
+            // Use an unpredictable, per-run workspace so concurrent updates
+            // cannot collide with or reuse another run's partial files.
+            $workspace = $this->createTemporaryWorkspace('update');
+            $zipFile = $workspace . '/download.zip';
+            $extractDir = $workspace . '/extract';
 
             // Download
             $this->download($zipUrl, $zipFile);
@@ -289,10 +287,6 @@ final class Updater
             // Check for new bundled plugins
             $newPlugins = $this->detectNewPlugins($sourceDir, $currentPlugins);
 
-            // Clean up
-            @unlink($zipFile);
-            $this->removeDirectory($extractDir);
-
             // Clear update cache
             @unlink($this->cacheFile);
 
@@ -304,7 +298,7 @@ final class Updater
                 'new_plugins' => $newPlugins,
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return [
                 'success' => false,
                 'message' => 'Update failed: ' . $e->getMessage(),
@@ -312,6 +306,8 @@ final class Updater
                 'updated_to' => $currentVersion,
                 'new_plugins' => [],
             ];
+        } finally {
+            $this->cleanupTemporaryWorkspace($workspace);
         }
     }
 
@@ -334,8 +330,7 @@ final class Updater
             ];
         }
 
-        $zipFile = null;
-        $extractDir = null;
+        $workspace = null;
 
         try {
             if ($dev) {
@@ -348,10 +343,8 @@ final class Updater
                         'stale_files' => [],
                     ];
                 }
-                $shortSha = substr($commit['sha'], 0, 7);
                 $compareLabel = 'main (latest commit)';
                 $zipUrl = $this->getBranchZipUrl();
-                $tempSuffix = 'dev-' . $shortSha;
             } else {
                 if ($version === null) {
                     $release = $this->fetchLatestRelease();
@@ -371,7 +364,6 @@ final class Updater
                 $newVersion = ltrim($release['tag_name'], 'v');
                 $compareLabel = $newVersion;
                 $zipUrl = $release['zipball_url'] ?? null;
-                $tempSuffix = $newVersion;
             }
 
             if (!$zipUrl) {
@@ -383,14 +375,9 @@ final class Updater
                 ];
             }
 
-            $tempDir = $this->app->path('storage/tmp');
-            if (!is_dir($tempDir)) {
-                mkdir($tempDir, 0755, true);
-            }
-
-            $safeSuffix = preg_replace('/[^A-Za-z0-9._-]/', '_', $tempSuffix ?? 'latest');
-            $zipFile = $tempDir . '/ava-stale-' . $safeSuffix . '.zip';
-            $extractDir = $tempDir . '/ava-stale-' . $safeSuffix;
+            $workspace = $this->createTemporaryWorkspace('stale-scan');
+            $zipFile = $workspace . '/download.zip';
+            $extractDir = $workspace . '/extract';
 
             $this->download($zipUrl, $zipFile);
             $this->extract($zipFile, $extractDir);
@@ -448,7 +435,7 @@ final class Updater
                 'compared_to' => $compareLabel,
                 'stale_files' => $stale,
             ];
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return [
                 'success' => false,
                 'message' => 'Stale file scan failed: ' . $e->getMessage(),
@@ -456,12 +443,47 @@ final class Updater
                 'stale_files' => [],
             ];
         } finally {
-            if ($zipFile && file_exists($zipFile)) {
-                @unlink($zipFile);
+            $this->cleanupTemporaryWorkspace($workspace);
+        }
+    }
+
+    /**
+     * Create a private workspace under the configured temporary directory.
+     */
+    private function createTemporaryWorkspace(string $purpose): string
+    {
+        $tempRoot = $this->app->configPath('storage') . '/tmp';
+        if (!is_dir($tempRoot) && !mkdir($tempRoot, 0755, true) && !is_dir($tempRoot)) {
+            throw new \RuntimeException('Failed to create updater temporary directory');
+        }
+
+        $realRoot = realpath($tempRoot);
+        if ($realRoot === false) {
+            throw new \RuntimeException('Updater temporary directory could not be resolved');
+        }
+
+        $safePurpose = preg_replace('/[^a-z0-9-]/i', '-', $purpose) ?: 'work';
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $workspace = $realRoot . DIRECTORY_SEPARATOR . 'ava-' . $safePurpose . '-'
+                . bin2hex(random_bytes(12));
+            if (@mkdir($workspace, 0700)) {
+                return $workspace;
             }
-            if ($extractDir && is_dir($extractDir)) {
-                $this->removeDirectory($extractDir);
-            }
+        }
+
+        throw new \RuntimeException('Failed to create a unique updater workspace');
+    }
+
+    private function cleanupTemporaryWorkspace(?string $workspace): void
+    {
+        if ($workspace === null || !is_dir($workspace)) {
+            return;
+        }
+
+        try {
+            $this->removeDirectory($workspace);
+        } catch (\Throwable $e) {
+            error_log('Failed to clean updater workspace: ' . $e->getMessage());
         }
     }
 
