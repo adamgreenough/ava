@@ -90,6 +90,30 @@ final class WebpageCacheTest extends TestCase
         $this->assertEquals('public content', $cached->content());
     }
 
+    public function testNonHtmlResponseIsNotCached(): void
+    {
+        $cache = $this->createCache();
+        $request = new Request('GET', '/feed.xml');
+
+        $cache->put(
+            $request,
+            new Response('<rss></rss>', 200, ['Content-Type' => 'application/rss+xml; charset=utf-8'])
+        );
+
+        $this->assertEquals(0, $cache->stats()['count']);
+        $this->assertNull($cache->get($request));
+    }
+
+    public function testExplicitHtmlResponseCanBeCached(): void
+    {
+        $cache = $this->createCache();
+        $request = new Request('GET', '/html-page');
+
+        $cache->put($request, Response::html('html content'));
+
+        $this->assertNotNull($cache->get($request));
+    }
+
     public function testPreviewResponseGetsPrivateNoStoreHeaders(): void
     {
         $app = $this->createApplication();

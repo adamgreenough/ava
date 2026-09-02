@@ -193,6 +193,16 @@ final class WebpageCache
             return;
         }
 
+        // Cache files are restored as HTML responses, so caching any other
+        // media type would silently change it on the next request.
+        $contentType = $response->header('Content-Type');
+        if ($contentType !== null) {
+            $mediaType = strtolower(trim(explode(';', $contentType, 2)[0]));
+            if ($mediaType !== 'text/html') {
+                return;
+            }
+        }
+
         // Ensure cache directory exists
         if (!is_dir($this->cachePath)) {
             mkdir($this->cachePath, 0755, true);
