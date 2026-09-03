@@ -134,6 +134,47 @@ final class MarkdownExtensionsTest extends TestCase
         $this->assertSame($first, $second);
     }
 
+    public function testAutomaticRebuildPreRendersEnabledExtensions(): void
+    {
+        $relativeDirectory = 'storage/tmp/markdown-extensions-' . bin2hex(random_bytes(6));
+        $absoluteDirectory = AVA_ROOT . '/' . $relativeDirectory;
+        mkdir($absoluteDirectory . '/content/pages', 0700, true);
+        file_put_contents(
+            $absoluteDirectory . '/content/pages/footnotes.md',
+            "---\ntitle: Footnotes\nstatus: published\n---\nText.[^note]\n\n[^note]: Note.\n"
+        );
+
+        try {
+            $app = new Application([
+                'paths' => [
+                    'content' => $relativeDirectory . '/content',
+                    'storage' => $relativeDirectory . '/storage',
+                    'plugins' => 'app/plugins',
+                    'themes' => 'app/themes',
+                    'snippets' => 'app/snippets',
+                ],
+                'plugins' => ['markdown-extensions'],
+                'markdown_extensions' => ['footnotes' => 'always'],
+                'content_index' => [
+                    'mode' => 'auto',
+                    'backend' => 'array',
+                    'use_igbinary' => false,
+                    'prerender_html' => true,
+                ],
+                'theme' => 'missing-test-theme',
+            ]);
+
+            $app->boot();
+
+            $htmlCache = file_get_contents($absoluteDirectory . '/storage/cache/html_cache.bin');
+            $this->assertIsString($htmlCache);
+            $this->assertStringContains('class="footnote-ref"', $htmlCache);
+            $this->assertStringContains('class="footnotes"', $htmlCache);
+        } finally {
+            $this->removeDirectory($absoluteDirectory);
+        }
+    }
+
     private function createApp(array $config = []): Application
     {
         $app = new Application([
@@ -146,5 +187,21 @@ final class MarkdownExtensionsTest extends TestCase
         $app->loadPlugins();
 
         return $app;
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($directory);
     }
 }

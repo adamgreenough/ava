@@ -91,11 +91,11 @@ final class Application
         // Ensure storage directories exist
         $this->ensureStorageDirectories();
 
-        // Check cache freshness and rebuild if needed
-        $this->ensureCacheFresh();
-
         // Load plugins
         $this->loadPlugins();
+
+        // Check cache freshness and rebuild if needed
+        $this->ensureCacheFresh();
 
         // Load theme
         $this->loadTheme();
