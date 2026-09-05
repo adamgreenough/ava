@@ -115,6 +115,22 @@ final class QueryParityTest extends TestCase
             $this->assertEquals(0, $query->search('the')->count());
             // Page has matching raw frontmatter but does not declare category.
             $this->assertEquals(0, $query->type('page')->whereTax('category', 'guides')->count());
+            // Exercise public parameters against known content, rather than
+            // merely checking that each parameter returns an array.
+            $filtered = $query->published()->fromParams([
+                'type' => 'post', 'tax_category' => 'guides',
+                'orderby' => 'title', 'order' => 'asc', 'per_page' => 1, 'paged' => 2,
+            ]);
+            $this->assertSame('Other guide', $filtered->first()?->title(), $backend);
+            $this->assertSame([
+                'current_page' => 2, 'per_page' => 1, 'total' => 2,
+                'total_pages' => 2, 'has_more' => false, 'has_previous' => true,
+            ], $filtered->pagination(), $backend);
+            foreach (['q', 'search'] as $parameter) {
+                $searched = $query->fromParams([$parameter => 'bike']);
+                $this->assertSame(1, $searched->count(), "$backend $parameter");
+                $this->assertSame('Bicycle guide', $searched->first()?->title(), "$backend $parameter");
+            }
             $app->repository()->clearCache();
         }
     }

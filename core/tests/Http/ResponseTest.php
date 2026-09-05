@@ -7,225 +7,86 @@ namespace Ava\Tests\Http;
 use Ava\Http\Response;
 use Ava\Testing\TestCase;
 
-/**
- * Tests for the HTTP Response class.
- */
 final class ResponseTest extends TestCase
 {
-    // =========================================================================
-    // Constructor & Basic Properties
-    // =========================================================================
-
-    public function testConstructorSetsContent(): void
+    public function testConstructorDefaultsAndExplicitValues(): void
     {
-        $response = new Response('Hello World');
-        $this->assertEquals('Hello World', $response->content());
+        foreach ([
+            [new Response(), '', 200, []],
+            [new Response('Hello World', 404, ['X-Test' => 'value']), 'Hello World', 404, ['X-Test' => 'value']],
+        ] as [$response, $content, $status, $headers]) {
+            $this->assertSame($content, $response->content());
+            $this->assertSame($status, $response->status());
+            $this->assertSame($headers, $response->headers());
+        }
     }
 
-    public function testConstructorDefaultsToEmptyContent(): void
+    public function testFactoriesSetContentStatusAndHeaders(): void
     {
-        $response = new Response();
-        $this->assertEquals('', $response->content());
+        $cases = [
+            'redirect' => [Response::redirect('/new-location'), '', 302, ['Location' => '/new-location']],
+            'permanent redirect' => [Response::redirect('/permanent', 301), '', 301, ['Location' => '/permanent']],
+            'json' => [Response::json(['key' => 'value']), '{"key":"value"}', 200, ['Content-Type' => 'application/json; charset=utf-8']],
+            'json error' => [Response::json(['error' => 'Not found'], 404), '{"error":"Not found"}', 404, ['Content-Type' => 'application/json; charset=utf-8']],
+            'text' => [Response::text('Plain text'), 'Plain text', 200, ['Content-Type' => 'text/plain; charset=utf-8']],
+            'html' => [Response::html('<p>HTML</p>'), '<p>HTML</p>', 200, ['Content-Type' => 'text/html; charset=utf-8']],
+            'not found' => [Response::notFound(), 'Not Found', 404, []],
+            'custom not found' => [Response::notFound('Page not found'), 'Page not found', 404, []],
+        ];
+        foreach ($cases as $name => [$response, $content, $status, $headers]) {
+            $this->assertSame($content, $response->content(), "$name content");
+            $this->assertSame($status, $response->status(), "$name status");
+            $this->assertSame($headers, $response->headers(), "$name headers");
+        }
     }
 
-    public function testConstructorSetsStatus(): void
+    public function testHeadersAreCaseInsensitiveAndCollapseDuplicates(): void
     {
-        $response = new Response('', 404);
-        $this->assertEquals(404, $response->status());
+        $response = new Response('', 200, ['X-Test' => 'first', 'x-test' => 'second']);
+        $this->assertSame(['X-Test' => 'second'], $response->headers());
+        $this->assertSame('second', $response->header('x-TEST'));
+        $this->assertNull($response->header('missing'));
+
+        foreach ([
+            $response->withHeader('x-test', 'third'),
+            $response->withHeaders(['x-test' => 'third']),
+        ] as $modified) {
+            $this->assertNotSame($response, $modified);
+            $this->assertSame(['X-Test' => 'third'], $modified->headers());
+        }
+        $this->assertSame(['X-Test' => 'second'], $response->headers());
     }
 
-    public function testConstructorDefaultsTo200Status(): void
-    {
-        $response = new Response();
-        $this->assertEquals(200, $response->status());
-    }
-
-    public function testHeaderLookupIsCaseInsensitive(): void
-    {
-        $response = new Response('', 200, ['Content-Type' => 'text/plain']);
-
-        $this->assertEquals('text/plain', $response->header('content-type'));
-    }
-
-    public function testConstructorCollapsesHeaderNamesThatDifferOnlyByCase(): void
-    {
-        $response = new Response('', 200, [
-            'X-Test' => 'first',
-            'x-test' => 'second',
-        ]);
-
-        $this->assertEquals(['X-Test' => 'second'], $response->headers());
-    }
-
-    // =========================================================================
-    // Static Factories
-    // =========================================================================
-
-    public function testRedirectCreatesRedirectResponse(): void
-    {
-        $response = Response::redirect('/new-location');
-
-        $this->assertEquals(302, $response->status());
-        $this->assertEquals('', $response->content());
-    }
-
-    public function testRedirectWithCustomStatus(): void
-    {
-        $response = Response::redirect('/permanent', 301);
-        $this->assertEquals(301, $response->status());
-    }
-
-    public function testJsonCreatesJsonResponse(): void
-    {
-        $response = Response::json(['key' => 'value']);
-
-        $this->assertEquals(200, $response->status());
-        $this->assertEquals('{"key":"value"}', $response->content());
-    }
-
-    public function testJsonWithCustomStatus(): void
-    {
-        $response = Response::json(['error' => 'Not found'], 404);
-        $this->assertEquals(404, $response->status());
-    }
-
-    public function testTextCreatesTextResponse(): void
-    {
-        $response = Response::text('Plain text');
-
-        $this->assertEquals(200, $response->status());
-        $this->assertEquals('Plain text', $response->content());
-    }
-
-    public function testHtmlCreatesHtmlResponse(): void
-    {
-        $response = Response::html('<p>HTML</p>');
-
-        $this->assertEquals(200, $response->status());
-        $this->assertEquals('<p>HTML</p>', $response->content());
-    }
-
-    public function testNotFoundCreates404Response(): void
-    {
-        $response = Response::notFound();
-
-        $this->assertEquals(404, $response->status());
-        $this->assertEquals('Not Found', $response->content());
-    }
-
-    public function testNotFoundWithCustomContent(): void
-    {
-        $response = Response::notFound('Page not found');
-
-        $this->assertEquals(404, $response->status());
-        $this->assertEquals('Page not found', $response->content());
-    }
-
-    // =========================================================================
-    // Immutable Modifiers
-    // =========================================================================
-
-    public function testWithHeaderReturnsNewInstance(): void
-    {
-        $original = new Response();
-        $modified = $original->withHeader('X-Custom', 'value');
-
-        $this->assertNotSame($original, $modified);
-    }
-
-    public function testWithHeaderAddsHeader(): void
-    {
-        $response = (new Response())->withHeader('X-Custom', 'value');
-        // We can't directly access headers, but we can verify the response is valid
-        $this->assertInstanceOf(Response::class, $response);
-    }
-
-    public function testWithHeaderReplacesExistingHeaderCaseInsensitively(): void
-    {
-        $response = (new Response('', 200, ['Content-Type' => 'text/plain']))
-            ->withHeader('content-type', 'application/json');
-
-        $this->assertEquals(['Content-Type' => 'application/json'], $response->headers());
-    }
-
-    public function testWithHeadersAddMultipleHeaders(): void
-    {
-        $response = (new Response())->withHeaders([
-            'X-One' => '1',
-            'X-Two' => '2',
-        ]);
-
-        $this->assertInstanceOf(Response::class, $response);
-    }
-
-    public function testWithHeadersReplacesExistingHeadersCaseInsensitively(): void
-    {
-        $response = (new Response('', 200, ['X-Frame-Options' => 'DENY']))
-            ->withHeaders(['x-frame-options' => 'SAMEORIGIN']);
-
-        $this->assertEquals(['X-Frame-Options' => 'SAMEORIGIN'], $response->headers());
-    }
-
-    public function testWithStatusReturnsNewInstance(): void
-    {
-        $original = new Response();
-        $modified = $original->withStatus(404);
-
-        $this->assertNotSame($original, $modified);
-        $this->assertEquals(200, $original->status());
-        $this->assertEquals(404, $modified->status());
-    }
-
-    public function testWithContentReturnsNewInstance(): void
+    public function testModifiersCanBeChainedWithoutChangingOriginal(): void
     {
         $original = new Response('old');
-        $modified = $original->withContent('new');
-
-        $this->assertNotSame($original, $modified);
-        $this->assertEquals('old', $original->content());
-        $this->assertEquals('new', $modified->content());
+        $cases = [
+            'withContent' => [['new'], 'new', 200, []],
+            'withStatus' => [[404], 'old', 404, []],
+            'withHeader' => [['X-Custom', 'value'], 'old', 200, ['X-Custom' => 'value']],
+            'withHeaders' => [[['X-One' => '1', 'X-Two' => '2']], 'old', 200, ['X-One' => '1', 'X-Two' => '2']],
+        ];
+        foreach ($cases as $method => [$arguments, $content, $status, $headers]) {
+            $modified = $original->$method(...$arguments);
+            $this->assertNotSame($original, $modified, $method);
+            $this->assertSame($content, $modified->content(), $method);
+            $this->assertSame($status, $modified->status(), $method);
+            $this->assertSame($headers, $modified->headers(), $method);
+            $this->assertSame('old', $original->content(), $method);
+            $this->assertSame(200, $original->status(), $method);
+            $this->assertSame([], $original->headers(), $method);
+        }
+        $chained = $original->withContent('Hello')->withStatus(201)->withHeader('X-Custom', 'value');
+        $this->assertSame('Hello', $chained->content());
+        $this->assertSame(201, $chained->status());
+        $this->assertSame('value', $chained->header('X-Custom'));
     }
 
-    // =========================================================================
-    // Chaining
-    // =========================================================================
-
-    public function testMethodChaining(): void
+    public function testJsonEncodesNestedArraysWithoutEscapingSlashes(): void
     {
-        $response = (new Response())
-            ->withContent('Hello')
-            ->withStatus(201)
-            ->withHeader('X-Custom', 'value');
-
-        $this->assertEquals('Hello', $response->content());
-        $this->assertEquals(201, $response->status());
-    }
-
-    // =========================================================================
-    // JSON encoding
-    // =========================================================================
-
-    public function testJsonEncodesArrays(): void
-    {
-        $response = Response::json(['items' => [1, 2, 3]]);
-        $this->assertEquals('{"items":[1,2,3]}', $response->content());
-    }
-
-    public function testJsonEncodesNestedData(): void
-    {
-        $response = Response::json([
-            'user' => [
-                'name' => 'John',
-                'email' => 'john@example.com',
-            ],
-        ]);
-
-        $this->assertStringContains('"name":"John"', $response->content());
-    }
-
-    public function testJsonDoesNotEscapeSlashes(): void
-    {
-        $response = Response::json(['url' => 'https://example.com/path']);
-        $this->assertStringContains('https://example.com/path', $response->content());
+        $data = ['items' => [1, 2, 3], 'user' => ['name' => 'John'], 'url' => 'https://example.com/path'];
+        $content = Response::json($data)->content();
+        $this->assertSame($data, json_decode($content, true, flags: JSON_THROW_ON_ERROR));
+        $this->assertStringContains('https://example.com/path', $content);
     }
 }
