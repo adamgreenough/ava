@@ -39,44 +39,6 @@ final class Application
     }
 
     /**
-     * Try to serve a cached page without full boot.
-     * 
-     * This pre-boot fast path is only safe in manual index mode. Automatic
-     * modes must run their source freshness check before serving cached HTML.
-     * 
-     * @return Response|null Cached response if available, null to continue with full boot
-     */
-    public function tryCachedResponse(Request $request): ?Response
-    {
-        // Only attempt if webpage cache is enabled
-        if (!$this->config('webpage_cache.enabled', false)) {
-            return null;
-        }
-
-        if ($this->config('content_index.mode', 'auto') !== 'never') {
-            return null;
-        }
-
-        // Quick checks that don't require full boot
-        if ($request->method() !== 'GET') {
-            return null;
-        }
-
-        // Check for query parameters (skip UTM params)
-        $query = $request->query();
-        unset($query['utm_source'], $query['utm_medium'], $query['utm_campaign'], $query['utm_term'], $query['utm_content']);
-        if (!empty($query)) {
-            return null;
-        }
-
-        // In manual mode, a rebuild is the publication boundary and clears the
-        // page cache. A hit is therefore valid without booting the application.
-        $webpageCache = $this->webpageCache();
-        $cached = $webpageCache->getWithoutFullCheck($request);
-        return $cached !== null ? $this->applyPublicSecurityHeaders($cached, $request) : null;
-    }
-
-    /**
      * Boot the application.
      */
     public function boot(): void
@@ -108,15 +70,23 @@ final class Application
      */
     public function handle(Request $request): Response
     {
-        // Check webpage cache first
-        $webpageCache = $this->webpageCache();
-        if ($webpageCache->isEnabled()) {
-            $cached = $webpageCache->get($request);
-            if ($cached !== null) {
-                return $this->applyPublicSecurityHeaders($cached, $request);
-            }
+        // Automatic modes check source freshness before serving cached HTML.
+        // Manual mode can serve a hit before boot; a rebuild clears its cache.
+        if ($this->config('content_index.mode', 'auto') !== 'never') {
+            $this->boot();
         }
 
+        $response = $this->webpageCache()->get($request);
+        if ($response === null) {
+            $this->boot();
+            $response = $this->dispatch($request);
+        }
+
+        return $this->applyPublicSecurityHeaders($response, $request);
+    }
+
+    private function dispatch(Request $request): Response
+    {
         $router = $this->router();
         $match = $router->match($request);
 
@@ -126,29 +96,27 @@ final class Application
 
         // Handle redirect routes
         if ($match->isRedirect()) {
-            $redirect = Response::redirect($match->getRedirectUrl(), $match->getRedirectCode());
-            return $this->applyPublicSecurityHeaders($redirect, $request);
+            return Response::redirect($match->getRedirectUrl(), $match->getRedirectCode());
         }
 
         // Handle routes with embedded Response objects
         if ($match->hasResponse()) {
-            return $this->applyPublicSecurityHeaders($match->getResponse(), $request);
+            return $match->getResponse();
         }
 
         // Handle routes that return raw Response (plugin routes)
         if (in_array($match->getType(), ['plugin', 'response'], true)) {
             $response = $match->getParam('response');
             if ($response instanceof Response) {
-                return $this->applyPublicSecurityHeaders($response, $request);
+                return $response;
             }
         }
 
         // Render the matched route
         $response = $this->renderRoute($match, $request);
-        $response = $this->applyPublicSecurityHeaders($response, $request);
 
         // Store in webpage cache if enabled
-        if ($webpageCache->isEnabled() && $response->status() === 200) {
+        if ($this->webpageCache()->isEnabled() && $response->status() === 200) {
             // Check for content-level cache override
             $cacheOverride = null;
             $contentItem = $match->getContentItem();
@@ -156,8 +124,8 @@ final class Application
                 $cacheOverride = $contentItem->get('cache');
             }
 
-            $webpageCache->put($request, $response, $cacheOverride);
-            $response = $response->withHeader('X-Page-Cache', 'MISS');
+            $stored = $this->webpageCache()->put($request, $response, $cacheOverride);
+            $response = $response->withHeader('X-Page-Cache', $stored ? 'MISS' : 'BYPASS');
         }
 
         return $response;

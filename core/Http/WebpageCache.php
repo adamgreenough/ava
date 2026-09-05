@@ -8,70 +8,48 @@ use Ava\Application;
 use Ava\Support\AtomicFile;
 
 /**
- * On-Demand Webpage Cache
- *
- * Caches rendered HTML webpages to disk for ultra-fast serving.
- * Webpages are cached on first request and served directly on subsequent requests.
+ * Shared cache for anonymous HTML responses.
+ * Each JSON entry contains its request identity, response headers, and body.
  */
 final class WebpageCache
 {
-    private Application $app;
     private string $cachePath;
-    private bool $enabled;
-    private ?int $ttl;
-    private array $exclude;
-    
-    /** @var array<string, string> Compiled regex patterns for exclusion matching */
-    private array $excludePatterns = [];
 
-    public function __construct(Application $app)
+    public function __construct(private Application $app)
     {
-        $this->app = $app;
         $this->cachePath = $app->configPath('storage') . '/cache/pages';
-        $this->enabled = (bool) $app->config('webpage_cache.enabled', false);
-        $this->ttl = $app->config('webpage_cache.ttl'); // null = forever (until cleared)
-        $this->exclude = $app->config('webpage_cache.exclude', []);
-        
-        // Lazy compilation: excludePatterns is populated on demand
     }
 
-    /**
-     * Check if webpage caching is enabled.
-     */
     public function isEnabled(): bool
     {
-        return $this->enabled;
+        return (bool) $this->app->config('webpage_cache.enabled', false);
     }
 
-    /**
-     * Check if a request is cacheable for READING from cache.
-     * 
-     * This is used to determine if we should serve a cached page.
-     * We serve cached pages to everyone - if the cache
-     * file exists, it was valid when generated.
-     */
-    public function isCacheableForRead(Request $request): bool
+    public function isCacheable(Request $request): bool
     {
-        if (!$this->enabled) {
+        if (!$this->isEnabled() || $request->method() !== 'GET') {
             return false;
         }
 
-        // Only cache GET requests
-        if ($request->method() !== 'GET') {
+        // Never share session-dependent or authenticated output. Also respect
+        // client cache directives; this cache does not implement revalidation.
+        foreach (['Cookie', 'Authorization', 'Cache-Control', 'Pragma'] as $header) {
+            if ($request->header($header) !== null) {
+                return false;
+            }
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
             return false;
         }
 
-        // Don't cache if there are query parameters (except allowed ones)
         $query = $request->query();
         unset($query['utm_source'], $query['utm_medium'], $query['utm_campaign'], $query['utm_term'], $query['utm_content']);
-        if (!empty($query)) {
+        if ($query !== []) {
             return false;
         }
 
-        // Check exclusion patterns
-        $path = $request->path();
-        foreach ($this->exclude as $pattern) {
-            if ($this->matchesPattern($path, $pattern)) {
+        foreach ($this->app->config('webpage_cache.exclude', []) as $pattern) {
+            if ($this->matchesPattern($request->path(), $pattern)) {
                 return false;
             }
         }
@@ -79,301 +57,192 @@ final class WebpageCache
         return true;
     }
 
-    /**
-     * Check if a request is cacheable for WRITING to cache.
-     * 
-     * This has the same rules as read - preview/draft content is already
-     * protected by the query parameter check (preview uses ?preview=1&token=xxx).
-     */
-    public function isCacheableForWrite(Request $request): bool
-    {
-        return $this->isCacheableForRead($request);
-    }
-
-    /**
-     * Check if a request is cacheable.
-     * 
-     * @deprecated Use isCacheableForRead() or isCacheableForWrite() for clarity
-     */
-    public function isCacheable(Request $request): bool
-    {
-        return $this->isCacheableForWrite($request);
-    }
-
-    /**
-     * Get a cached response for the request.
-     */
     public function get(Request $request): ?Response
     {
-        if (!$this->isCacheableForRead($request)) {
+        if (!$this->isCacheable($request)) {
             return null;
         }
 
-        return $this->getFromFile($request);
-    }
-
-    /**
-     * Fast path: Get cached response without full cacheability check.
-     * 
-     * Used by Application::tryCachedResponse() to serve cached pages
-     * before full boot. Assumes basic checks already passed.
-     */
-    public function getWithoutFullCheck(Request $request): ?Response
-    {
-        // Quick exclusion pattern check
-        $path = $request->path();
-        foreach ($this->exclude as $pattern) {
-            if ($this->matchesPattern($path, $pattern)) {
-                return null;
-            }
-        }
-
-        return $this->getFromFile($request);
-    }
-
-    /**
-     * Get cached response from file.
-     * 
-     * Optimized to minimize filesystem calls:
-     * - Single stat() via filemtime() instead of file_exists() + filemtime()
-     * - Store mtime to avoid double stat() call
-     * 
-     * Note: We intentionally do NOT send Last-Modified or handle If-Modified-Since
-     * for cached HTML pages. The cache file's mtime only reflects when the HTML was
-     * written to disk, not when the underlying content/theme/config last changed.
-     * A theme or plugin change would produce different HTML but not update the cache
-     * file's mtime, leading to stale 304 responses. The file-based cache is already
-     * fast enough (~0.02ms) that the marginal gain from 304 is not worth the risk.
-     */
-    private function getFromFile(Request $request): ?Response
-    {
-        $cacheFile = $this->getCacheFilePath($request);
-
-        // Get mtime (returns false if file doesn't exist) - single stat() call
-        $mtime = @filemtime($cacheFile);
+        $file = $this->getCacheFilePath($request);
+        $mtime = @filemtime($file);
         if ($mtime === false) {
             return null;
         }
 
-        // Check TTL using stored mtime
-        $now = time();
-        $age = $now - $mtime;
-        if ($this->ttl !== null && $age > $this->ttl) {
-            @unlink($cacheFile);
+        $age = max(0, time() - $mtime);
+        $ttl = $this->app->config('webpage_cache.ttl');
+        if ($ttl !== null && $age >= $ttl) {
+            @unlink($file);
             return null;
         }
 
-        // Read file content
-        $content = @file_get_contents($cacheFile);
-        if ($content === false) {
+        $entry = $this->readEntry($file);
+        if ($entry === null || $entry['identity'] !== $this->identity($request)) {
             return null;
         }
 
-        // Build response with pre-computed age (avoid second stat)
-        return Response::html($content)
+        try {
+            $response = new Response($entry['body'], 200, $entry['headers']);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
+
+        if (!$this->isPublicResponse($response)) {
+            return null;
+        }
+
+        return $response
             ->withHeader('X-Page-Cache', 'HIT')
-            ->withHeader('X-Cache-Age', (string) $age)
-            ->withHeader('X-Fast-Path', 'standard');
+            ->withHeader('X-Cache-Age', (string) $age);
     }
 
-    /**
-     * Store a response in the cache.
-     */
-    public function put(Request $request, Response $response, ?bool $contentCacheOverride = null): void
+    public function put(Request $request, Response $response, ?bool $contentCacheOverride = null): bool
     {
-        // Content may opt out of caching, but it may never override request-level
-        // safety rules. In particular, preview/query-string and non-GET requests
-        // must not be able to populate the public path-only page cache.
-        if ($contentCacheOverride === false || !$this->isCacheableForWrite($request)) {
-            return;
+        if ($contentCacheOverride === false || !$this->isCacheable($request) || !$this->isPublicResponse($response)) {
+            return false;
         }
 
-        // Only cache successful HTML responses
+        // PHP themes may use header() or setcookie() instead of Response.
+        // Inspect these too, so native session/cookie headers cannot bypass policy.
+        $nativeHeaders = [];
+        foreach (headers_list() as $header) {
+            $parts = explode(':', $header, 2);
+            if (count($parts) === 2) {
+                $nativeHeaders[trim($parts[0])] = trim($parts[1]);
+            }
+        }
+        $nativeResponse = new Response($response->content(), 200, $nativeHeaders);
+        if (!$this->isPublicResponse($nativeResponse)) {
+            return false;
+        }
+        $response = $nativeResponse->withHeaders($response->headers());
+
+        if (!is_dir($this->cachePath) && !@mkdir($this->cachePath, 0755, true) && !is_dir($this->cachePath)) {
+            return false;
+        }
+
+        $content = $response->content();
+        if ($this->app->config('generator_comment', true)) {
+            $content = $this->addCacheComment($content, date('Y-m-d H:i:s'));
+        }
+
+        try {
+            $entry = json_encode([
+                'identity' => $this->identity($request),
+                'path' => $request->path(),
+                'headers' => $response->headers(),
+                'body' => $content,
+            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (\JsonException) {
+            return false;
+        }
+
+        return AtomicFile::write($this->getCacheFilePath($request), $entry);
+    }
+
+    private function isPublicResponse(Response $response): bool
+    {
         if ($response->status() !== 200) {
-            return;
+            return false;
         }
 
-        // Cache files are restored as HTML responses, so caching any other
-        // media type would silently change it on the next request.
-        $contentType = $response->header('Content-Type');
-        if ($contentType !== null) {
-            $mediaType = strtolower(trim(explode(';', $contentType, 2)[0]));
-            if ($mediaType !== 'text/html') {
-                return;
+        // Explicit HTTP cache policy is left to the browser/proxy, rather than
+        // silently replacing its freshness/revalidation rules with our own TTL.
+        foreach (['Set-Cookie', 'Vary', 'Cache-Control', 'Pragma', 'Expires', 'Content-Length', 'Content-Encoding', 'Content-Range', 'Transfer-Encoding'] as $header) {
+            if ($response->header($header) !== null) {
+                return false;
             }
         }
 
-        // Ensure cache directory exists
-        if (!is_dir($this->cachePath)) {
-            mkdir($this->cachePath, 0755, true);
-        }
-
-        $cacheFile = $this->getCacheFilePath($request);
-        $content = $response->content();
-
-        // Add cache timestamp comment to HTML
-        $timestamp = date('Y-m-d H:i:s');
-        if ($this->app->config('generator_comment', true)) {
-            $content = $this->addCacheComment($content, $timestamp);
-        }
-
-        AtomicFile::write($cacheFile, $content);
+        $contentType = $response->header('Content-Type');
+        return $contentType === null
+            || strtolower(trim(explode(';', $contentType, 2)[0])) === 'text/html';
     }
 
-    /**
-     * Clear all cached pages.
-     */
     public function clear(): int
     {
-        if (!is_dir($this->cachePath)) {
-            return 0;
-        }
-
         $count = 0;
-        $files = glob($this->cachePath . '/*.html');
-
-        foreach ($files as $file) {
+        foreach (glob($this->cachePath . '/*.json') ?: [] as $file) {
             if (unlink($file)) {
                 $count++;
             }
         }
-
         return $count;
     }
 
-    /**
-     * Clear cached pages matching a pattern.
-     */
     public function clearPattern(string $pattern): int
     {
-        if (!is_dir($this->cachePath)) {
-            return 0;
-        }
-
         $count = 0;
-        $files = glob($this->cachePath . '/*.html');
-
-        foreach ($files as $file) {
-            // Read first line to get original URL comment
-            $handle = fopen($file, 'r');
-            $firstLine = fgets($handle);
-            fclose($handle);
-
-            if (preg_match('/<!-- Cached: .+ \| (.+) -->/', $firstLine, $matches)) {
-                $url = $matches[1];
-                if ($this->matchesPattern($url, $pattern)) {
-                    if (unlink($file)) {
-                        $count++;
-                    }
-                }
+        foreach (glob($this->cachePath . '/*.json') ?: [] as $file) {
+            $entry = $this->readEntry($file);
+            if ($entry !== null && $this->matchesPattern($entry['path'], $pattern) && unlink($file)) {
+                $count++;
             }
         }
-
         return $count;
     }
 
-    /**
-     * Get cache statistics.
-     */
     public function stats(): array
     {
-        if (!is_dir($this->cachePath)) {
-            return [
-                'enabled' => $this->enabled,
-                'count' => 0,
-                'size' => 0,
-                'oldest' => null,
-                'newest' => null,
-            ];
-        }
-
-        $files = glob($this->cachePath . '/*.html');
-        $totalSize = 0;
+        $files = glob($this->cachePath . '/*.json') ?: [];
+        $size = 0;
         $oldest = null;
         $newest = null;
-
         foreach ($files as $file) {
-            $totalSize += filesize($file);
+            $size += filesize($file);
             $mtime = filemtime($file);
-
-            if ($oldest === null || $mtime < $oldest) {
-                $oldest = $mtime;
-            }
-            if ($newest === null || $mtime > $newest) {
-                $newest = $mtime;
-            }
+            $oldest = $oldest === null ? $mtime : min($oldest, $mtime);
+            $newest = $newest === null ? $mtime : max($newest, $mtime);
         }
 
         return [
-            'enabled' => $this->enabled,
-            'ttl' => $this->ttl,
+            'enabled' => $this->isEnabled(),
+            'ttl' => $this->app->config('webpage_cache.ttl'),
             'count' => count($files),
-            'size' => $totalSize,
-            'oldest' => $oldest ? date('Y-m-d H:i:s', $oldest) : null,
-            'newest' => $newest ? date('Y-m-d H:i:s', $newest) : null,
+            'size' => $size,
+            'oldest' => $oldest === null ? null : date('Y-m-d H:i:s', $oldest),
+            'newest' => $newest === null ? null : date('Y-m-d H:i:s', $newest),
         ];
     }
 
-    /**
-     * Get the cache file path for a request.
-     */
+    private function readEntry(string $file): ?array
+    {
+        $contents = @file_get_contents($file);
+        $entry = $contents === false ? null : json_decode($contents, true);
+        if (!is_array($entry)
+            || !is_string($entry['identity'] ?? null)
+            || !is_string($entry['path'] ?? null)
+            || !is_array($entry['headers'] ?? null)
+            || !is_string($entry['body'] ?? null)
+        ) {
+            return null;
+        }
+        return $entry;
+    }
+
+    private function identity(Request $request): string
+    {
+        // Length-delimited serialization prevents ambiguous host/path boundaries.
+        return hash('sha256', serialize([$request->isSecure(), strtolower($request->host()), $request->path()]));
+    }
+
     private function getCacheFilePath(Request $request): string
     {
-        $path = $request->path();
-
-        // Create a safe filename from the path
-        // Use hash to handle long/complex paths
-        $hash = md5($path);
-        $safeName = preg_replace('/[^a-zA-Z0-9\-_]/', '_', trim($path, '/'));
-        $safeName = substr($safeName, 0, 50); // Limit length
-
-        // Combine readable name with hash for uniqueness
-        $filename = ($safeName ?: 'index') . '_' . substr($hash, 0, 8) . '.html';
-
-        return $this->cachePath . '/' . $filename;
+        return $this->cachePath . '/' . $this->identity($request) . '.json';
     }
 
-    /**
-     * Check if path matches a pattern.
-     * Uses pre-compiled regex from constructor for exclusion patterns,
-     * falls back to dynamic compilation for other patterns.
-     */
     private function matchesPattern(string $path, string $pattern): bool
     {
-        // Use pre-compiled pattern if available, or compile and cache it
-        if (!isset($this->excludePatterns[$pattern])) {
-            $regex = str_replace(
-                ['\\*', '\\?'],
-                ['.*', '.'],
-                preg_quote($pattern, '/')
-            );
-            $this->excludePatterns[$pattern] = '/^' . $regex . '$/';
-        }
-
-        return (bool) preg_match($this->excludePatterns[$pattern], $path);
+        $regex = str_replace(['\\*', '\\?'], ['.*', '.'], preg_quote($pattern, '/'));
+        return preg_match('/^' . $regex . '$/D', $path) === 1;
     }
 
-    /**
-     * Add cache comments to HTML content (header only, footer is already added by Application).
-     */
     private function addCacheComment(string $content, string $timestamp): string
     {
-        // Replace the "Rendered" footer comment with "Cached" version
-        $content = preg_replace(
-            '/<!-- Generated by Ava CMS v[\d.]+ \| Rendered: [^|]+ \| [^-]+ -->/',
-            "<!-- Generated by Ava CMS v" . (defined('AVA_VERSION') ? AVA_VERSION : 'dev') . " | Cached: {$timestamp} -->",
-            $content
-        );
-
-        // Add header comment after DOCTYPE
-        $headerComment = "<!-- Page cached: {$timestamp} -->\n";
-
+        $comment = "<!-- Page cached: {$timestamp} -->\n";
         if (preg_match('/^<!DOCTYPE[^>]*>/i', $content, $matches)) {
-            $content = $matches[0] . "\n" . $headerComment . substr($content, strlen($matches[0]));
-        } else {
-            $content = $headerComment . $content;
+            return $matches[0] . "\n" . $comment . substr($content, strlen($matches[0]));
         }
-
-        return $content;
+        return $comment . $content;
     }
 }

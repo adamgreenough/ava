@@ -77,10 +77,12 @@ return [
     |───────────────────────────────────────────────────────────────────────────
     | PERFORMANCE — WEBPAGE CACHE
     |───────────────────────────────────────────────────────────────────────────
-    | Stores fully-rendered HTML for instant serving (~0.1ms vs ~30ms).
+    | Stores anonymous HTML responses, including their headers.
     | Cache is cleared automatically on ./ava rebuild.
-    | The pre-bootstrap ultra-fast path is used with content_index.mode = never;
-    | automatic modes check source freshness before serving cached HTML.
+    | Manual index mode can serve hits before application boot; automatic
+    | modes check source freshness first. All paths use the same cache policy.
+    | Cookies, authorization, active sessions, and explicit HTTP cache policies
+    | bypass this cache. Exclude any other request-dependent theme output.
     */
 
     'webpage_cache' => [

@@ -53,6 +53,11 @@ final class Request
             }
         }
 
+        // Some SAPIs expose Basic/Digest authentication only through PHP_AUTH_*.
+        if (!isset($headers['AUTHORIZATION']) && (isset($_SERVER['PHP_AUTH_USER']) || isset($_SERVER['PHP_AUTH_DIGEST']))) {
+            $headers['AUTHORIZATION'] = 'authenticated';
+        }
+
         // Add content type and length if present
         if (isset($_SERVER['CONTENT_TYPE'])) {
             $headers['content-type'] = $_SERVER['CONTENT_TYPE'];

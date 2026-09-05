@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ava\Tests\Content;
 
+use Ava\Application;
 use Ava\Content\Query;
 use Ava\Testing\TestCase;
 
@@ -105,6 +106,20 @@ final class QueryTest extends TestCase
         $method->setAccessible(true);
 
         $this->assertEquals([], $method->invoke($query));
+    }
+
+    public function testTaxonomyEligibilityDoesNotRequireAnIndex(): void
+    {
+        $config = $this->app->allConfig();
+        $config['paths']['storage'] = 'storage/tmp/missing-query-index-' . bin2hex(random_bytes(6));
+        $config['content_index']['backend'] = 'array';
+        $app = new Application($config);
+        $this->assertEquals([], $app->repository()->types());
+
+        $query = $app->query()->whereTax('category', 'tutorials');
+        $method = new \ReflectionMethod($query, 'queryTypes');
+        $this->assertEquals(['post'], $method->invoke($query));
+        $this->assertEquals([], $query->get());
     }
 
     public function testOrderByMethodReturnsNewInstance(): void

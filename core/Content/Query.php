@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Ava\Content;
 
 use Ava\Application;
-use Ava\Support\Arr;
 
 /**
  * Content Query
@@ -476,8 +475,8 @@ final class Query
             return false;
         }
         
-        // Must be querying published content (or no status filter)
-        if ($this->status !== null && $this->status !== 'published') {
+        // The recent cache contains published content only.
+        if ($this->status !== 'published') {
             return false;
         }
         
@@ -534,82 +533,27 @@ final class Query
      */
     private function executeFromFullIndex(): void
     {
-        // Let SQLite perform filtering, sorting, counting, and pagination so
-        // large-site queries do not hydrate the entire index into PHP memory.
-        // Relevance search still uses the shared scorer below.
-        if ($this->repository->backendName() === 'sqlite' && ($this->search === null || $this->search === '')) {
-            $result = $this->repository->backend()->query([
-                'type' => $this->type,
-                'status' => $this->status,
-                'taxonomies' => $this->taxonomyFilters,
-                'fields' => $this->fieldFilters,
-                'orderBy' => $this->orderBy,
-                'order' => $this->order,
-                'page' => $this->page,
-                'perPage' => $this->perPage,
-            ]);
-
-            $this->totalCount = $result['total'];
-            $this->results = array_map(
-                fn(array $data) => Item::fromArray($data, ''),
-                $result['items']
-            );
-            return;
-        }
-
-        // Get raw data (arrays, not Item objects)
-        $rawItems = [];
-        foreach ($this->queryTypes() as $type) {
-            $rawItems = array_merge($rawItems, $this->repository->allRaw($type));
-        }
-
-        // Apply filters on raw arrays
-        $rawItems = QueryProcessor::applyFilters(
-            $rawItems,
-            $this->status,
-            $this->taxonomyFilters,
-            $this->fieldFilters
-        );
-
-        // Apply search if present
+        $params = [
+            'type' => $this->type,
+            'types' => $this->taxonomyFilters === [] ? null : $this->queryTypes(),
+            'status' => $this->status,
+            'taxonomies' => $this->taxonomyFilters,
+            'fields' => $this->fieldFilters,
+            'search' => $this->search,
+            'orderBy' => $this->orderBy,
+            'order' => $this->order,
+            'page' => $this->page,
+            'perPage' => $this->perPage,
+        ];
         if ($this->search !== null && $this->search !== '') {
-            $tokens = QueryProcessor::tokenize($this->search);
-            $expandedTokens = QueryProcessor::expandTokens(
-                $tokens,
-                $this->repository->getStopWords(),
-                $this->repository->getSynonyms()
-            );
-
-            if (empty($expandedTokens)) {
-                // All tokens were stop words
-                $rawItems = [];
-            } else {
-                $rawItems = QueryProcessor::applySearch(
-                    $rawItems,
-                    $this->search,
-                    $expandedTokens,
-                    $this->searchWeights
-                );
-            }
+            $params['stopWords'] = $this->repository->getStopWords();
+            $params['synonyms'] = $this->repository->getSynonyms();
+            $params['searchWeights'] = $this->searchWeights;
         }
 
-        // Store total count before pagination
-        $this->totalCount = count($rawItems);
-
-        // Sort on raw arrays (skip if search is active - already sorted by relevance)
-        if ($this->search === null || $this->search === '') {
-            $rawItems = QueryProcessor::applySort($rawItems, $this->orderBy, $this->order);
-        }
-
-        // Paginate - get just the slice we need
-        $offset = ($this->page - 1) * $this->perPage;
-        $slice = array_slice($rawItems, $offset, $this->perPage);
-
-        // Only NOW create Item objects for the final result
-        $this->results = array_map(
-            fn(array $data) => Item::fromArray($data, ''),
-            $slice
-        );
+        $result = $this->repository->backend()->query($params);
+        $this->totalCount = $result['total'];
+        $this->results = array_map(fn(array $data) => Item::fromArray($data, ''), $result['items']);
     }
 
     /**
@@ -619,13 +563,10 @@ final class Query
      */
     private function queryTypes(): array
     {
-        $types = $this->type !== null ? [$this->type] : $this->repository->types();
-
-        if (empty($this->taxonomyFilters)) {
-            return $types;
-        }
-
         $contentTypes = $this->app->contentTypes();
+        // Eligibility is defined by configuration, even when a type currently
+        // has no indexed items. Backends simply return no rows for empty types.
+        $types = $this->type !== null ? [$this->type] : array_keys($contentTypes);
 
         return array_values(array_filter($types, function (string $type) use ($contentTypes): bool {
             $declaredTaxonomies = $contentTypes[$type]['taxonomies'] ?? [];

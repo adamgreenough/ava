@@ -207,13 +207,13 @@ final class Response
         http_response_code($this->status);
 
         // Set default content type if not set
-        if (!isset($this->headers['Content-Type'])) {
+        if ($this->header('Content-Type') === null) {
             $this->headers['Content-Type'] = 'text/html; charset=utf-8';
         }
 
         // Add security headers if not already set (using class constant)
         foreach (self::SECURITY_HEADERS as $name => $value) {
-            if (!isset($this->headers[$name])) {
+            if ($this->header($name) === null) {
                 $this->headers[$name] = $value;
             }
         }

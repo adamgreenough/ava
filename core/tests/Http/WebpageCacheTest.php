@@ -27,6 +27,8 @@ final class WebpageCacheTest extends TestCase
 
     public function tearDown(): void
     {
+        // Release temporary Application/Indexer cycles and their file locks.
+        gc_collect_cycles();
         $this->removeDirectory($this->storageAbsolute);
     }
 
@@ -74,8 +76,8 @@ final class WebpageCacheTest extends TestCase
     {
         $cache = $this->createCache();
 
-        $this->assertFalse($cache->isCacheableForWrite(new Request('GET', '/private/page')));
-        $this->assertTrue($cache->isCacheableForWrite(new Request('GET', '/private-page')));
+        $this->assertFalse($cache->isCacheable(new Request('GET', '/private/page')));
+        $this->assertTrue($cache->isCacheable(new Request('GET', '/private-page')));
     }
 
     public function testCleanGetCanStillBeCachedWhenContentEnablesCaching(): void
@@ -136,7 +138,10 @@ final class WebpageCacheTest extends TestCase
         $request = new Request('GET', '/public-page');
         $app->webpageCache()->put($request, Response::html('cached'));
 
-        $this->assertNull($app->tryCachedResponse($request));
+        $response = $app->handle($request);
+        $this->assertNotEquals('cached', $response->content());
+        $this->assertNull($response->header('X-Page-Cache'));
+        $this->assertEquals(0, $app->webpageCache()->stats()['count']);
     }
 
     public function testPreBootCacheIsAllowedInManualIndexMode(): void
@@ -145,7 +150,161 @@ final class WebpageCacheTest extends TestCase
         $request = new Request('GET', '/public-page');
         $app->webpageCache()->put($request, Response::html('cached'));
 
-        $this->assertNotNull($app->tryCachedResponse($request));
+        $this->assertEquals('cached', $app->handle($request)->content());
+        $this->assertFalse(is_file($this->storageAbsolute . '/cache/.rebuild.lock'));
+    }
+
+    public function testAuthenticatedRequestsCannotReadOrPopulateSharedCache(): void
+    {
+        $cache = $this->createCache();
+        $clean = new Request('GET', '/public-page');
+        foreach (['Cookie' => 'session=secret', 'Authorization' => 'Bearer secret'] as $header => $value) {
+            $request = new Request('GET', '/public-page', [], [$header => $value]);
+            $this->assertFalse($cache->put($request, Response::html('private'), true));
+            $this->assertNull($cache->get($clean));
+            $this->assertTrue($cache->put($clean, Response::html('public')));
+            $this->assertNull($cache->get($request));
+            $cache->clear();
+        }
+    }
+
+    public function testManualModeUsesTheSameAuthenticationPolicy(): void
+    {
+        $app = $this->createApplication('never');
+        $app->webpageCache()->put(new Request('GET', '/missing'), Response::html('cached'));
+        $response = $app->handle(new Request('GET', '/missing', [], ['Cookie' => 'session=secret']));
+        $this->assertEquals(404, $response->status());
+        $this->assertNotEquals('cached', $response->content());
+    }
+
+    public function testResponsesWithPrivateOrVaryingPolicyAreNotStored(): void
+    {
+        $cache = $this->createCache();
+        $request = new Request('GET', '/page');
+        foreach ([
+            ['cache-control' => 'private, no-store'],
+            ['Cache-Control' => 'no-cache'],
+            ['Cache-Control' => 'public, max-age=0'],
+            ['Set-Cookie' => 'session=secret'],
+            ['Vary' => 'Accept-Language'],
+            ['Vary' => '*'],
+            ['Pragma' => 'no-cache'],
+            ['Expires' => 'Thu, 01 Jan 1970 00:00:00 GMT'],
+        ] as $headers) {
+            $this->assertFalse($cache->put($request, Response::html('private')->withHeaders($headers)));
+        }
+        $this->assertNull($cache->get($request));
+    }
+
+    public function testClientCacheDirectivesBypassExistingEntries(): void
+    {
+        $cache = $this->createCache();
+        $cache->put(new Request('GET', '/page'), Response::html('cached'));
+        foreach (['Cache-Control' => 'no-cache', 'Pragma' => 'no-cache'] as $header => $value) {
+            $request = new Request('GET', '/page', [], [$header => $value]);
+            $this->assertNull($cache->get($request));
+            $this->assertFalse($cache->put($request, Response::html('new')));
+        }
+    }
+
+    public function testUtmQueriesStillShareTheAnonymousPageCache(): void
+    {
+        $cache = $this->createCache();
+        $request = new Request('GET', '/page?utm_source=newsletter', ['utm_source' => 'newsletter']);
+        $this->assertTrue($cache->put($request, Response::html('public')));
+        $this->assertEquals('public', $cache->get(new Request('GET', '/page'))?->content());
+    }
+
+    public function testCacheHitRetainsResponseHeaders(): void
+    {
+        $cache = $this->createCache();
+        $request = new Request('GET', '/page');
+        $cache->put($request, Response::html('public')->withHeaders([
+            'Content-Security-Policy' => "default-src 'none'",
+            'X-Robots-Tag' => 'noindex',
+            'Content-Language' => 'fr',
+        ]));
+        $cached = $cache->get($request);
+        $this->assertNotNull($cached);
+        $this->assertEquals("default-src 'none'", $cached->header('Content-Security-Policy'));
+        $this->assertEquals('noindex', $cached->header('X-Robots-Tag'));
+        $this->assertEquals('fr', $cached->header('Content-Language'));
+    }
+
+    public function testCacheDoesNotShareAcrossHostsOrSchemes(): void
+    {
+        $cache = $this->createCache();
+        $originalServer = $_SERVER;
+        try {
+            $_SERVER['HTTPS'] = 'off';
+            $_SERVER['SERVER_PORT'] = '80';
+            $request = new Request('GET', '/page', [], ['Host' => 'one.example']);
+            $cache->put($request, Response::html('one'));
+            $this->assertNull($cache->get(new Request('GET', '/page', [], ['Host' => 'two.example'])));
+            $_SERVER['HTTPS'] = 'on';
+            $this->assertNull($cache->get($request));
+        } finally {
+            $_SERVER = $originalServer;
+        }
+    }
+
+    public function testPatternClearingDoesNotDependOnHtmlComments(): void
+    {
+        foreach ([false, true] as $comments) {
+            $config = $this->createApplication()->allConfig();
+            $config['generator_comment'] = $comments;
+            $cache = new WebpageCache(new Application($config));
+            foreach (['/posts/first', '/posts/second', '/posts-other'] as $path) {
+                $cache->put(new Request('GET', $path), Response::html('<!DOCTYPE html><p>Page</p>'));
+            }
+            $this->assertEquals(2, $cache->clearPattern('/posts/*'));
+            $this->assertNull($cache->get(new Request('GET', '/posts/first')));
+            $this->assertNotNull($cache->get(new Request('GET', '/posts-other')));
+            $this->assertEquals(1, $cache->clear());
+        }
+    }
+
+    public function testExpiredAndMalformedEntriesAreCacheMisses(): void
+    {
+        $config = $this->createApplication()->allConfig();
+        $config['webpage_cache']['ttl'] = 1;
+        $cache = new WebpageCache(new Application($config));
+        $request = new Request('GET', '/page');
+        $cache->put($request, Response::html('old'));
+        $file = (glob($this->storageAbsolute . '/cache/pages/*.json') ?: [])[0];
+        touch($file, time() - 5);
+        clearstatcache(true, $file);
+        $this->assertNull($cache->get($request));
+
+        $cache->put($request, Response::html('new'));
+        file_put_contents($file, '{"body": []}');
+        clearstatcache(true, $file);
+        $this->assertNull($cache->get($request));
+    }
+
+    public function testMissingPreviewAndOrdinary404ReceiveSecurityHeaders(): void
+    {
+        $app = $this->createApplication('never');
+        foreach ([[], ['preview' => '1', 'token' => 'secret']] as $query) {
+            $response = $app->handle(new Request('GET', '/missing', $query));
+            $this->assertEquals(404, $response->status());
+            $this->assertEquals("default-src 'self'", $response->header('Content-Security-Policy'));
+            if ($query !== []) {
+                $this->assertEquals('no-referrer', $response->header('Referrer-Policy'));
+                $this->assertEquals('private, no-store, max-age=0', $response->header('Cache-Control'));
+            }
+        }
+    }
+
+    public function testPluginAndRedirectResponsesReceiveSecurityHeaders(): void
+    {
+        $app = $this->createApplication('never');
+        $app->router()->addRoute('/plugin', fn() => Response::json(['ok' => true]));
+        $app->router()->addRoute('/redirect', fn() => Response::redirect('/target'));
+        foreach (['/plugin', '/redirect'] as $path) {
+            $response = $app->handle(new Request('GET', $path));
+            $this->assertEquals("default-src 'self'", $response->header('Content-Security-Policy'));
+        }
     }
 
     private function createCache(): WebpageCache
@@ -158,6 +317,10 @@ final class WebpageCacheTest extends TestCase
         return new Application([
             'paths' => [
                 'storage' => $this->storageRelative,
+                'content' => $this->storageRelative . '/content',
+                'themes' => $this->storageRelative . '/themes',
+                'plugins' => $this->storageRelative . '/plugins',
+                'snippets' => $this->storageRelative . '/snippets',
             ],
             'webpage_cache' => [
                 'enabled' => true,
@@ -168,6 +331,7 @@ final class WebpageCacheTest extends TestCase
                 'mode' => $indexMode,
             ],
             'generator_comment' => false,
+            'security' => ['headers' => ['content_security_policy' => "default-src 'self'"]],
         ]);
     }
 

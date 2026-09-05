@@ -9,6 +9,7 @@ use Ava\Content\Backends\BackendInterface;
 use Ava\Content\Backends\ArrayBackend;
 use Ava\Content\Backends\SqliteBackend;
 use Ava\Plugins\Hooks;
+use Ava\Support\SignedCache;
 
 /**
  * Content Repository
@@ -535,38 +536,7 @@ final class Repository
      */
     private function loadHtmlCache(): array
     {
-        $cacheDir = $this->app->configPath('storage') . '/cache';
-        $cachePath = $cacheDir . '/html_cache.bin';
-        
-        if (!file_exists($cachePath)) {
-            return [];
-        }
-        
-        $content = file_get_contents($cachePath);
-        if ($content === false || strlen($content) < 36) {
-            return [];
-        }
-        
-        // Verify HMAC signature before deserializing (prevents tampering)
-        $payload = Indexer::verifyAndExtractPayload($content, $cacheDir);
-        if ($payload === null) {
-            return [];
-        }
-        
-        // Check format prefix
-        $prefix = substr($payload, 0, 3);
-        $data = substr($payload, 3);
-        
-        if ($prefix === 'IG:' && function_exists('igbinary_unserialize')) {
-            return igbinary_unserialize($data) ?: [];
-        }
-
-        if ($prefix === 'SZ:') {
-            // Restrict to arrays only - no object instantiation for security
-            return unserialize($data, ['allowed_classes' => false]) ?: [];
-        }
-
-        return [];
+        return SignedCache::read($this->app->configPath('storage') . '/cache/html_cache.bin');
     }
 
     // === Search Synonyms ===
@@ -596,30 +566,7 @@ final class Repository
      */
     private function loadSearchCache(string $filename): array
     {
-        $cacheDir = $this->app->configPath('storage') . '/cache';
-        $path = $cacheDir . '/' . $filename;
-        
-        if (!file_exists($path)) {
-            return [];
-        }
-        
-        $content = file_get_contents($path);
-        if ($content === false || strlen($content) < 36) {
-            return [];
-        }
-        
-        $payload = Indexer::verifyAndExtractPayload($content, $cacheDir);
-        if ($payload === null) {
-            return [];
-        }
-        
-        $prefix = substr($payload, 0, 3);
-        $data = substr($payload, 3);
-        
-        if ($prefix === 'IG:' && function_exists('igbinary_unserialize')) {
-            return igbinary_unserialize($data) ?: [];
-        }
-        return $prefix === 'SZ:' ? unserialize($data, ['allowed_classes' => false]) ?: [] : [];
+        return SignedCache::read($this->app->configPath('storage') . '/cache/' . $filename);
     }
 
     // === Cache Management ===

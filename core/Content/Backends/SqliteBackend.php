@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Ava\Content\Backends;
 
+use Ava\Content\QueryProcessor;
+
 /**
  * SQLite Backend
  *
@@ -225,11 +227,14 @@ final class SqliteBackend implements BackendInterface
      */
     public function query(array $params): array
     {
+        if (($params['search'] ?? '') !== '') {
+            return QueryProcessor::query($this, $params);
+        }
+
         $type = $params['type'] ?? null;
         $status = $params['status'] ?? null;
         $taxonomies = $params['taxonomies'] ?? [];
         $fields = $params['fields'] ?? [];
-        $search = $params['search'] ?? null;
         $orderBy = $params['orderBy'] ?? 'date';
         $order = strtoupper($params['order'] ?? 'desc');
         $page = $params['page'] ?? 1;
@@ -239,7 +244,18 @@ final class SqliteBackend implements BackendInterface
         $conditions = [];
         $bindings = [];
 
-        if ($type !== null) {
+        if (isset($params['types'])) {
+            if ($params['types'] === []) {
+                return ['items' => [], 'total' => 0];
+            }
+            $placeholders = [];
+            foreach (array_values($params['types']) as $index => $queryType) {
+                $name = 'type_' . $index;
+                $placeholders[] = ':' . $name;
+                $bindings[$name] = $queryType;
+            }
+            $conditions[] = 'type IN (' . implode(',', $placeholders) . ')';
+        } elseif ($type !== null) {
             $conditions[] = 'type = :type';
             $bindings['type'] = $type;
         }
@@ -330,17 +346,6 @@ final class SqliteBackend implements BackendInterface
         // Build WHERE clause
         $where = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
-        // Handle search (simple LIKE for now, FTS5 can be added later)
-        if ($search !== null && $search !== '') {
-            $searchCondition = '(title LIKE :search OR json_extract(meta, \'$.excerpt\') LIKE :search)';
-            if ($where === '') {
-                $where = 'WHERE ' . $searchCondition;
-            } else {
-                $where .= ' AND ' . $searchCondition;
-            }
-            $bindings['search'] = '%' . $search . '%';
-        }
-
         // Map orderBy to column
         $orderColumn = match ($orderBy) {
             'date' => 'date',
@@ -391,10 +396,8 @@ final class SqliteBackend implements BackendInterface
      */
     public function canUseFastCache(string $type, int $page, int $perPage): bool
     {
-        // SQLite is always fast, no need for a separate cache
-        // But we limit to first 200 items like the array backend
-        $offset = ($page - 1) * $perPage;
-        return $offset + $perPage <= 200;
+        // SQLite already filters and paginates in SQL; it has no recent cache.
+        return false;
     }
 
     /**
@@ -402,35 +405,12 @@ final class SqliteBackend implements BackendInterface
      */
     public function getRecentItems(string $type, int $page, int $perPage): array
     {
-        // Fast path: direct query with index
-        $offset = ($page - 1) * $perPage;
-
-        $stmt = $this->stmt('recent_items', '
-            SELECT * FROM content 
-            WHERE type = :type AND status = :status
-            ORDER BY date DESC, title ASC
-            LIMIT :limit OFFSET :offset
-        ');
-        $stmt->bindValue(':type', $type);
-        $stmt->bindValue(':status', 'published');
-        $stmt->bindValue(':limit', $perPage, \PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
-        $stmt->execute();
-
-        $rows = $stmt->fetchAll();
-        $items = array_map(fn($row) => $this->rowToItem($row), $rows);
-
-        // Get total count
-        $countStmt = $this->stmt('recent_count', '
-            SELECT COUNT(*) as cnt FROM content WHERE type = :type AND status = :status
-        ');
-        $countStmt->execute(['type' => $type, 'status' => 'published']);
-        $total = (int) $countStmt->fetch()['cnt'];
-
-        return [
-            'items' => $items,
-            'total' => $total,
-        ];
+        return $this->query([
+            'type' => $type,
+            'status' => 'published',
+            'page' => $page,
+            'perPage' => $perPage,
+        ]);
     }
 
     // -------------------------------------------------------------------------
@@ -585,6 +565,7 @@ final class SqliteBackend implements BackendInterface
                 file_path TEXT NOT NULL,
                 template TEXT,
                 excerpt TEXT,
+                body TEXT,
                 taxonomies TEXT DEFAULT "{}",
                 meta TEXT DEFAULT "{}",
                 frontmatter TEXT DEFAULT "{}",
@@ -680,8 +661,8 @@ final class SqliteBackend implements BackendInterface
     {
         $stmt = $this->stmt('insert_content', '
             INSERT OR REPLACE INTO content 
-            (type, content_key, slug, id, title, status, date, updated_at, file_path, template, excerpt, taxonomies, meta, frontmatter)
-            VALUES (:type, :content_key, :slug, :id, :title, :status, :date, :updated_at, :file_path, :template, :excerpt, :taxonomies, :meta, :frontmatter)
+            (type, content_key, slug, id, title, status, date, updated_at, file_path, template, excerpt, body, taxonomies, meta, frontmatter)
+            VALUES (:type, :content_key, :slug, :id, :title, :status, :date, :updated_at, :file_path, :template, :excerpt, :body, :taxonomies, :meta, :frontmatter)
         ');
 
         $id = $item['id'] ?? null;
@@ -698,6 +679,7 @@ final class SqliteBackend implements BackendInterface
             'file_path' => $item['file_path'] ?? $item['relative_path'] ?? '',
             'template' => $item['template'] ?? null,
             'excerpt' => $item['excerpt'] ?? $item['meta']['excerpt'] ?? null,
+            'body' => $item['body'] ?? '',
             'taxonomies' => json_encode($item['taxonomies'] ?? []),
             'meta' => json_encode($item['meta'] ?? $item['frontmatter'] ?? []),
             'frontmatter' => json_encode($item['frontmatter'] ?? []),
@@ -859,6 +841,7 @@ final class SqliteBackend implements BackendInterface
             'relative_path' => $row['file_path'],
             'template' => $row['template'],
             'excerpt' => $row['excerpt'],
+            'body' => $row['body'],
             'taxonomies' => json_decode($row['taxonomies'] ?? '{}', true),
             'meta' => json_decode($row['meta'] ?? '{}', true),
             'frontmatter' => json_decode($row['frontmatter'] ?? '{}', true),

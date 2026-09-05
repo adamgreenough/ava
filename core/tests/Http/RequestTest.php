@@ -12,6 +12,18 @@ use Ava\Testing\TestCase;
  */
 final class RequestTest extends TestCase
 {
+    public function testCaptureRecognizesSapiAuthenticationWithoutAuthorizationHeader(): void
+    {
+        $server = $_SERVER;
+        try {
+            unset($_SERVER['HTTP_AUTHORIZATION']);
+            $_SERVER['PHP_AUTH_USER'] = 'user';
+            $this->assertNotNull(Request::capture()->header('Authorization'));
+        } finally {
+            $_SERVER = $server;
+        }
+    }
+
     // =========================================================================
     // Constructor & Basic Properties
     // =========================================================================

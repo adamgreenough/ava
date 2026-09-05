@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ava\Content\Backends;
 
 use Ava\Content\QueryProcessor;
+use Ava\Support\SignedCache;
 
 /**
  * Array Backend
@@ -157,52 +158,7 @@ final class ArrayBackend implements BackendInterface
      */
     public function query(array $params): array
     {
-        $type = $params['type'] ?? null;
-        $status = $params['status'] ?? null;
-        $taxonomies = $params['taxonomies'] ?? [];
-        $fields = $params['fields'] ?? [];
-        $search = $params['search'] ?? null;
-        $orderBy = $params['orderBy'] ?? 'date';
-        $order = $params['order'] ?? 'desc';
-        $page = $params['page'] ?? 1;
-        $perPage = $params['perPage'] ?? 10;
-
-        // Get raw items
-        $rawItems = [];
-        if ($type !== null) {
-            $rawItems = $this->allRaw($type);
-        } else {
-            foreach ($this->types() as $contentType) {
-                $rawItems = array_merge($rawItems, $this->allRaw($contentType));
-            }
-        }
-
-        // Apply filters
-        $rawItems = QueryProcessor::applyFilters($rawItems, $status, $taxonomies, $fields);
-
-        // Apply search
-        if ($search !== null && $search !== '') {
-            $tokens = QueryProcessor::tokenize($search);
-            $expandedTokens = array_map(fn($t) => [$t], $tokens);
-            $rawItems = QueryProcessor::applySearch($rawItems, $search, $expandedTokens);
-        }
-
-        // Get total count before pagination
-        $total = count($rawItems);
-
-        // Apply sorting (skip if search active — already sorted by relevance)
-        if ($search === null || $search === '') {
-            $rawItems = QueryProcessor::applySort($rawItems, $orderBy, $order);
-        }
-
-        // Paginate
-        $offset = ($page - 1) * $perPage;
-        $items = array_slice($rawItems, $offset, $perPage);
-
-        return [
-            'items' => $items,
-            'total' => $total,
-        ];
+        return QueryProcessor::query($this, $params);
     }
 
     // -------------------------------------------------------------------------
@@ -356,43 +312,7 @@ final class ArrayBackend implements BackendInterface
      */
     private function loadCacheFile(string $name): array
     {
-        $binPath = $this->getCachePath($name . '.bin');
-
-        if (!file_exists($binPath)) {
-            return [];
-        }
-
-        $content = file_get_contents($binPath);
-        if ($content === false || strlen($content) < 36) {
-            return [];
-        }
-
-        // Verify HMAC signature before deserializing (prevents tampering)
-        $cacheDir = $this->storagePath . '/cache';
-        $payload = \Ava\Content\Indexer::verifyAndExtractPayload($content, $cacheDir);
-        if ($payload === null) {
-            return [];
-        }
-
-        // Check format marker prefix
-        $prefix = substr($payload, 0, 3);
-        $serializedData = substr($payload, 3);
-
-        if ($prefix === 'IG:') {
-            if (!extension_loaded('igbinary')) {
-                return [];
-            }
-            /** @var callable $unserialize */
-            $unserialize = 'igbinary_unserialize';
-            $data = @$unserialize($serializedData);
-        } elseif ($prefix === 'SZ:') {
-            $data = @unserialize($serializedData, ['allowed_classes' => false]);
-        } else {
-            // Invalid format - cache needs rebuild
-            return [];
-        }
-
-        return is_array($data) ? $data : [];
+        return SignedCache::read($this->getCachePath($name . '.bin'));
     }
 
     private function getCachePath(string $filename): string

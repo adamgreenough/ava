@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Ava\Content\Backends;
 
-use Ava\Content\Item;
-
 /**
  * Backend Interface
  *
@@ -105,10 +103,14 @@ interface BackendInterface
      *
      * @param array $params Query parameters:
      *   - type: string|null - Content type filter
+     *   - types: array|null - Restrict eligible content types (takes precedence over type)
      *   - status: string|null - Status filter
      *   - taxonomies: array - Taxonomy filters [taxonomy => term]
      *   - fields: array - Field filters [{field, value, operator}]
-     *   - search: string|null - Search query
+     *   - search: string|null - Relevance search query (shared scorer)
+     *   - stopWords: array - Search stop words
+     *   - synonyms: array - Search synonym groups
+     *   - searchWeights: array|null - Relevance weights and custom search fields
      *   - orderBy: string - Field to sort by
      *   - order: string - Sort direction (asc/desc)
      *   - page: int - Page number (1-based)

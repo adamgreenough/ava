@@ -10,6 +10,7 @@ use Ava\Plugins\Hooks;
 use Ava\Support\AtomicFile;
 use Ava\Support\LogRotator;
 use Ava\Support\Path;
+use Ava\Support\SignedCache;
 
 /**
  * Content Indexer
@@ -23,7 +24,7 @@ use Ava\Support\Path;
  */
 final class Indexer
 {
-    private const int FINGERPRINT_VERSION = 2;
+    private const int FINGERPRINT_VERSION = 3;
     private const int MAX_REBUILD_ATTEMPTS = 3;
     private const array FINGERPRINT_HASH_EXTENSIONS = [
         'css',
@@ -503,17 +504,7 @@ final class Indexer
      */
     private function clearWebpageCache(): void
     {
-        $webpageCachePath = $this->app->configPath('storage') . '/cache/pages';
-        if (!is_dir($webpageCachePath)) {
-            return;
-        }
-
-        $files = glob($webpageCachePath . '/*.html');
-        foreach ($files ?: [] as $file) {
-            if (!@unlink($file) && is_file($file)) {
-                throw new \RuntimeException("Unable to clear cached webpage: {$file}");
-            }
-        }
+        $this->app->webpageCache()->clear();
     }
 
     /**
@@ -1288,92 +1279,11 @@ final class Indexer
      */
     private function writeBinaryCacheFile(string $filename, array $data): void
     {
-        $cachePath = $this->getCachePath();
-        if (!is_dir($cachePath)) {
-            mkdir($cachePath, 0755, true);
-        }
-
-        $targetPath = $cachePath . '/' . $filename;
-
-        // Check if igbinary is enabled (use override if set, otherwise config)
-        $useIgbinary = $this->igbinaryOverride ?? $this->app->config('content_index.use_igbinary', true);
-
-        // Use igbinary if available AND enabled (faster and smaller), otherwise serialize
-        // Prefix with format marker: "IG:" for igbinary, "SZ:" for serialize
-        if ($useIgbinary && extension_loaded('igbinary')) {
-            /** @var callable $serialize */
-            $serialize = 'igbinary_serialize';
-            $payload = "IG:" . $serialize($data);
-        } else {
-            $payload = "SZ:" . serialize($data);
-        }
-
-        // Sign the payload with HMAC to detect tampering
-        // Format: <32-byte HMAC><payload>
-        $key = self::getCacheSigningKey($cachePath);
-        $hmac = hash_hmac('sha256', $payload, $key, true);
-        $content = $hmac . $payload;
-
-        if (!AtomicFile::write($targetPath, $content)) {
-            throw new \RuntimeException("Unable to publish cache file: {$filename}");
-        }
-    }
-
-    /**
-     * Get or create the cache signing key.
-     * The key is auto-generated and stored in the cache directory.
-     */
-    public static function getCacheSigningKey(string $cachePath): string
-    {
-        $keyFile = $cachePath . '/.cache_key';
-
-        if (file_exists($keyFile)) {
-            $key = file_get_contents($keyFile);
-            if ($key !== false && strlen($key) === 32) {
-                return $key;
-            }
-        }
-
-        // Generate a new 256-bit key
-        $key = random_bytes(32);
-
-        // Ensure cache directory exists
-        if (!is_dir($cachePath)) {
-            mkdir($cachePath, 0755, true);
-        }
-
-        // Write atomically
-        $tmpFile = $keyFile . '.tmp';
-        file_put_contents($tmpFile, $key, LOCK_EX);
-        rename($tmpFile, $keyFile);
-        chmod($keyFile, 0600); // Restrict permissions
-
-        return $key;
-    }
-
-    /**
-     * Verify HMAC signature and extract payload from a signed cache file.
-     * Returns null if verification fails.
-     */
-    public static function verifyAndExtractPayload(string $content, string $cachePath): ?string
-    {
-        // Minimum: 32 bytes HMAC + 3 bytes prefix + 1 byte data
-        if (strlen($content) < 36) {
-            return null;
-        }
-
-        $storedHmac = substr($content, 0, 32);
-        $payload = substr($content, 32);
-
-        $key = self::getCacheSigningKey($cachePath);
-        $expectedHmac = hash_hmac('sha256', $payload, $key, true);
-
-        // Timing-safe comparison
-        if (!hash_equals($expectedHmac, $storedHmac)) {
-            return null;
-        }
-
-        return $payload;
+        SignedCache::write(
+            $this->getCachePath($filename),
+            $data,
+            $this->igbinaryOverride ?? $this->app->config('content_index.use_igbinary', true)
+        );
     }
 
     /**

@@ -4,18 +4,58 @@ declare(strict_types=1);
 
 namespace Ava\Content;
 
+use Ava\Content\Backends\BackendInterface;
+
 /**
  * Query Processor
  *
- * Shared filtering, sorting, and search scoring logic used by both
- * the ArrayBackend (for backend-level queries) and the Query class
- * (for full-index queries with advanced features like synonyms).
+ * Shared array query execution and relevance scoring for both backends.
  *
  * All methods are stateless and operate on raw item arrays.
  */
 final class QueryProcessor
 {
     private const int MAX_SEARCH_TOKENS = 10;
+
+    /**
+     * Execute an array query. SQLite uses this only for relevance search.
+     *
+     * @return array{items: array, total: int}
+     */
+    public static function query(BackendInterface $backend, array $params): array
+    {
+        $types = $params['types'] ?? (isset($params['type']) ? [$params['type']] : $backend->types());
+        $items = [];
+        foreach ($types as $type) {
+            // Append values: associative content keys may repeat across types.
+            foreach ($backend->allRaw($type) as $item) {
+                $items[] = $item;
+            }
+        }
+
+        $items = self::applyFilters(
+            $items,
+            $params['status'] ?? null,
+            $params['taxonomies'] ?? [],
+            $params['fields'] ?? []
+        );
+
+        $search = $params['search'] ?? '';
+        if ($search !== '') {
+            $tokens = self::expandTokens(
+                self::tokenize($search),
+                $params['stopWords'] ?? [],
+                $params['synonyms'] ?? []
+            );
+            $items = $tokens === [] ? [] : self::applySearch($items, $search, $tokens, $params['searchWeights'] ?? null);
+        } else {
+            $items = self::applySort($items, $params['orderBy'] ?? 'date', strtolower($params['order'] ?? 'desc'));
+        }
+
+        $perPage = $params['perPage'] ?? 10;
+        $offset = (($params['page'] ?? 1) - 1) * $perPage;
+        return ['items' => array_slice($items, $offset, $perPage), 'total' => count($items)];
+    }
 
     /**
      * Filter raw items by status, taxonomy, and field conditions.
