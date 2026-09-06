@@ -31,7 +31,17 @@ final class Query
 
     // Query parameters
     private ?string $type = null;
-    private ?string $status = null;
+
+    /**
+     * SECURITY: queries are published-only until a caller opts out.
+     *
+     * Publication status is a security boundary, so the safe value has to be
+     * the one you get by forgetting about it. A theme that writes
+     * `$ava->query()->type('post')` for a "related posts" list must not leak
+     * draft titles, excerpts, and bodies because it omitted published().
+     * Use anyStatus() to deliberately include unpublished content.
+     */
+    private ?string $status = 'published';
     private array $taxonomyFilters = [];
     private array $fieldFilters = [];
     private string $orderBy = 'date';
@@ -105,10 +115,26 @@ final class Query
 
     /**
      * Filter to published only.
+     *
+     * This is the default; call it for emphasis, or to undo anyStatus().
      */
     public function published(): self
     {
         return $this->status('published');
+    }
+
+    /**
+     * Drop the publication filter, including unpublished content.
+     *
+     * Only for callers that have their own access control (previews, the CLI,
+     * an admin listing). Never reachable from a visitor's query parameters.
+     */
+    public function anyStatus(): self
+    {
+        $clone = clone $this;
+        $clone->status = null;
+        $clone->results = null;
+        return $clone;
     }
 
     /**
@@ -210,7 +236,7 @@ final class Query
      * SECURITY: `status` is intentionally NOT read from $params. Publication
      * status is a security boundary (drafts must never be exposed to anonymous
      * visitors), so it can only be changed programmatically via status() /
-     * published() / draft(). Allowing it here would let any visitor reveal
+     * published() / anyStatus(). Allowing it here would let any visitor reveal
      * unpublished content with `?status=draft` on an archive or taxonomy page.
      */
     public function fromParams(array $params): self

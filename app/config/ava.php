@@ -81,10 +81,24 @@ return [
     | Cache is cleared automatically on ./ava rebuild.
     | Manual index mode can serve hits before application boot; automatic
     | modes check source freshness first. All paths use the same cache policy.
-    | Cookies, authorization, active sessions, and explicit HTTP cache policies
-    | bypass this cache. Exclude any other request-dependent theme output.
-    | Only the host in site.base_url (plus any listed in 'hosts') can create
-    | entries, so stray Host headers cannot fill the cache directory.
+    |
+    | A request is never served from or written to this cache when it carries
+    | an Authorization header or a PHP session cookie, or when a session is
+    | already running. A response is never stored when it sets a cookie, a
+    | Vary, or its own Cache-Control. Client Cache-Control/Pragma request
+    | headers are ignored: honouring them would let any visitor disable the
+    | cache. Only the host in site.base_url (plus any listed in 'hosts') can
+    | create entries, so stray Host headers cannot fill the cache directory.
+    |
+    | URLs are cached bare or with ?paged=N; any other query string is served
+    | fresh.
+    |
+    | If a page varies per visitor — a theme reading a cookie, geolocation,
+    | anything request-dependent — say so in one of two ways:
+    |   • send 'Vary' or your own 'Cache-Control' on that response, or
+    |   • add its URL to 'exclude' below.
+    | Only 'exclude' is applied before the theme loads, so it is the one that
+    | also stops an already-cached copy being served.
     */
 
     'webpage_cache' => [
@@ -264,11 +278,15 @@ return [
     |───────────────────────────────────────────────────────────────────────────
     | GENERATOR COMMENT
     |───────────────────────────────────────────────────────────────────────────
-    | Ava appends an HTML comment to each rendered page identifying the CMS
-    | version, render time, and timestamp. Set to false to suppress it.
+    | Appends an HTML comment to each rendered page identifying the CMS
+    | version, render time, and timestamp, and adds an X-Render-Time header.
+    |
+    | Off by default: publishing your exact version on every page makes it
+    | trivial to find unpatched installs at scale after a security release.
+    | Turn it on while debugging, or if you want the attribution.
     */
 
-    'generator_comment' => true,
+    'generator_comment' => false,
 
     /*
     |═══════════════════════════════════════════════════════════════════════════

@@ -97,7 +97,7 @@ final class QueryParityTest extends TestCase
         $this->assertEquals(['post', 'post', 'page'], array_column($result['items'], 'type'));
     }
 
-    public function testFluentQueriesKeepAllStatusesAndSharedSearchOptions(): void
+    public function testFluentQueriesDefaultToPublishedAndShareSearchOptions(): void
     {
         foreach (['array', 'sqlite'] as $backend) {
             if ($backend === 'sqlite' && $this->sqlite === null) {
@@ -108,8 +108,12 @@ final class QueryParityTest extends TestCase
             $config['content_index']['backend'] = $backend;
             $app = new Application($config);
             $query = new Query($app);
+            // SECURITY: the fixture holds three posts, one of them a draft. A
+            // query that never mentions status must not return it, because
+            // that is the query a theme author writes by accident.
+            $this->assertEquals(2, $query->type('post')->perPage(1)->count());
             // A recent-cache hit must not drop drafts when status is unfiltered.
-            $this->assertEquals(3, $query->type('post')->perPage(1)->count());
+            $this->assertEquals(3, $query->type('post')->anyStatus()->perPage(1)->count());
             $this->assertEquals(2, $query->type('post')->published()->perPage(1)->count());
             $this->assertEquals(1, $query->type('post')->search('bike')->count());
             $this->assertEquals(0, $query->search('the')->count());

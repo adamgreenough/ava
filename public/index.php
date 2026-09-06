@@ -8,4 +8,14 @@ define('AVA_ROOT', dirname(__DIR__));
 $app = require AVA_ROOT . '/bootstrap.php';
 $request = Ava\Http\Request::capture();
 $response = $app->handle($request);
-$response->withHeader('X-Render-Time', round((microtime(true) - AVA_START) * 1000, 1) . 'ms')->send();
+
+// Render timing is diagnostic output, so it follows the same opt-in switch as
+// the generator comment rather than being published to every visitor.
+if ($app->config('generator_comment', false)) {
+    $response = $response->withHeader(
+        'X-Render-Time',
+        round((microtime(true) - AVA_START) * 1000, 1) . 'ms'
+    );
+}
+
+$response->send();

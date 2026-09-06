@@ -30,6 +30,7 @@ final class QueryTest extends TestCase
             'type' => ['post'],
             'status' => ['draft'],
             'published' => [],
+            'anyStatus' => [],
             'where' => ['featured', true],
             'whereTax' => ['category', 'tutorials'],
             'orderBy' => ['title', 'asc'],
@@ -108,6 +109,17 @@ final class QueryTest extends TestCase
         $method = new \ReflectionMethod($query, 'queryTypes');
         $this->assertEquals(['post'], $method->invoke($query));
         $this->assertEquals([], $query->get());
+    }
+
+    public function testQueriesAreLimitedToPublishedContentUntilAskedOtherwise(): void
+    {
+        // SECURITY: forgetting published() must not be how drafts get out.
+        // A theme writing $ava->query()->type('post') for a sidebar has no
+        // idea it is opting into unpublished content, so it cannot be opt-out.
+        $this->assertSame('published', $this->createQuery()->getStatus());
+        $this->assertSame('published', $this->createQuery()->type('post')->getStatus());
+        $this->assertNull($this->createQuery()->anyStatus()->getStatus());
+        $this->assertSame('published', $this->createQuery()->anyStatus()->published()->getStatus());
     }
 
     public function testFromParamsIgnoresStatusToPreventDraftDisclosure(): void

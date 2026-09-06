@@ -173,10 +173,21 @@ final class TemplateHelpers
 
     /**
      * Get a specific content item.
+     *
+     * Applies the same visibility rule as the router: published and unlisted
+     * items are returned, drafts are not. A template has no way to know
+     * whether the current visitor is allowed to see unpublished content, so
+     * this helper never hands it any.
      */
     public function get(string $type, string $slug): ?Item
     {
-        return $this->app->repository()->get($type, $slug);
+        $item = $this->app->repository()->get($type, $slug);
+
+        if ($item === null || (!$item->isPublished() && !$item->isUnlisted())) {
+            return null;
+        }
+
+        return $item;
     }
 
     /**

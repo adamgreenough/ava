@@ -158,7 +158,7 @@ final class WebpageCacheTest extends TestCase
     {
         $cache = $this->createCache();
         $clean = new Request('GET', '/public-page');
-        foreach (['Cookie' => 'session=secret', 'Authorization' => 'Bearer secret'] as $header => $value) {
+        foreach (['Cookie' => 'PHPSESSID=secret', 'Authorization' => 'Bearer secret'] as $header => $value) {
             $request = new Request('GET', '/public-page', [], [$header => $value]);
             $this->assertFalse($cache->put($request, Response::html('private'), true));
             $this->assertNull($cache->get($clean));
@@ -172,9 +172,58 @@ final class WebpageCacheTest extends TestCase
     {
         $app = $this->createApplication('never');
         $app->webpageCache()->put(new Request('GET', '/missing'), Response::html('cached'));
-        $response = $app->handle(new Request('GET', '/missing', [], ['Cookie' => 'session=secret']));
+        $response = $app->handle(new Request('GET', '/missing', [], ['Cookie' => 'PHPSESSID=secret']));
         $this->assertEquals(404, $response->status());
         $this->assertNotEquals('cached', $response->content());
+    }
+
+    public function testOnlyThePhpSessionCookieBypassesTheSharedCache(): void
+    {
+        $cache = $this->createCache();
+        $sessionName = session_name() ?: 'PHPSESSID';
+
+        // Analytics and consent cookies are set on almost every first visit,
+        // and Ava reads none of them. Treating any cookie as private would
+        // mean returning visitors never see a cache hit. A page that really
+        // does vary per visitor keeps itself out via Vary/Cache-Control on the
+        // response, or via webpage_cache.exclude.
+        foreach ([
+            '_ga=GA1.1.123',
+            '_ga=GA1.1.123; _fbp=fb.1.2',
+            'consent=all',
+            'PHPSESSIDX=notthesessioncookie',
+        ] as $cookie) {
+            $this->assertTrue(
+                $cache->isCacheable(new Request('GET', '/page', [], ['Cookie' => $cookie])),
+                $cookie
+            );
+        }
+
+        foreach ([
+            $sessionName . '=abc',
+            '_ga=GA1.1.123; ' . $sessionName . '=abc',
+            ' ' . $sessionName . ' = abc ',
+        ] as $cookie) {
+            $this->assertFalse(
+                $cache->isCacheable(new Request('GET', '/page', [], ['Cookie' => $cookie])),
+                $cookie
+            );
+        }
+    }
+
+    public function testResponsesThatDeclareTheyVaryAreNotShared(): void
+    {
+        // The general answer for cookie-dependent output: the response says so
+        // and is never stored, so no cookie guessing is needed in isCacheable.
+        $cache = $this->createCache();
+        $request = new Request('GET', '/page', [], ['Cookie' => 'currency=GBP']);
+
+        $this->assertTrue($cache->isCacheable($request));
+        $this->assertFalse($cache->put(
+            $request,
+            Response::html('£10')->withHeader('Vary', 'Cookie')
+        ));
+        $this->assertEquals(0, $cache->stats()['count']);
     }
 
     public function testResponsesWithPrivateOrVaryingPolicyAreNotStored(): void
@@ -196,14 +245,21 @@ final class WebpageCacheTest extends TestCase
         $this->assertNull($cache->get($request));
     }
 
-    public function testClientCacheDirectivesBypassExistingEntries(): void
+    public function testClientCacheDirectivesCannotDisableTheSharedCache(): void
     {
+        // Honouring these would give any client a one-header switch for
+        // forcing a full render on every request. A shared cache may ignore
+        // them (RFC 9111 5.2.1.4), and this one does.
         $cache = $this->createCache();
         $cache->put(new Request('GET', '/page'), Response::html('cached'));
-        foreach (['Cache-Control' => 'no-cache', 'Pragma' => 'no-cache'] as $header => $value) {
-            $request = new Request('GET', '/page', [], [$header => $value]);
-            $this->assertNull($cache->get($request));
-            $this->assertFalse($cache->put($request, Response::html('new')));
+
+        foreach ([
+            ['Cache-Control' => 'no-cache'],
+            ['Cache-Control' => 'no-store, max-age=0'],
+            ['Pragma' => 'no-cache'],
+        ] as $headers) {
+            $request = new Request('GET', '/page', [], $headers);
+            $this->assertEquals('cached', $cache->get($request)?->content(), key($headers));
         }
     }
 
@@ -213,6 +269,50 @@ final class WebpageCacheTest extends TestCase
         $request = new Request('GET', '/page?utm_source=newsletter', ['utm_source' => 'newsletter']);
         $this->assertTrue($cache->put($request, Response::html('public')));
         $this->assertEquals('public', $cache->get(new Request('GET', '/page'))?->content());
+    }
+
+    public function testArchivePagesAreCachedUnderTheirOwnKey(): void
+    {
+        $cache = $this->createCache();
+        $bare = new Request('GET', '/blog');
+        $page2 = new Request('GET', '/blog?paged=2', ['paged' => '2']);
+
+        $this->assertTrue($cache->put($bare, Response::html('page one')));
+        $this->assertTrue($cache->put($page2, Response::html('page two')));
+
+        $this->assertEquals('page one', $cache->get($bare)?->content());
+        $this->assertEquals('page two', $cache->get($page2)?->content());
+        $this->assertEquals(2, $cache->stats()['count']);
+
+        // ?paged=1 renders the bare URL, so it must not claim a second entry.
+        $this->assertEquals(
+            'page one',
+            $cache->get(new Request('GET', '/blog?paged=1', ['paged' => '1']))?->content()
+        );
+        $this->assertEquals(2, $cache->stats()['count']);
+    }
+
+    public function testUnboundedQueryStringsStayOutOfTheCache(): void
+    {
+        $cache = $this->createCache();
+
+        foreach ([
+            ['q' => 'anything'],
+            ['paged' => '2', 'per_page' => '100'],
+            ['per_page' => '100'],
+            ['orderby' => 'title'],
+            ['paged' => '007'],
+            ['paged' => '0'],
+            ['paged' => ['2']],
+            ['paged' => '20000'],       // past MAX_CACHED_PAGE
+            ['paged' => '99999999'],    // past the digit limit
+        ] as $query) {
+            $request = new Request('GET', '/blog', $query);
+            $this->assertFalse($cache->isCacheable($request), http_build_query($query));
+            $this->assertFalse($cache->put($request, Response::html('uncacheable'), true));
+        }
+
+        $this->assertEquals(0, $cache->stats()['count']);
     }
 
     public function testCacheHitRetainsResponseHeaders(): void

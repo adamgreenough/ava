@@ -313,7 +313,7 @@ final class RouterTest extends TestCase
     public function testArchiveQueryParamsDoNotOverrideSortingByDefault(): void
     {
         // Archive with pagination params, but no orderby override
-        $request = $this->createRequest('/blog', 'GET', ['paged' => '2']);
+        $request = $this->createRequest('/blog', 'GET', ['paged' => '1']);
         $match = $this->router->match($request);
 
         if ($match === null || $match->getType() !== 'archive') {
@@ -327,6 +327,32 @@ final class RouterTest extends TestCase
         // Should still have content type sorting
         $this->assertEquals('date', $query->getOrderBy());
         $this->assertEquals('desc', $query->getOrder());
+    }
+
+    public function testArchivePagesPastTheLastPageAreNotFound(): void
+    {
+        // ?paged accepts values up to Query::MAX_PAGE, and every one past the
+        // end used to render an empty archive: an unbounded supply of requests
+        // that scan the index and can never be cached. They 404 instead.
+        $archive = $this->router->match($this->createRequest('/blog'));
+        if ($archive === null || $archive->getType() !== 'archive') {
+            $this->markSkipped('Blog archive route not available');
+            return;
+        }
+
+        $firstEmptyPage = max(1, $archive->getQuery()->totalPages()) + 1;
+
+        $this->assertNull($this->router->match(
+            $this->createRequest('/blog', 'GET', ['paged' => (string) $firstEmptyPage])
+        ));
+        $this->assertNull($this->router->match(
+            $this->createRequest('/blog', 'GET', ['paged' => '999999'])
+        ));
+
+        // An empty archive is still a real page one.
+        $this->assertNotNull($this->router->match(
+            $this->createRequest('/blog', 'GET', ['paged' => '1'])
+        ));
     }
 
     // =========================================================================

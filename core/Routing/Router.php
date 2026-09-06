@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ava\Routing;
 
 use Ava\Application;
+use Ava\Content\Query;
 use Ava\Content\Repository;
 use Ava\Http\Request;
 use Ava\Http\Response;
@@ -297,6 +298,10 @@ final class Router
 
             $query = $query->fromParams($request->query());
 
+            if ($this->isBeyondLastPage($query)) {
+                return null;
+            }
+
             return new RouteMatch(
                 type: 'archive',
                 query: $query,
@@ -340,6 +345,10 @@ final class Router
             ->whereTax($taxonomy, $termPath)
             ->fromParams($request->query());
 
+        if ($this->isBeyondLastPage($query)) {
+            return null;
+        }
+
         return new RouteMatch(
             type: 'taxonomy',
             query: $query,
@@ -349,6 +358,22 @@ final class Router
             ],
             template: 'taxonomy.php'
         );
+    }
+
+    /**
+     * Is this listing paged past its last real page?
+     *
+     * Without this, ?paged accepts values up to Query::MAX_PAGE and every one
+     * of them renders an empty listing — an unbounded supply of requests that
+     * each scan the index and can never be cached. Page 1 is always a valid
+     * route, even for an empty archive.
+     *
+     * The query memoises its results, so the count is not recomputed when the
+     * template later iterates the same instance.
+     */
+    private function isBeyondLastPage(Query $query): bool
+    {
+        return $query->currentPage() > 1 && $query->currentPage() > $query->totalPages();
     }
 
     /**

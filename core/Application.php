@@ -117,11 +117,14 @@ final class Application
 
         // Store in webpage cache if enabled
         if ($this->webpageCache()->isEnabled() && $response->status() === 200) {
-            // Check for content-level cache override
+            // Check for content-level cache override. Accept every YAML
+            // spelling of false (false, 0, "no", "off") rather than the
+            // boolean alone, so `cache: 0` is not silently cached; anything
+            // unrecognised leaves the default policy in place.
             $cacheOverride = null;
-            $contentItem = $match->getContentItem();
-            if ($contentItem !== null) {
-                $cacheOverride = $contentItem->get('cache');
+            $override = $match->getContentItem()?->get('cache');
+            if ($override !== null) {
+                $cacheOverride = filter_var($override, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             }
 
             $stored = $this->webpageCache()->put($request, $response, $cacheOverride);
@@ -514,8 +517,8 @@ final class Application
 
         $content = $renderer->render($match->getTemplate(), $context);
 
-        // Add generator footer comment
-        if ($this->config('generator_comment', true)) {
+        // Add generator footer comment (opt-in: see addGeneratorComment)
+        if ($this->config('generator_comment', false)) {
             $content = $this->addGeneratorComment($content);
         }
 
@@ -567,6 +570,11 @@ final class Application
 
     /**
      * Add generator comment to HTML content.
+     *
+     * Off by default. The comment names the exact Ava version on every page,
+     * which is convenient for one site and unhelpful across all of them: after
+     * a security release it turns "find every unpatched install" into a single
+     * search query. Enable it when the diagnostics are worth that.
      */
     private function addGeneratorComment(string $content): string
     {

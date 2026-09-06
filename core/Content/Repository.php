@@ -142,6 +142,10 @@ final class Repository
      * 
      * Uses the backend's optimized lookup, then parses the file directly
      * for full content. This avoids loading the full content index.
+     *
+     * NOTE: this returns items of any status, including drafts — it is what
+     * preview mode is built on. Callers rendering to anonymous visitors must
+     * check isPublished() themselves, as the router does.
      */
     public function get(string $type, string $key): ?Item
     {
@@ -152,12 +156,12 @@ final class Repository
         }
 
         // Parse the file directly for full content
-        $filePath = $data['file_path'] ?? '';
-        if ($filePath === '' || !file_exists($filePath)) {
+        $resolved = $this->resolveInsideContentRoot((string) ($data['file_path'] ?? ''));
+        if ($resolved === null) {
             return null;
         }
 
-        $item = $this->parser->parseFile($filePath, $type);
+        $item = $this->parser->parseFile($resolved, $type);
 
         // Allow hooks to modify the loaded item
         return Hooks::apply('content.loaded', $item);
@@ -169,9 +173,6 @@ final class Repository
      * This is the fast path for rendering a single page: the route table
      * (routes.bin) already carries the file path, so we can parse that one
      * file directly instead of loading the entire content index into memory.
-     *
-     * SECURITY: the resolved file must live inside the configured content
-     * directory. realpath() is used to defeat path traversal (e.g. '../').
      */
     public function getByFile(string $relativeFile, string $type): ?Item
     {
@@ -179,19 +180,10 @@ final class Repository
             return null;
         }
 
-        $contentRoot = realpath($this->app->configPath('content'));
-        if ($contentRoot === false) {
-            return null;
-        }
-
-        $resolved = realpath($contentRoot . '/' . $relativeFile);
-        if ($resolved === false) {
-            return null;
-        }
-
-        // Containment check: the file must be within the content root.
-        $prefix = $contentRoot . DIRECTORY_SEPARATOR;
-        if ($resolved !== $contentRoot && !str_starts_with($resolved, $prefix)) {
+        $resolved = $this->resolveInsideContentRoot(
+            $this->app->configPath('content') . '/' . $relativeFile
+        );
+        if ($resolved === null) {
             return null;
         }
 
@@ -199,6 +191,35 @@ final class Repository
 
         // Allow hooks to modify the loaded item
         return Hooks::apply('content.loaded', $item);
+    }
+
+    /**
+     * Resolve a content path and require it to live inside the content root.
+     *
+     * SECURITY: realpath() defeats traversal ('../'), and the prefix check
+     * rejects anything that lands outside. Index entries are the only source
+     * of these paths today, so this is defence in depth: a stale or tampered
+     * index must not be able to turn a lookup into an arbitrary file read.
+     */
+    private function resolveInsideContentRoot(string $candidate): ?string
+    {
+        // realpath('') resolves to the working directory on some platforms.
+        if ($candidate === '') {
+            return null;
+        }
+
+        $contentRoot = realpath($this->app->configPath('content'));
+        $resolved = realpath($candidate);
+        if ($contentRoot === false || $resolved === false) {
+            return null;
+        }
+
+        $prefix = $contentRoot . DIRECTORY_SEPARATOR;
+        if ($resolved !== $contentRoot && !str_starts_with($resolved, $prefix)) {
+            return null;
+        }
+
+        return $resolved;
     }
 
     /**
@@ -310,8 +331,12 @@ final class Repository
     }
 
     /**
-     * Get recent items across all types (metadata only, no file I/O).
+     * Get recent published items across all types (metadata only, no file I/O).
      * Optimized to avoid creating Item objects until after sorting/limiting.
+     *
+     * Unpublished content is excluded: this reads like a listing helper, so it
+     * must not hand drafts to a caller that never thought about status. Use
+     * allMeta() when you deliberately want every status.
      *
      * @return array<Item>
      */
@@ -321,6 +346,9 @@ final class Repository
         $allData = [];
         foreach ($this->backend()->types() as $type) {
             foreach ($this->backend()->allRaw($type) as $data) {
+                if (($data['status'] ?? 'draft') !== 'published') {
+                    continue;
+                }
                 $allData[] = $data;
             }
         }

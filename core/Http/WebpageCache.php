@@ -13,6 +13,14 @@ use Ava\Support\AtomicFile;
  */
 final class WebpageCache
 {
+    /**
+     * Highest ?paged value that may create an entry.
+     *
+     * The router already 404s past the last real page, so this only bounds how
+     * far a misconfigured archive could grow the cache directory.
+     */
+    private const int MAX_CACHED_PAGE = 10_000;
+
     private string $cachePath;
 
     public function __construct(private Application $app)
@@ -31,20 +39,20 @@ final class WebpageCache
             return false;
         }
 
-        // Never share session-dependent or authenticated output. Also respect
-        // client cache directives; this cache does not implement revalidation.
-        foreach (['Cookie', 'Authorization', 'Cache-Control', 'Pragma'] as $header) {
-            if ($request->header($header) !== null) {
-                return false;
-            }
+        // Never share authenticated or session-dependent output.
+        //
+        // Request Cache-Control/Pragma are deliberately NOT honoured: they are
+        // attacker-settable, and letting them force a miss would hand anyone a
+        // one-header switch for turning the cache off site-wide. RFC 9111
+        // §5.2.1.4 lets a shared cache ignore a client's no-cache, and CDNs do.
+        if ($request->header('Authorization') !== null || $this->carriesPhpSession($request)) {
+            return false;
         }
         if (session_status() === PHP_SESSION_ACTIVE) {
             return false;
         }
 
-        $query = $request->query();
-        unset($query['utm_source'], $query['utm_medium'], $query['utm_campaign'], $query['utm_term'], $query['utm_content']);
-        if ($query !== []) {
+        if ($this->cacheableQuery($request) === null) {
             return false;
         }
 
@@ -110,7 +118,12 @@ final class WebpageCache
         }
 
         // PHP themes may use header() or setcookie() instead of Response.
-        // Inspect these too, so native session/cookie headers cannot bypass policy.
+        // Inspect these too, so native session/cookie headers cannot bypass
+        // policy. They are only inspected, never stored: whatever PHP happens
+        // to have queued belongs to this one request (a template's one-off
+        // header(), or the server's own X-Powered-By), and persisting it would
+        // replay it to every later visitor and outlive the setting that
+        // produced it.
         $nativeHeaders = [];
         foreach (headers_list() as $header) {
             $parts = explode(':', $header, 2);
@@ -118,18 +131,21 @@ final class WebpageCache
                 $nativeHeaders[trim($parts[0])] = trim($parts[1]);
             }
         }
-        $nativeResponse = new Response($response->content(), 200, $nativeHeaders);
+        try {
+            $nativeResponse = new Response('', 200, $nativeHeaders);
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
         if (!$this->isPublicResponse($nativeResponse)) {
             return false;
         }
-        $response = $nativeResponse->withHeaders($response->headers());
 
         if (!is_dir($this->cachePath) && !@mkdir($this->cachePath, 0755, true) && !is_dir($this->cachePath)) {
             return false;
         }
 
         $content = $response->content();
-        if ($this->app->config('generator_comment', true)) {
+        if ($this->app->config('generator_comment', false)) {
             $content = $this->addCacheComment($content, date('Y-m-d H:i:s'));
         }
 
@@ -263,10 +279,97 @@ final class WebpageCache
         return in_array(strtolower($request->host()), $allowed, true);
     }
 
+    /**
+     * Does this request carry PHP's own session cookie?
+     *
+     * The session_status() check in isCacheable() only sees a session that is
+     * already running. On a cache read nothing has rendered yet — in manual
+     * index mode the theme has not even loaded — so this cookie is the only
+     * signal available at that point that the visitor holds a session and must
+     * not be handed a copy generated for someone without one.
+     *
+     * Deliberately just this one name, matched exactly. Ava never reads a
+     * cookie itself, so every other cookie on the request belongs to something
+     * this class cannot interpret; a list of analytics and consent names would
+     * be permanently incomplete and still too broad (bypassing on any cookie
+     * means every visitor who has picked up an analytics cookie misses the
+     * cache). Output that really does vary per visitor stays out of the cache
+     * through isPublicResponse() — a response carrying Set-Cookie, Vary or its
+     * own Cache-Control is never stored — or through webpage_cache.exclude,
+     * which unlike a cookie test is also applied to reads.
+     */
+    private function carriesPhpSession(Request $request): bool
+    {
+        $header = $request->header('Cookie');
+        if ($header === null) {
+            return false;
+        }
+
+        $sessionName = session_name() ?: 'PHPSESSID';
+
+        foreach (explode(';', $header) as $cookie) {
+            if (trim(explode('=', $cookie, 2)[0]) === $sessionName) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The part of the query string this entry is keyed on, or null if the
+     * request may not be cached at all.
+     *
+     * Refusing every query string would leave archive pagination — the one
+     * visitor-facing parameter that legitimately changes a whole page — as an
+     * unbounded supply of uncached, index-scanning requests. So ?paged is
+     * keyed, and everything else (search terms, per_page, ad-hoc ordering)
+     * still bypasses: those have an unbounded key space and would let a
+     * visitor fill the cache directory instead.
+     *
+     * @return array<string, int>|null
+     */
+    private function cacheableQuery(Request $request): ?array
+    {
+        $query = $request->query();
+
+        // Campaign tags never reach the renderer, so tagged URLs share the
+        // plain URL's entry rather than duplicating it per campaign.
+        unset($query['utm_source'], $query['utm_medium'], $query['utm_campaign'], $query['utm_term'], $query['utm_content']);
+
+        if ($query === []) {
+            return [];
+        }
+
+        if (array_keys($query) !== ['paged']) {
+            return null;
+        }
+
+        // Canonical decimals only: ?paged=01 and ?paged=+2 render page 2 but
+        // would otherwise each claim their own entry.
+        $paged = $query['paged'];
+        if (!is_string($paged) || preg_match('/^[1-9]\d{0,6}$/D', $paged) !== 1) {
+            return null;
+        }
+
+        $page = (int) $paged;
+        if ($page > self::MAX_CACHED_PAGE) {
+            return null;
+        }
+
+        // ?paged=1 is the same page as no parameter at all.
+        return $page === 1 ? [] : ['paged' => $page];
+    }
+
     private function identity(Request $request): string
     {
         // Length-delimited serialization prevents ambiguous host/path boundaries.
-        return hash('sha256', serialize([$request->isSecure(), strtolower($request->host()), $request->path()]));
+        return hash('sha256', serialize([
+            $request->isSecure(),
+            strtolower($request->host()),
+            $request->path(),
+            $this->cacheableQuery($request) ?? [],
+        ]));
     }
 
     private function getCacheFilePath(Request $request): string

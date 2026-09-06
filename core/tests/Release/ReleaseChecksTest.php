@@ -42,6 +42,9 @@ final class ReleaseChecksTest extends TestCase
             'content_index.mode'   => 'auto',
             // A shipped token would be a shared secret across every install.
             'security.preview_token' => null,
+            // Publishing the exact version on every page makes unpatched
+            // installs searchable in bulk after a security release.
+            'generator_comment'    => false,
         ];
 
         foreach ($expected as $key => $value) {
