@@ -48,6 +48,13 @@ final class WebpageCache
             return false;
         }
 
+        // Only the configured site hostname (and any explicit aliases) may create
+        // entries. Otherwise arbitrary Host headers could each spawn a near-identical
+        // copy of every page and grow the cache directory without bound.
+        if (!$this->hostIsAllowed($request)) {
+            return false;
+        }
+
         foreach ($this->app->config('webpage_cache.exclude', []) as $pattern) {
             if ($this->matchesPattern($request->path(), $pattern)) {
                 return false;
@@ -218,6 +225,42 @@ final class WebpageCache
             return null;
         }
         return $entry;
+    }
+
+    /**
+     * Is this request's Host header a hostname we serve the canonical site for?
+     *
+     * The set is the authority (host, plus port when base_url states one) from
+     * site.base_url, plus any hostnames listed in webpage_cache.hosts. When no
+     * canonical host can be derived, enforcement is skipped and host stays part
+     * of the cache key only.
+     */
+    private function hostIsAllowed(Request $request): bool
+    {
+        $allowed = [];
+
+        $baseUrl = trim((string) $this->app->config('site.base_url', ''));
+        if ($baseUrl !== '') {
+            // Tolerate a scheme-less base_url ("example.com") by forcing authority parsing.
+            $parsable = preg_match('#^[a-z][a-z0-9+.-]*://#i', $baseUrl) ? $baseUrl : '//' . $baseUrl;
+            $baseHost = parse_url($parsable, PHP_URL_HOST);
+            if (is_string($baseHost) && $baseHost !== '') {
+                $basePort = parse_url($parsable, PHP_URL_PORT);
+                $allowed[] = strtolower($baseHost) . ($basePort !== null ? ':' . $basePort : '');
+            }
+        }
+
+        foreach ((array) $this->app->config('webpage_cache.hosts', []) as $host) {
+            if (is_string($host) && $host !== '') {
+                $allowed[] = strtolower($host);
+            }
+        }
+
+        if ($allowed === []) {
+            return true;
+        }
+
+        return in_array(strtolower($request->host()), $allowed, true);
     }
 
     private function identity(Request $request): string

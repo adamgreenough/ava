@@ -31,6 +31,8 @@ authorization, active sessions, and client cache directives bypass reads and wri
 Responses with Set-Cookie, Vary, explicit HTTP cache policy, or encoded/length-bound
 bodies are not stored. Custom templates should exclude any other personalized paths.
 Entries are separated by scheme, host and path; allowed UTM parameters are ignored.
+Only the host from `site.base_url` (plus any in `webpage_cache.hosts`) may create
+entries, so unrecognised Host headers cannot grow the cache directory.
 Pattern clearing uses stored path metadata and works with generator comments disabled.
 
 ## Development cache-format change

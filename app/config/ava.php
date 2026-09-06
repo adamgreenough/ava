@@ -83,6 +83,8 @@ return [
     | modes check source freshness first. All paths use the same cache policy.
     | Cookies, authorization, active sessions, and explicit HTTP cache policies
     | bypass this cache. Exclude any other request-dependent theme output.
+    | Only the host in site.base_url (plus any listed in 'hosts') can create
+    | entries, so stray Host headers cannot fill the cache directory.
     */
 
     'webpage_cache' => [
@@ -92,6 +94,7 @@ return [
             '/api/*',
             '/preview/*',
         ],
+        'hosts'   => [],                    // Extra hostnames allowed to cache, e.g. 'www.example.com'
     ],
 
     /*

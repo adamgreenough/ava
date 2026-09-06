@@ -248,6 +248,42 @@ final class WebpageCacheTest extends TestCase
         }
     }
 
+    public function testArbitraryHostHeadersCannotPopulateOrReadTheCache(): void
+    {
+        $config = $this->createApplication()->allConfig();
+        $config['site'] = ['base_url' => 'https://ava.test'];
+        $cache = new WebpageCache(new Application($config));
+
+        $canonical = new Request('GET', '/page', [], ['Host' => 'ava.test']);
+        $spoofed = new Request('GET', '/page', [], ['Host' => 'attacker.example']);
+
+        $this->assertTrue($cache->put($canonical, Response::html('public')));
+        $this->assertEquals('public', $cache->get($canonical)?->content());
+
+        $this->assertFalse($cache->isCacheable($spoofed));
+        $this->assertNull($cache->get($spoofed));
+        $this->assertFalse($cache->put($spoofed, Response::html('spoofed'), true));
+        $this->assertEquals(1, $cache->stats()['count']);
+    }
+
+    public function testConfiguredPortAndExplicitAliasHostsMayCache(): void
+    {
+        $config = $this->createApplication()->allConfig();
+        $config['site'] = ['base_url' => 'http://ava.test:8080'];
+        $config['webpage_cache']['hosts'] = ['www.ava.test'];
+        $cache = new WebpageCache(new Application($config));
+
+        foreach (['ava.test:8080', 'WWW.AVA.TEST'] as $host) {
+            $request = new Request('GET', '/page', [], ['Host' => $host]);
+            $this->assertTrue($cache->put($request, Response::html('public')));
+            $this->assertNotNull($cache->get($request));
+        }
+
+        $this->assertFalse($cache->isCacheable(
+            new Request('GET', '/page', [], ['Host' => 'ava.test'])
+        ));
+    }
+
     public function testPatternClearingDoesNotDependOnHtmlComments(): void
     {
         foreach ([false, true] as $comments) {
