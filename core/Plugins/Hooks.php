@@ -17,9 +17,6 @@ final class Hooks
     /** @var array<string, array<int, array<callable>>> */
     private static array $actions = [];
 
-    /**
-     * Add a filter hook.
-     */
     public static function addFilter(string $hook, callable $callback, int $priority = 10): void
     {
         self::$filters[$hook][$priority][] = $callback;
@@ -44,9 +41,6 @@ final class Hooks
         return $value;
     }
 
-    /**
-     * Add an action hook.
-     */
     public static function addAction(string $hook, callable $callback, int $priority = 10): void
     {
         self::$actions[$hook][$priority][] = $callback;

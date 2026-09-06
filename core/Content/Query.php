@@ -33,13 +33,11 @@ final class Query
     private ?string $type = null;
 
     /**
-     * SECURITY: queries are published-only until a caller opts out.
+     * SECURITY: published-only until a caller opts out with anyStatus().
      *
-     * Publication status is a security boundary, so the safe value has to be
-     * the one you get by forgetting about it. A theme that writes
-     * `$ava->query()->type('post')` for a "related posts" list must not leak
-     * draft titles, excerpts, and bodies because it omitted published().
-     * Use anyStatus() to deliberately include unpublished content.
+     * A theme writing `$ava->query()->type('post')` for a related-posts list
+     * must not leak draft titles, excerpts and bodies because it forgot
+     * published(). The safe value is the one you get by not thinking about it.
      */
     private ?string $status = 'published';
     private array $taxonomyFilters = [];
@@ -94,9 +92,6 @@ final class Query
         return $clone;
     }
 
-    /**
-     * Get search config for a content type.
-     */
     private function getContentTypeSearchConfig(string $type): array
     {
         return $this->app->contentTypes()[$type]['search'] ?? [];
@@ -126,8 +121,8 @@ final class Query
     /**
      * Drop the publication filter, including unpublished content.
      *
-     * Only for callers that have their own access control (previews, the CLI,
-     * an admin listing). Never reachable from a visitor's query parameters.
+     * For callers with their own access control (previews, the CLI, an admin
+     * listing). Never reachable from a visitor's query parameters.
      */
     public function anyStatus(): self
     {
@@ -159,9 +154,6 @@ final class Query
         return $clone;
     }
 
-    /**
-     * Set ordering.
-     */
     public function orderBy(string $field, string $direction = 'desc'): self
     {
         $clone = clone $this;
@@ -182,9 +174,6 @@ final class Query
         return $clone;
     }
 
-    /**
-     * Set current page.
-     */
     public function page(int $page): self
     {
         $clone = clone $this;
@@ -193,9 +182,6 @@ final class Query
         return $clone;
     }
 
-    /**
-     * Set search query.
-     */
     public function search(string $query): self
     {
         $clone = clone $this;
@@ -233,11 +219,10 @@ final class Query
     /**
      * Apply WP-style query parameters.
      *
-     * SECURITY: `status` is intentionally NOT read from $params. Publication
-     * status is a security boundary (drafts must never be exposed to anonymous
-     * visitors), so it can only be changed programmatically via status() /
-     * published() / anyStatus(). Allowing it here would let any visitor reveal
-     * unpublished content with `?status=draft` on an archive or taxonomy page.
+     * SECURITY: `status` is deliberately not read from $params. Accepting it
+     * would let any visitor list drafts with `?status=draft` on an archive or
+     * taxonomy page, so it can only be set in code, via status() / published()
+     * / anyStatus().
      */
     public function fromParams(array $params): self
     {

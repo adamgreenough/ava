@@ -13,7 +13,7 @@ use Ava\Testing\TestCase;
 /**
  * Tests for the Router class.
  * 
- * These tests leverage dependency injection to test routing behavior
+ * These tests use dependency injection to test routing behavior
  * with the real application instance.
  */
 final class RouterTest extends TestCase

@@ -22,9 +22,6 @@ final class Engine
         $this->app = $app;
     }
 
-    /**
-     * Render a template with context.
-     */
     public function render(string $template, array $context = []): string
     {
         // Build full context
@@ -73,7 +70,6 @@ final class Engine
      * HTML format items (.html files) skip Markdown parsing — the body
      * is treated as raw HTML. Shortcodes and path aliases are still processed.
      * 
-     * @param Item $item Content item to render
      * @param string|null $contentKey Optional content key for pre-render cache lookup
      */
     public function renderItem(Item $item, ?string $contentKey = null): string

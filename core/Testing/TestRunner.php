@@ -312,9 +312,6 @@ final class TestRunner
         ];
     }
 
-    /**
-     * Get class name from file.
-     */
     private function getClassNameFromFile(string $file): ?string
     {
         $content = file_get_contents($file);

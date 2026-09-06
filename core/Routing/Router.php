@@ -12,20 +12,18 @@ use Ava\Http\Response;
 use Ava\Plugins\Hooks;
 
 /**
- * Router
+ * Matches incoming requests to routes, in this order:
  *
- * Matches incoming requests to routes.
- *
- * Matching order:
  * 1. Hook interception (router.before_match filter)
- * 2. Trailing slash redirect (canonical URL enforcement)
- * 3. Redirects (from redirect_from frontmatter)
- * 4. System routes (registered at runtime via addRoute)
- * 5. Exact routes (from content cache)
- * 6. Preview mode (for draft content with valid token)
- * 7. Prefix routes (registered via addPrefixRoute)
- * 8. Taxonomy routes (archive and term pages)
- * 9. 404 (no match)
+ * 2. Prefix routes (addPrefixRoute) — before trailing-slash enforcement,
+ *    which applies to content URLs only
+ * 3. Trailing slash redirect (canonical URL enforcement)
+ * 4. Redirects (from redirect_from frontmatter)
+ * 5. System routes (addRoute), exact then parameterised
+ * 6. Exact routes (from content cache)
+ * 7. Preview mode (unpublished content with a valid token)
+ * 8. Taxonomy routes (index and term pages)
+ * 9. 404
  */
 final class Router
 {
@@ -68,9 +66,6 @@ final class Router
         $this->prefixRoutes[$prefix] = $handler;
     }
 
-    /**
-     * Match a request to a route.
-     */
     public function match(Request $request): ?RouteMatch
     {
         $path = $this->normalizePath($request->path());
@@ -90,21 +85,21 @@ final class Router
             );
         }
 
-        // 1. Check prefix routes first — these serve non-content resources (assets, APIs)
-        // and must not be subject to content URL trailing slash enforcement.
+        // Prefix routes serve non-content resources (assets, APIs), so they run
+        // before the trailing-slash enforcement that content URLs get.
         foreach ($this->prefixRoutes as $prefix => $handler) {
             if (str_starts_with($path, $prefix)) {
                 return $this->invokeHandler($handler, $request);
             }
         }
 
-        // 2. Check for trailing slash redirect (content routes only)
+        // Trailing slash redirect (content routes only)
         $redirectMatch = $this->checkTrailingSlash($request);
         if ($redirectMatch !== null) {
             return $redirectMatch;
         }
 
-        // 3. Check redirects
+        // Redirects from redirect_from frontmatter
         if (isset($routes['redirects'][$path])) {
             $redirect = $routes['redirects'][$path];
             return new RouteMatch(
@@ -114,7 +109,7 @@ final class Router
             );
         }
 
-        // 4. Check system routes (registered at runtime)
+        // System routes registered at runtime
         // First, O(1) lookup for exact matches (no parameters)
         if (isset($this->exactSystemRoutes[$path])) {
             return $this->invokeHandler($this->exactSystemRoutes[$path], $request, []);
@@ -127,12 +122,12 @@ final class Router
             }
         }
 
-        // 5. Check exact routes (from cache)
+        // Exact routes from the content cache
         if (isset($routes['exact'][$path])) {
             return $this->handleExactRoute($routes['exact'][$path], $repository, $request);
         }
 
-        // 5b. Preview mode: try to match unpublished content by URL pattern
+        // Preview mode: match unpublished content by URL pattern
         if ($this->hasPreviewAccess($request)) {
             $previewMatch = $this->tryPreviewMatch($path, $request);
             if ($previewMatch !== null) {
@@ -140,7 +135,7 @@ final class Router
             }
         }
 
-        // 6. Check taxonomy routes
+        // Taxonomy index and term pages
         foreach ($routes['taxonomy'] ?? [] as $taxName => $taxRoute) {
             $base = rtrim($taxRoute['base'], '/');
 
@@ -156,7 +151,7 @@ final class Router
             }
         }
 
-        // 7. No match — 404
+        // No match
         return null;
     }
 
@@ -245,9 +240,6 @@ final class Router
         return null;
     }
 
-    /**
-     * Handle an exact route match.
-     */
     private function handleExactRoute(array $routeData, Repository $repository, Request $request): ?RouteMatch
     {
         $type = $routeData['type'] ?? 'single';
@@ -313,9 +305,6 @@ final class Router
         return null;
     }
 
-    /**
-     * Handle taxonomy index route.
-     */
     private function handleTaxonomyIndex(string $taxonomy, array $terms): RouteMatch
     {
         return new RouteMatch(
@@ -328,9 +317,6 @@ final class Router
         );
     }
 
-    /**
-     * Handle taxonomy term route.
-     */
     private function handleTaxonomyTerm(string $taxonomy, string $termPath, Repository $repository, Request $request): ?RouteMatch
     {
         $term = $repository->term($taxonomy, $termPath);
@@ -363,22 +349,19 @@ final class Router
     /**
      * Is this listing paged past its last real page?
      *
-     * Without this, ?paged accepts values up to Query::MAX_PAGE and every one
-     * of them renders an empty listing — an unbounded supply of requests that
-     * each scan the index and can never be cached. Page 1 is always a valid
-     * route, even for an empty archive.
+     * Without this, ?paged accepts anything up to Query::MAX_PAGE and every
+     * value renders an empty listing: an unbounded supply of requests that
+     * each scan the index and can never be cached. Page 1 stays valid even for
+     * an empty archive.
      *
-     * The query memoises its results, so the count is not recomputed when the
-     * template later iterates the same instance.
+     * The query memoises its results, so counting here doesn't cost the
+     * template a second pass over the same instance.
      */
     private function isBeyondLastPage(Query $query): bool
     {
         return $query->currentPage() > 1 && $query->currentPage() > $query->totalPages();
     }
 
-    /**
-     * Invoke a route handler.
-     */
     private function invokeHandler(callable $handler, Request $request, array $params = []): ?RouteMatch
     {
         $result = $handler($request, $params);

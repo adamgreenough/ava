@@ -173,17 +173,11 @@ final class Request
         return max($min, min($max, $integer));
     }
 
-    /**
-     * Get a header value.
-     */
     public function header(string $name, ?string $default = null): ?string
     {
         return $this->headers[strtolower($name)] ?? $default;
     }
 
-    /**
-     * Get all headers.
-     */
     public function headers(): array
     {
         return $this->headers;
@@ -223,9 +217,6 @@ final class Request
         return $_POST[$key] ?? $default;
     }
 
-    /**
-     * Get the host.
-     */
     public function host(): string
     {
         return $this->header('host', $_SERVER['HTTP_HOST'] ?? 'localhost');
@@ -247,9 +238,6 @@ final class Request
         );
     }
 
-    /**
-     * Get the full URL.
-     */
     public function fullUrl(): string
     {
         $scheme = $this->isSecure() ? 'https' : 'http';

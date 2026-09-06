@@ -77,9 +77,6 @@ final class TemplateHelpers
         return $this->app->router()->urlFor($type, $slug);
     }
 
-    /**
-     * Get URL for a taxonomy term.
-     */
     public function termUrl(string $taxonomy, string $term): ?string
     {
         return $this->app->router()->urlForTerm($taxonomy, $term);
@@ -174,10 +171,9 @@ final class TemplateHelpers
     /**
      * Get a specific content item.
      *
-     * Applies the same visibility rule as the router: published and unlisted
-     * items are returned, drafts are not. A template has no way to know
-     * whether the current visitor is allowed to see unpublished content, so
-     * this helper never hands it any.
+     * Same visibility rule as the router: published and unlisted come back,
+     * drafts don't. A template can't tell whether the visitor is allowed to
+     * see unpublished content, so this helper never hands it any.
      */
     public function get(string $type, string $slug): ?Item
     {
@@ -190,9 +186,6 @@ final class TemplateHelpers
         return $item;
     }
 
-    /**
-     * Get taxonomy terms.
-     */
     public function terms(string $taxonomy): array
     {
         return $this->app->repository()->terms($taxonomy);

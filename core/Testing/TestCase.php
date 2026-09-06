@@ -42,9 +42,6 @@ abstract class TestCase
 
     // === Assertions ===
 
-    /**
-     * Assert that a condition is true.
-     */
     protected function assertTrue(mixed $condition, string $message = ''): void
     {
         if ($condition !== true) {
@@ -52,9 +49,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a condition is false.
-     */
     protected function assertFalse(mixed $condition, string $message = ''): void
     {
         if ($condition !== false) {
@@ -102,9 +96,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a value is null.
-     */
     protected function assertNull(mixed $actual, string $message = ''): void
     {
         if ($actual !== null) {
@@ -112,9 +103,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a value is not null.
-     */
     protected function assertNotNull(mixed $actual, string $message = ''): void
     {
         if ($actual === null) {
@@ -142,9 +130,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a value is an array.
-     */
     protected function assertIsArray(mixed $actual, string $message = ''): void
     {
         if (!is_array($actual)) {
@@ -152,9 +137,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a value is a string.
-     */
     protected function assertIsString(mixed $actual, string $message = ''): void
     {
         if (!is_string($actual)) {
@@ -182,9 +164,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a string starts with a prefix.
-     */
     protected function assertStringStartsWith(string $prefix, string $string, string $message = ''): void
     {
         if (!str_starts_with($string, $prefix)) {
@@ -192,9 +171,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a string ends with a suffix.
-     */
     protected function assertStringEndsWith(string $suffix, string $string, string $message = ''): void
     {
         if (!str_ends_with($string, $suffix)) {
@@ -202,9 +178,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a string matches a regex pattern.
-     */
     protected function assertMatchesRegex(string $pattern, string $string, string $message = ''): void
     {
         if (!preg_match($pattern, $string)) {
@@ -314,9 +287,6 @@ abstract class TestCase
         }
     }
 
-    /**
-     * Assert that a callable throws an exception.
-     */
     protected function assertThrows(string $exceptionClass, callable $callback, string $message = ''): void
     {
         try {
@@ -371,9 +341,6 @@ abstract class TestCase
         throw new AssertionFailedException($message);
     }
 
-    /**
-     * Export a value for display.
-     */
     protected function export(mixed $value): string
     {
         if ($value === null) {

@@ -86,9 +86,6 @@ final class Item
         return $this->dateCache['date'];
     }
 
-    /**
-     * Parse a date value into DateTimeImmutable.
-     */
     private function parseDate(mixed $date): ?\DateTimeImmutable
     {
         if ($date === null) {
@@ -318,9 +315,6 @@ final class Item
         return array_key_exists($key, $this->frontmatter);
     }
 
-    /**
-     * Get all frontmatter.
-     */
     public function frontmatter(): array
     {
         return $this->frontmatter;

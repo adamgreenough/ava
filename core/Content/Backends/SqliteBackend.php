@@ -38,17 +38,11 @@ final class SqliteBackend implements BackendInterface
         $this->dbPath = $databasePath ?? $this->storagePath . '/cache/content_index.sqlite';
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function name(): string
     {
         return 'sqlite';
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function isAvailable(): bool
     {
         // Check if PDO SQLite extension is available
@@ -102,9 +96,6 @@ final class SqliteBackend implements BackendInterface
     // Single Item Retrieval
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function getBySlug(string $type, string $slug): ?array
     {
         $stmt = $this->stmt('get_by_slug', '
@@ -120,9 +111,6 @@ final class SqliteBackend implements BackendInterface
         return $this->rowToItem($row);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getById(string $id): ?array
     {
         $stmt = $this->stmt('get_by_id', '
@@ -138,9 +126,6 @@ final class SqliteBackend implements BackendInterface
         return $this->rowToItem($row);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getByPath(string $relativePath): ?array
     {
         $stmt = $this->stmt('get_by_path', '
@@ -160,9 +145,6 @@ final class SqliteBackend implements BackendInterface
     // Bulk Retrieval
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function allRaw(string $type): array
     {
         $stmt = $this->stmt('all_raw', '
@@ -174,9 +156,6 @@ final class SqliteBackend implements BackendInterface
         return array_map(fn($row) => $this->rowToItem($row), $rows);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function types(): array
     {
         $stmt = $this->stmt('types', '
@@ -186,9 +165,6 @@ final class SqliteBackend implements BackendInterface
         return array_column($stmt->fetchAll(), 'type');
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function count(string $type, ?string $status = null): int
     {
         if ($status === null) {
@@ -206,9 +182,6 @@ final class SqliteBackend implements BackendInterface
         return (int) $stmt->fetch()['cnt'];
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function exists(string $type, string $slug): bool
     {
         $stmt = $this->stmt('exists', '
@@ -222,9 +195,6 @@ final class SqliteBackend implements BackendInterface
     // Query Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function query(array $params): array
     {
         if (($params['search'] ?? '') !== '') {
@@ -391,18 +361,12 @@ final class SqliteBackend implements BackendInterface
     // Recent Cache Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function canUseFastCache(string $type, int $page, int $perPage): bool
     {
         // SQLite already filters and paginates in SQL; it has no recent cache.
         return false;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getRecentItems(string $type, int $page, int $perPage): array
     {
         return $this->query([
@@ -417,9 +381,6 @@ final class SqliteBackend implements BackendInterface
     // Taxonomy Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function terms(string $taxonomy): array
     {
         $stmt = $this->stmt('terms', '
@@ -442,9 +403,6 @@ final class SqliteBackend implements BackendInterface
         return $terms;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function term(string $taxonomy, string $slug): ?array
     {
         $stmt = $this->stmt('term', '
@@ -466,9 +424,6 @@ final class SqliteBackend implements BackendInterface
         ];
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function taxonomies(): array
     {
         $stmt = $this->stmt('taxonomies', '
@@ -482,9 +437,6 @@ final class SqliteBackend implements BackendInterface
     // Route Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function routes(): array
     {
         $stmt = $this->stmt('routes', '
@@ -528,9 +480,6 @@ final class SqliteBackend implements BackendInterface
     // Cache Management
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function clearMemoryCache(): void
     {
         $this->statements = [];
@@ -654,9 +603,6 @@ final class SqliteBackend implements BackendInterface
         $pdo->exec('DELETE FROM metadata');
     }
 
-    /**
-     * Insert a content item.
-     */
     public function insertContent(array $item): void
     {
         $stmt = $this->stmt('insert_content', '
@@ -686,9 +632,6 @@ final class SqliteBackend implements BackendInterface
         ]);
     }
 
-    /**
-     * Insert a taxonomy term.
-     */
     public function insertTerm(string $taxonomy, array $term): void
     {
         $stmt = $this->stmt('insert_term', '
@@ -710,9 +653,6 @@ final class SqliteBackend implements BackendInterface
         ]);
     }
 
-    /**
-     * Insert a route.
-     */
     public function insertRoute(string $path, string $type, array $data, ?string $name = null): void
     {
         $stmt = $this->stmt('insert_route', '
@@ -728,9 +668,6 @@ final class SqliteBackend implements BackendInterface
         ]);
     }
 
-    /**
-     * Set a metadata value.
-     */
     public function setMetadata(string $key, mixed $value): void
     {
         $stmt = $this->stmt('set_metadata', '
@@ -744,9 +681,6 @@ final class SqliteBackend implements BackendInterface
         ]);
     }
 
-    /**
-     * Get a metadata value.
-     */
     public function getMetadata(string $key): mixed
     {
         $stmt = $this->stmt('get_metadata', '
@@ -762,9 +696,6 @@ final class SqliteBackend implements BackendInterface
         return json_decode($row['value'], true);
     }
 
-    /**
-     * Get the database path.
-     */
     public function getDatabasePath(): string
     {
         return $this->dbPath;

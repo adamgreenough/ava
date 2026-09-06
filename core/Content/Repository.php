@@ -12,15 +12,11 @@ use Ava\Plugins\Hooks;
 use Ava\Support\SignedCache;
 
 /**
- * Content Repository
+ * Read access to indexed content.
  *
- * Provides read access to indexed content.
- * Metadata comes from cache, raw content is loaded on demand from files.
- * 
- * Supports multiple backends:
- * - 'array': Binary serialized arrays (default, best for <10k items)
- * - 'sqlite': SQLite database (best for 10k+ items)
- * - 'auto': Automatically select based on content size
+ * Metadata comes from cache; raw content is loaded on demand from files.
+ * The backend is 'array' (binary serialized, default) or 'sqlite' (better
+ * past ~10k items), set by content_index.backend.
  */
 final class Repository
 {
@@ -143,9 +139,9 @@ final class Repository
      * Uses the backend's optimized lookup, then parses the file directly
      * for full content. This avoids loading the full content index.
      *
-     * NOTE: this returns items of any status, including drafts — it is what
-     * preview mode is built on. Callers rendering to anonymous visitors must
-     * check isPublished() themselves, as the router does.
+     * NOTE: returns items of any status, including drafts, because preview
+     * mode is built on it. Callers rendering to anonymous visitors must check
+     * isPublished() themselves, as the router does.
      */
     public function get(string $type, string $key): ?Item
     {
@@ -196,10 +192,9 @@ final class Repository
     /**
      * Resolve a content path and require it to live inside the content root.
      *
-     * SECURITY: realpath() defeats traversal ('../'), and the prefix check
-     * rejects anything that lands outside. Index entries are the only source
-     * of these paths today, so this is defence in depth: a stale or tampered
-     * index must not be able to turn a lookup into an arbitrary file read.
+     * SECURITY: defence in depth. Index entries are the only source of these
+     * paths today, but a stale or tampered index must not be able to turn a
+     * lookup into an arbitrary file read.
      */
     private function resolveInsideContentRoot(string $candidate): ?string
     {
@@ -334,9 +329,9 @@ final class Repository
      * Get recent published items across all types (metadata only, no file I/O).
      * Optimized to avoid creating Item objects until after sorting/limiting.
      *
-     * Unpublished content is excluded: this reads like a listing helper, so it
-     * must not hand drafts to a caller that never thought about status. Use
-     * allMeta() when you deliberately want every status.
+     * Published only: this reads like a listing helper, so it must not hand
+     * drafts to a caller that never thought about status. Use allMeta() for
+     * every status.
      *
      * @return array<Item>
      */
@@ -402,9 +397,6 @@ final class Repository
 
     // === Taxonomy Retrieval ===
 
-    /**
-     * Get all terms for a taxonomy.
-     */
     public function terms(string $taxonomy): array
     {
         return $this->backend()->terms($taxonomy);
@@ -504,13 +496,10 @@ final class Repository
 
     /**
      * Get recent items from the lightweight cache.
-     * 
-     * This is much faster than loading the full content index for simple
-     * archive queries (no filters, first 20 pages).
-     * 
-     * @param string $type Content type
-     * @param int $page Page number (1-based)
-     * @param int $perPage Items per page
+     *
+     * Much faster than loading the full content index for simple archive
+     * queries (no filters, first 20 pages).
+     *
      * @return array{items: array, total: int, from_cache: bool}
      */
     public function getRecentItems(string $type, int $page = 1, int $perPage = 10): array
@@ -542,12 +531,8 @@ final class Repository
 
     /**
      * Get pre-rendered HTML for a content item.
-     * 
-     * Returns null if pre-rendering is disabled or the item isn't cached.
-     * 
-     * @param string $type Content type
-     * @param string $key Content key (slug or path)
-     * @return string|null Pre-rendered HTML or null
+     *
+     * Null if pre-rendering is disabled or the item isn't cached.
      */
     public function getPrerenderedHtml(string $type, string $key): ?string
     {
@@ -589,9 +574,6 @@ final class Repository
         return $this->stopWordsCache ??= $this->loadSearchCache('stopwords.bin');
     }
 
-    /**
-     * Load a search cache file.
-     */
     private function loadSearchCache(string $filename): array
     {
         return SignedCache::read($this->app->configPath('storage') . '/cache/' . $filename);

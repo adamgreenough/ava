@@ -65,9 +65,6 @@ final class Output
         $this->themeColor = self::THEMES[$themeName] ?? self::THEMES['cyan'];
     }
 
-    /**
-     * Check if terminal supports colors.
-     */
     public function supportsColors(): bool
     {
         if ($this->colorsSupported !== null) {
@@ -89,9 +86,6 @@ final class Output
         return $this->colorsSupported = (function_exists('posix_isatty') && @posix_isatty(STDOUT));
     }
 
-    /**
-     * Apply color formatting if supported.
-     */
     public function color(string $text, string ...$codes): string
     {
         if (!$this->supportsColors()) {
@@ -107,9 +101,6 @@ final class Output
         return implode('', $codes) . $text . self::RESET;
     }
 
-    /**
-     * Show the banner with optional version on the last line.
-     */
     public function showBanner(bool $showVersion = false): void
     {
         $this->writeln('');
@@ -127,9 +118,6 @@ final class Output
         }
     }
 
-    /**
-     * Show a section header.
-     */
     public function sectionHeader(string $title): void
     {
         $this->writeln('');
@@ -140,9 +128,6 @@ final class Output
         $this->writeln('');
     }
 
-    /**
-     * Show a key-value pair.
-     */
     public function keyValue(string $key, string $value, string $indent = '  '): void
     {
         $paddedKey = str_pad($key . ':', 13);
@@ -150,9 +135,6 @@ final class Output
         echo $value . "\n";
     }
 
-    /**
-     * Show a labeled item with icon.
-     */
     public function labeledItem(string $label, string $value, string $icon = '•', string $iconColor = ''): void
     {
         $coloredIcon = $iconColor ? $this->color($icon, $iconColor) : $this->color($icon, self::DIM);
@@ -174,9 +156,6 @@ final class Output
         };
     }
 
-    /**
-     * Show a simple spinner animation for an operation.
-     */
     public function withSpinner(string $message, callable $operation): mixed
     {
         $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -204,9 +183,6 @@ final class Output
         return $result;
     }
 
-    /**
-     * Draw a simple box around text.
-     */
     public function box(string $text, string $type = 'info'): void
     {
         $lines = explode("\n", $text);
@@ -236,9 +212,6 @@ final class Output
         echo $this->color('  ╰' . str_repeat('─', $width) . '╯', $borderColor) . "\n";
     }
 
-    /**
-     * Show a progress message.
-     */
     public function progress(int $current, int $total, string $message = ''): void
     {
         if (!$this->supportsColors()) {
@@ -265,17 +238,11 @@ final class Output
         }
     }
 
-    /**
-     * Show tip text.
-     */
     public function tip(string $text): void
     {
         echo "  " . $this->color('💡 Tip:', self::YELLOW) . " " . $this->color($text, self::DIM) . "\n";
     }
 
-    /**
-     * Show a hint for next steps.
-     */
     public function nextStep(string $command, string $description = ''): void
     {
         echo "  " . $this->color('→', self::PRIMARY) . " ";
@@ -286,9 +253,6 @@ final class Output
         echo "\n";
     }
 
-    /**
-     * Show a formatted command item (for help display).
-     */
     public function commandItem(string $command, string $description): void
     {
         $paddedCmd = str_pad($command, 30);
@@ -296,17 +260,11 @@ final class Output
         echo $this->color($description, self::DIM) . "\n";
     }
 
-    /**
-     * Write a line to stdout.
-     */
     public function writeln(string $message): void
     {
         echo $message . "\n";
     }
 
-    /**
-     * Display a section header.
-     */
     public function header(string $title): void
     {
         $this->writeln('');
@@ -314,113 +272,71 @@ final class Output
         echo '  ' . $this->color(str_repeat('─', strlen($title)), self::PRIMARY) . "\n";
     }
 
-    /**
-     * Display an informational message.
-     */
     public function info(string $message): void
     {
         echo '  ' . $this->color('ℹ', self::CYAN) . ' ' . $message . "\n";
     }
 
-    /**
-     * Display a success message.
-     */
     public function success(string $message): void
     {
         echo "\n  " . $this->color('✓', self::GREEN, self::BOLD) . " " . $this->color($message, self::GREEN) . "\n";
     }
 
-    /**
-     * Display an error message.
-     */
     public function error(string $message): void
     {
         echo "\n  " . $this->color('✗', self::RED, self::BOLD) . " " . $this->color($message, self::RED) . "\n";
     }
 
-    /**
-     * Display a warning message.
-     */
     public function warning(string $message): void
     {
         echo "  " . $this->color('⚠', self::YELLOW) . " " . $this->color($message, self::YELLOW) . "\n";
     }
 
-    /**
-     * Format text with primary color.
-     */
     public function primary(string $text): string
     {
         return $this->color($text, self::PRIMARY);
     }
 
-    /**
-     * Format text as bold.
-     */
     public function bold(string $text): string
     {
         return $this->color($text, self::BOLD);
     }
 
-    /**
-     * Format text as dim/muted.
-     */
     public function dim(string $text): string
     {
         return $this->color($text, self::DIM);
     }
 
-    /**
-     * Format text with green color.
-     */
     public function green(string $text): string
     {
         return $this->color($text, self::GREEN);
     }
 
-    /**
-     * Format text with yellow color.
-     */
     public function yellow(string $text): string
     {
         return $this->color($text, self::YELLOW);
     }
 
-    /**
-     * Format text with red color.
-     */
     public function red(string $text): string
     {
         return $this->color($text, self::RED);
     }
 
-    /**
-     * Format text with cyan color.
-     */
     public function cyan(string $text): string
     {
         return $this->color($text, self::PRIMARY);
     }
 
-    /**
-     * Format text with accent color.
-     */
     public function accent(string $text): string
     {
         return $this->color($text, self::PRIMARY);
     }
 
-    /**
-     * Format text with highlight color.
-     */
     public function highlight(string $text): string
     {
         return $this->color($text, self::PRIMARY);
     }
 
-    /**
-     * Display a formatted table.
-     */
     public function table(array $headers, array $rows): void
     {
         if (empty($rows)) {
@@ -469,9 +385,6 @@ final class Output
         }
     }
 
-    /**
-     * Format a byte count for display.
-     */
     public function formatBytes(int $bytes): string
     {
         if ($bytes === 0) {

@@ -69,9 +69,6 @@ final class Response
         return new self($content, 404);
     }
 
-    /**
-     * Get the content.
-     */
     public function content(): string
     {
         return $this->content;
@@ -85,9 +82,6 @@ final class Response
         return $this->status;
     }
 
-    /**
-     * Get a header value.
-     */
     public function header(string $name): ?string
     {
         foreach ($this->headers as $headerName => $value) {
@@ -99,17 +93,11 @@ final class Response
         return null;
     }
 
-    /**
-     * Get all headers.
-     */
     public function headers(): array
     {
         return $this->headers;
     }
 
-    /**
-     * Set a header.
-     */
     public function withHeader(string $name, string $value): self
     {
         self::assertValidHeader($name, $value);
@@ -178,9 +166,6 @@ final class Response
         return $response;
     }
 
-    /**
-     * Set the content.
-     */
     public function withContent(string $content): self
     {
         $response = clone $this;

@@ -39,12 +39,11 @@ final class WebpageCache
             return false;
         }
 
-        // Never share authenticated or session-dependent output.
-        //
-        // Request Cache-Control/Pragma are deliberately NOT honoured: they are
-        // attacker-settable, and letting them force a miss would hand anyone a
-        // one-header switch for turning the cache off site-wide. RFC 9111
-        // §5.2.1.4 lets a shared cache ignore a client's no-cache, and CDNs do.
+        // Never share authenticated or session-dependent output. Request
+        // Cache-Control/Pragma are deliberately not honoured: anyone could send
+        // them, so obeying them is a one-header switch for turning the cache
+        // off site-wide. RFC 9111 §5.2.1.4 lets a shared cache ignore a
+        // client's no-cache, and CDNs do.
         if ($request->header('Authorization') !== null || $this->carriesPhpSession($request)) {
             return false;
         }
@@ -117,13 +116,11 @@ final class WebpageCache
             return false;
         }
 
-        // PHP themes may use header() or setcookie() instead of Response.
-        // Inspect these too, so native session/cookie headers cannot bypass
-        // policy. They are only inspected, never stored: whatever PHP happens
-        // to have queued belongs to this one request (a template's one-off
-        // header(), or the server's own X-Powered-By), and persisting it would
-        // replay it to every later visitor and outlive the setting that
-        // produced it.
+        // A theme may call header() or setcookie() instead of using Response,
+        // so check what PHP has queued as well. Inspected only, never stored:
+        // those headers belong to this one request (a template's one-off
+        // header(), the server's X-Powered-By), and persisting them would
+        // replay them to every later visitor.
         $nativeHeaders = [];
         foreach (headers_list() as $header) {
             $parts = explode(':', $header, 2);
@@ -282,21 +279,16 @@ final class WebpageCache
     /**
      * Does this request carry PHP's own session cookie?
      *
-     * The session_status() check in isCacheable() only sees a session that is
-     * already running. On a cache read nothing has rendered yet — in manual
-     * index mode the theme has not even loaded — so this cookie is the only
-     * signal available at that point that the visitor holds a session and must
-     * not be handed a copy generated for someone without one.
+     * On a cache read nothing has rendered yet (in manual index mode the theme
+     * has not even loaded), so isCacheable()'s session_status() check sees
+     * nothing. This cookie is the only signal available that early.
      *
-     * Deliberately just this one name, matched exactly. Ava never reads a
-     * cookie itself, so every other cookie on the request belongs to something
-     * this class cannot interpret; a list of analytics and consent names would
-     * be permanently incomplete and still too broad (bypassing on any cookie
-     * means every visitor who has picked up an analytics cookie misses the
-     * cache). Output that really does vary per visitor stays out of the cache
-     * through isPublicResponse() — a response carrying Set-Cookie, Vary or its
-     * own Cache-Control is never stored — or through webpage_cache.exclude,
-     * which unlike a cookie test is also applied to reads.
+     * Just this one name, matched exactly. Ava reads no cookies itself, so
+     * every other cookie belongs to something this class can't interpret, and
+     * bypassing on any cookie means analytics alone costs every returning
+     * visitor the cache. Genuinely per-visitor output declares itself instead:
+     * isPublicResponse() refuses to store anything carrying Set-Cookie, Vary
+     * or Cache-Control, and webpage_cache.exclude also applies to reads.
      */
     private function carriesPhpSession(Request $request): bool
     {
@@ -320,12 +312,12 @@ final class WebpageCache
      * The part of the query string this entry is keyed on, or null if the
      * request may not be cached at all.
      *
-     * Refusing every query string would leave archive pagination — the one
-     * visitor-facing parameter that legitimately changes a whole page — as an
-     * unbounded supply of uncached, index-scanning requests. So ?paged is
-     * keyed, and everything else (search terms, per_page, ad-hoc ordering)
-     * still bypasses: those have an unbounded key space and would let a
-     * visitor fill the cache directory instead.
+     * Only ?paged is keyed. It's the one visitor-facing parameter that
+     * legitimately changes a whole page, and refusing it left archive
+     * pagination as an unbounded supply of uncached, index-scanning requests.
+     * Search terms, per_page and ad-hoc ordering still bypass: their key space
+     * is unbounded, so keying them would let a visitor fill the cache
+     * directory instead.
      *
      * @return array<string, int>|null
      */

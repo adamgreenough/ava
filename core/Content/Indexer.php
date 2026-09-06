@@ -90,9 +90,6 @@ final class Indexer
         $this->readLock = $lock;
     }
 
-    /**
-     * Check if cache is fresh.
-     */
     public function isCacheFresh(): bool
     {
         $fingerprintPath = $this->getCachePath('fingerprint.json');
@@ -499,9 +496,6 @@ final class Indexer
         }
     }
 
-    /**
-     * Clear the webpage cache.
-     */
     private function clearWebpageCache(): void
     {
         $this->app->webpageCache()->clear();
@@ -627,9 +621,6 @@ final class Indexer
         return $files;
     }
 
-    /**
-     * Build the content index.
-     */
     private function buildContentIndex(array $allItems, array $contentTypes): array
     {
         $index = [
@@ -862,9 +853,6 @@ final class Indexer
         return $lookup;
     }
 
-    /**
-     * Build the taxonomy index.
-     */
     private function buildTaxonomyIndex(array $allItems, array $taxonomies, array $contentTypes): array
     {
         $index = [];

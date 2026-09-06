@@ -114,17 +114,11 @@ final class Path
         return pathinfo($path, PATHINFO_FILENAME);
     }
 
-    /**
-     * Check if a path is absolute.
-     */
     public static function isAbsolute(string $path): bool
     {
         return str_starts_with($path, '/') || preg_match('/^[a-zA-Z]:/', $path);
     }
 
-    /**
-     * Make a path absolute.
-     */
     public static function makeAbsolute(string $path, string $base): string
     {
         if (self::isAbsolute($path)) {

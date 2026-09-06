@@ -35,17 +35,11 @@ final class ArrayBackend implements BackendInterface
         private string $contentPath
     ) {}
 
-    /**
-     * {@inheritdoc}
-     */
     public function name(): string
     {
         return 'array';
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function isAvailable(): bool
     {
         // Array backend is always available if cache files exist
@@ -57,9 +51,6 @@ final class ArrayBackend implements BackendInterface
     // Single Item Retrieval
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function getBySlug(string $type, string $slug): ?array
     {
         // Try fast path using slug lookup first
@@ -82,18 +73,12 @@ final class ArrayBackend implements BackendInterface
         ];
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getById(string $id): ?array
     {
         $index = $this->loadContentIndex();
         return $index['by_id'][$id] ?? null;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getByPath(string $relativePath): ?array
     {
         $index = $this->loadContentIndex();
@@ -104,27 +89,18 @@ final class ArrayBackend implements BackendInterface
     // Bulk Retrieval
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function allRaw(string $type): array
     {
         $index = $this->loadContentIndex();
         return $index['by_type'][$type] ?? [];
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function types(): array
     {
         $index = $this->loadContentIndex();
         return array_keys($index['by_type'] ?? []);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function count(string $type, ?string $status = null): int
     {
         $index = $this->loadContentIndex();
@@ -140,9 +116,6 @@ final class ArrayBackend implements BackendInterface
         ));
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function exists(string $type, string $slug): bool
     {
         $index = $this->loadContentIndex();
@@ -153,9 +126,6 @@ final class ArrayBackend implements BackendInterface
     // Query Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function query(array $params): array
     {
         return QueryProcessor::query($this, $params);
@@ -165,9 +135,6 @@ final class ArrayBackend implements BackendInterface
     // Recent Cache Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function canUseFastCache(string $type, int $page, int $perPage): bool
     {
         $cache = $this->loadRecentCache();
@@ -183,9 +150,6 @@ final class ArrayBackend implements BackendInterface
         return $offset + $perPage <= $maxOffset;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getRecentItems(string $type, int $page, int $perPage): array
     {
         $cache = $this->loadRecentCache();
@@ -208,27 +172,18 @@ final class ArrayBackend implements BackendInterface
     // Taxonomy Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function terms(string $taxonomy): array
     {
         $index = $this->loadTaxIndex();
         return $index[$taxonomy]['terms'] ?? [];
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function term(string $taxonomy, string $slug): ?array
     {
         $terms = $this->terms($taxonomy);
         return $terms[$slug] ?? null;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function taxonomies(): array
     {
         $index = $this->loadTaxIndex();
@@ -239,9 +194,6 @@ final class ArrayBackend implements BackendInterface
     // Route Operations
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function routes(): array
     {
         return $this->loadRoutes();
@@ -251,9 +203,6 @@ final class ArrayBackend implements BackendInterface
     // Cache Management
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritdoc}
-     */
     public function clearMemoryCache(): void
     {
         $this->contentIndex = null;

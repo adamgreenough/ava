@@ -124,7 +124,6 @@ HTML;
      * 
      * @param string|null $errorId Optional error ID for support reference
      * @param string|null $requestedPath The path that was requested (to hide Go Home on homepage)
-     * @param bool $loggingEnabled Whether error logging is enabled
      */
     public static function render500(?string $errorId = null, ?string $requestedPath = null, bool $loggingEnabled = true): string
     {
