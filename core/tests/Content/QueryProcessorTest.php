@@ -130,187 +130,56 @@ final class QueryProcessorTest extends TestCase
     // Filtering - Field operators
     // =========================================================================
 
-    public function testFieldFilterEquals(): void
+    /**
+     * Each case is [operator, filter value, expected matching titles].
+     * Items carry the same three fields so operators are compared like for like.
+     */
+    public function testFieldFilterOperators(): void
     {
         $items = [
-            ['title' => 'A', 'meta' => ['featured' => true]],
-            ['title' => 'B', 'meta' => ['featured' => false]],
+            ['title' => 'A', 'meta' => ['order' => 5, 'author' => 'Alice', 'excerpt' => 'PHP Tutorial']],
+            ['title' => 'B', 'meta' => ['order' => 10, 'author' => 'Bob', 'excerpt' => 'JavaScript basics']],
+            ['title' => 'C', 'meta' => ['order' => 1, 'author' => 'Charlie', 'excerpt' => '']],
         ];
 
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'featured', 'value' => true, 'operator' => '='],
-        ]);
-
-        $this->assertCount(1, $result);
-    }
-
-    public function testFieldFilterNotEquals(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['author' => 'Alice']],
-            ['title' => 'B', 'meta' => ['author' => 'Bob']],
+        $cases = [
+            ['order', '=', 5, ['A']],
+            ['author', '!=', 'Alice', ['B', 'C']],
+            ['order', '>', 5, ['B']],
+            ['order', '>=', 5, ['A', 'B']],
+            ['order', '<', 5, ['C']],
+            ['order', '<=', 5, ['A', 'C']],
+            ['author', 'in', ['Alice', 'Charlie'], ['A', 'C']],
+            ['author', 'not_in', ['Alice'], ['B', 'C']],
+            ['excerpt', 'like', 'php', ['A']],
+            // like is case-insensitive on both sides.
+            ['excerpt', 'like', 'php tutorial', ['A']],
+            // An unrecognised operator must not fall through to a match.
+            ['author', 'invalid_op', 'Alice', []],
+            // Items missing the field never match.
+            ['missing', '=', 'anything', []],
         ];
 
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'author', 'value' => 'Alice', 'operator' => '!='],
-        ]);
+        foreach ($cases as [$field, $operator, $value, $expected]) {
+            $result = QueryProcessor::applyFilters($items, null, [], [
+                ['field' => $field, 'value' => $value, 'operator' => $operator],
+            ]);
 
-        $this->assertCount(1, $result);
-        $titles = array_column($result, 'title');
-        $this->assertContains('B', $titles);
+            $this->assertEquals(
+                $expected,
+                array_values(array_column($result, 'title')),
+                "$field $operator " . json_encode($value)
+            );
+        }
     }
 
-    public function testFieldFilterGreaterThan(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['order' => 5]],
-            ['title' => 'B', 'meta' => ['order' => 10]],
-            ['title' => 'C', 'meta' => ['order' => 1]],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'order', 'value' => 5, 'operator' => '>'],
-        ]);
-
-        $this->assertCount(1, $result);
-        $titles = array_column($result, 'title');
-        $this->assertContains('B', $titles);
-    }
-
-    public function testFieldFilterGreaterThanOrEqual(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['order' => 5]],
-            ['title' => 'B', 'meta' => ['order' => 10]],
-            ['title' => 'C', 'meta' => ['order' => 1]],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'order', 'value' => 5, 'operator' => '>='],
-        ]);
-
-        $this->assertCount(2, $result);
-    }
-
-    public function testFieldFilterLessThan(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['order' => 5]],
-            ['title' => 'B', 'meta' => ['order' => 10]],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'order', 'value' => 10, 'operator' => '<'],
-        ]);
-
-        $this->assertCount(1, $result);
-    }
-
-    public function testFieldFilterLessThanOrEqual(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['order' => 5]],
-            ['title' => 'B', 'meta' => ['order' => 10]],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'order', 'value' => 10, 'operator' => '<='],
-        ]);
-
-        $this->assertCount(2, $result);
-    }
-
-    public function testFieldFilterIn(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['author' => 'Alice']],
-            ['title' => 'B', 'meta' => ['author' => 'Bob']],
-            ['title' => 'C', 'meta' => ['author' => 'Charlie']],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'author', 'value' => ['Alice', 'Charlie'], 'operator' => 'in'],
-        ]);
-
-        $this->assertCount(2, $result);
-    }
-
-    public function testFieldFilterNotIn(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['author' => 'Alice']],
-            ['title' => 'B', 'meta' => ['author' => 'Bob']],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'author', 'value' => ['Alice'], 'operator' => 'not_in'],
-        ]);
-
-        $this->assertCount(1, $result);
-        $titles = array_column($result, 'title');
-        $this->assertContains('B', $titles);
-    }
-
-    public function testFieldFilterLike(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['excerpt' => 'PHP tutorial for beginners']],
-            ['title' => 'B', 'meta' => ['excerpt' => 'JavaScript basics']],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'excerpt', 'value' => 'php', 'operator' => 'like'],
-        ]);
-
-        $this->assertCount(1, $result);
-    }
-
-    public function testFieldFilterLikeIsCaseInsensitive(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['excerpt' => 'PHP Tutorial']],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'excerpt', 'value' => 'php tutorial', 'operator' => 'like'],
-        ]);
-
-        $this->assertCount(1, $result);
-    }
-
-    public function testFieldFilterUnknownOperatorReturnsFalse(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['foo' => 'bar']],
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'foo', 'value' => 'bar', 'operator' => 'invalid_op'],
-        ]);
-
-        $this->assertCount(0, $result);
-    }
-
-    public function testFieldFilterNullValueHandling(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['featured' => true]],
-            ['title' => 'B', 'meta' => []],  // field not set
-        ];
-
-        $result = QueryProcessor::applyFilters($items, null, [], [
-            ['field' => 'featured', 'value' => true, 'operator' => '='],
-        ]);
-
-        $this->assertCount(1, $result);
-    }
-
-    public function testMultipleFiltersApplied(): void
+    public function testMultipleFiltersAreAnded(): void
     {
         $items = [
             ['title' => 'A', 'status' => 'published', 'meta' => ['featured' => true, 'author' => 'Alice']],
             ['title' => 'B', 'status' => 'published', 'meta' => ['featured' => false, 'author' => 'Alice']],
-            ['title' => 'C', 'status' => 'published', 'meta' => ['featured' => true, 'author' => 'Bob']],
+            ['title' => 'C', 'status' => 'draft', 'meta' => ['featured' => true, 'author' => 'Alice']],
+            ['title' => 'D', 'status' => 'published', 'meta' => ['featured' => true, 'author' => 'Bob']],
         ];
 
         $result = QueryProcessor::applyFilters($items, 'published', [], [
@@ -318,98 +187,47 @@ final class QueryProcessorTest extends TestCase
             ['field' => 'author', 'value' => 'Alice', 'operator' => '='],
         ]);
 
-        $this->assertCount(1, $result);
-        $titles = array_column($result, 'title');
-        $this->assertContains('A', $titles);
+        $this->assertEquals(['A'], array_values(array_column($result, 'title')));
     }
 
     // =========================================================================
     // Sorting
     // =========================================================================
 
-    public function testSortByDateDescending(): void
+    public function testSortByFieldAndDirection(): void
     {
-        $items = [
+        $dated = [
             ['title' => 'Old', 'date' => '2024-01-01'],
             ['title' => 'New', 'date' => '2024-12-01'],
             ['title' => 'Mid', 'date' => '2024-06-01'],
         ];
-
-        $result = QueryProcessor::applySort($items, 'date', 'desc');
-
-        $this->assertEquals('New', $result[0]['title']);
-        $this->assertEquals('Mid', $result[1]['title']);
-        $this->assertEquals('Old', $result[2]['title']);
-    }
-
-    public function testSortByDateAscending(): void
-    {
-        $items = [
-            ['title' => 'New', 'date' => '2024-12-01'],
-            ['title' => 'Old', 'date' => '2024-01-01'],
+        $ordered = [
+            ['title' => 'C', 'meta' => ['order' => 3, 'priority' => 'low']],
+            ['title' => 'A', 'meta' => ['order' => 1, 'priority' => 'high']],
+            ['title' => 'B', 'meta' => ['order' => 2, 'priority' => 'low']],
         ];
-
-        $result = QueryProcessor::applySort($items, 'date', 'asc');
-
-        $this->assertEquals('Old', $result[0]['title']);
-        $this->assertEquals('New', $result[1]['title']);
-    }
-
-    public function testSortByTitleAlphabetical(): void
-    {
-        $items = [
-            ['title' => 'Zebra', 'date' => '2024-01-01'],
-            ['title' => 'Apple', 'date' => '2024-01-01'],
-            ['title' => 'Mango', 'date' => '2024-01-01'],
-        ];
-
-        $result = QueryProcessor::applySort($items, 'title', 'asc');
-
-        $this->assertEquals('Apple', $result[0]['title']);
-        $this->assertEquals('Mango', $result[1]['title']);
-        $this->assertEquals('Zebra', $result[2]['title']);
-    }
-
-    public function testSortByOrderField(): void
-    {
-        $items = [
-            ['title' => 'C', 'meta' => ['order' => 3]],
-            ['title' => 'A', 'meta' => ['order' => 1]],
-            ['title' => 'B', 'meta' => ['order' => 2]],
-        ];
-
-        $result = QueryProcessor::applySort($items, 'order', 'asc');
-
-        $this->assertEquals('A', $result[0]['title']);
-        $this->assertEquals('B', $result[1]['title']);
-        $this->assertEquals('C', $result[2]['title']);
-    }
-
-    public function testSortTieBreakerByTitle(): void
-    {
-        $items = [
+        // Equal dates must fall back to title ascending for a stable order.
+        $tied = [
             ['title' => 'Zebra', 'date' => '2024-01-01'],
             ['title' => 'Apple', 'date' => '2024-01-01'],
         ];
 
-        $result = QueryProcessor::applySort($items, 'date', 'asc');
-
-        // Same date, should tie-break by title ascending
-        $this->assertEquals('Apple', $result[0]['title']);
-        $this->assertEquals('Zebra', $result[1]['title']);
-    }
-
-    public function testSortByCustomField(): void
-    {
-        $items = [
-            ['title' => 'A', 'meta' => ['priority' => 'high']],
-            ['title' => 'B', 'meta' => ['priority' => 'low']],
+        $cases = [
+            [$dated, 'date', 'desc', ['New', 'Mid', 'Old']],
+            [$dated, 'date', 'asc', ['Old', 'Mid', 'New']],
+            [$dated, 'title', 'asc', ['Mid', 'New', 'Old']],
+            [$ordered, 'order', 'asc', ['A', 'B', 'C']],
+            [$ordered, 'priority', 'asc', ['A', 'B', 'C']],
+            [$tied, 'date', 'asc', ['Apple', 'Zebra']],
         ];
 
-        $result = QueryProcessor::applySort($items, 'priority', 'asc');
-
-        $this->assertEquals('A', $result[0]['title']);
-        $this->assertEquals('B', $result[1]['title']);
+        foreach ($cases as [$items, $field, $direction, $expected]) {
+            $this->assertEquals(
+                $expected,
+                array_column(QueryProcessor::applySort($items, $field, $direction), 'title'),
+                "$field $direction"
+            );
+        }
     }
 
     // =========================================================================
@@ -500,7 +318,7 @@ final class QueryProcessorTest extends TestCase
             ['title' => 'Other', 'excerpt' => '', 'body' => ''],
         ];
 
-        // "cms" has synonym "content management system" — user searched "cms"
+        // "cms" has synonym "content management system" â€” user searched "cms"
         // but title has "cms" directly, so it matches
         $result = QueryProcessor::applySearch($items, 'cms', [['cms', 'content management']], null);
 

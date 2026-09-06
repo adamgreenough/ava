@@ -9,377 +9,144 @@ use Ava\Testing\TestCase;
 
 /**
  * Tests for the Content Item class.
+ *
+ * Format detection and HTML passthrough live in Rendering\HtmlFormatTest.
  */
 final class ItemTest extends TestCase
 {
-    // =========================================================================
-    // Core fields
-    // =========================================================================
-
-    public function testIdReturnsIdFromFrontmatter(): void
+    /**
+     * Frontmatter-backed accessors, including their defaults when the field
+     * is absent. Each case is [frontmatter, method, expected].
+     */
+    public function testFrontmatterAccessorsAndDefaults(): void
     {
-        $item = $this->createItem(['id' => '01ARYZ6S41ABCDEFGHIJKLMNOP']);
-        $this->assertEquals('01ARYZ6S41ABCDEFGHIJKLMNOP', $item->id());
+        $cases = [
+            [['id' => '01ARYZ6S41ABCDEFGHIJKLMNOP'], 'id', '01ARYZ6S41ABCDEFGHIJKLMNOP'],
+            [[], 'id', null],
+            [['title' => 'Hello World'], 'title', 'Hello World'],
+            [[], 'title', ''],
+            [['slug' => 'hello-world'], 'slug', 'hello-world'],
+            [['status' => 'published'], 'status', 'published'],
+            [[], 'status', 'draft'],
+            [['excerpt' => 'A short summary'], 'excerpt', 'A short summary'],
+            [[], 'excerpt', null],
+            [['template' => 'custom'], 'template', 'custom'],
+            [[], 'template', null],
+            [['meta_title' => 'SEO Title'], 'metaTitle', 'SEO Title'],
+            [['meta_description' => 'SEO description'], 'metaDescription', 'SEO description'],
+            [['canonical' => 'https://example.com/original'], 'canonical', 'https://example.com/original'],
+            [['noindex' => true], 'noindex', true],
+            [[], 'noindex', false],
+            // og_image falls back to featured_image, but wins when both are set.
+            [['og_image' => '/og.jpg'], 'ogImage', '/og.jpg'],
+            [['featured_image' => '/featured.jpg'], 'ogImage', '/featured.jpg'],
+            [['og_image' => '/og.jpg', 'featured_image' => '/featured.jpg'], 'ogImage', '/og.jpg'],
+        ];
+
+        foreach ($cases as [$frontmatter, $method, $expected]) {
+            $this->assertSame(
+                $expected,
+                $this->createItem($frontmatter)->$method(),
+                $method . '(' . json_encode($frontmatter) . ')'
+            );
+        }
     }
 
-    public function testIdReturnsNullIfMissing(): void
+    public function testStatusPredicatesAreMutuallyExclusive(): void
     {
-        $item = $this->createItem([]);
-        $this->assertNull($item->id());
+        foreach (['published' => 'isPublished', 'draft' => 'isDraft', 'unlisted' => 'isUnlisted'] as $status => $expected) {
+            $item = $this->createItem(['status' => $status]);
+            foreach (['isPublished', 'isDraft', 'isUnlisted'] as $method) {
+                $this->assertSame($method === $expected, $item->$method(), "$status::$method");
+            }
+        }
     }
 
-    public function testTitleReturnsTitle(): void
+    public function testDateAcceptsStringsObjectsAndTimestamps(): void
     {
-        $item = $this->createItem(['title' => 'Hello World']);
-        $this->assertEquals('Hello World', $item->title());
-    }
+        $cases = [
+            ['2024-01-15', '2024-01-15'],
+            [new \DateTime('2024-06-20'), '2024-06-20'],
+            [strtotime('2024-03-10'), '2024-03-10'],
+        ];
 
-    public function testTitleReturnsEmptyStringIfMissing(): void
-    {
-        $item = $this->createItem([]);
-        $this->assertEquals('', $item->title());
-    }
+        foreach ($cases as [$value, $expected]) {
+            $date = $this->createItem(['date' => $value])->date();
+            $this->assertInstanceOf(\DateTimeImmutable::class, $date, $expected);
+            $this->assertEquals($expected, $date->format('Y-m-d'), $expected);
+        }
 
-    public function testSlugReturnsSlug(): void
-    {
-        $item = $this->createItem(['slug' => 'hello-world']);
-        $this->assertEquals('hello-world', $item->slug());
-    }
-
-    public function testStatusReturnsStatus(): void
-    {
-        $item = $this->createItem(['status' => 'published']);
-        $this->assertEquals('published', $item->status());
-    }
-
-    public function testStatusDefaultsToDraft(): void
-    {
-        $item = $this->createItem([]);
-        $this->assertEquals('draft', $item->status());
-    }
-
-    // =========================================================================
-    // Status checks
-    // =========================================================================
-
-    public function testIsPublishedReturnsTrueForPublished(): void
-    {
-        $item = $this->createItem(['status' => 'published']);
-        $this->assertTrue($item->isPublished());
-        $this->assertFalse($item->isDraft());
-        $this->assertFalse($item->isUnlisted());
-    }
-
-    public function testIsDraftReturnsTrueForDraft(): void
-    {
-        $item = $this->createItem(['status' => 'draft']);
-        $this->assertTrue($item->isDraft());
-        $this->assertFalse($item->isPublished());
-        $this->assertFalse($item->isUnlisted());
-    }
-
-    public function testIsUnlistedReturnsTrueForUnlisted(): void
-    {
-        $item = $this->createItem(['status' => 'unlisted']);
-        $this->assertTrue($item->isUnlisted());
-        $this->assertFalse($item->isPublished());
-        $this->assertFalse($item->isDraft());
-    }
-
-    // =========================================================================
-    // Dates
-    // =========================================================================
-
-    public function testDateReturnsDateTimeImmutable(): void
-    {
-        $item = $this->createItem(['date' => '2024-01-15']);
-        $date = $item->date();
-
-        $this->assertInstanceOf(\DateTimeImmutable::class, $date);
-        $this->assertEquals('2024-01-15', $date->format('Y-m-d'));
-    }
-
-    public function testDateReturnsNullIfMissing(): void
-    {
-        $item = $this->createItem([]);
-        $this->assertNull($item->date());
-    }
-
-    public function testDateHandlesDateTimeObject(): void
-    {
-        $dt = new \DateTime('2024-06-20');
-        $item = $this->createItem(['date' => $dt]);
-        $date = $item->date();
-
-        $this->assertInstanceOf(\DateTimeImmutable::class, $date);
-        $this->assertEquals('2024-06-20', $date->format('Y-m-d'));
-    }
-
-    public function testDateHandlesTimestamp(): void
-    {
-        $timestamp = strtotime('2024-03-10');
-        $item = $this->createItem(['date' => $timestamp]);
-        $date = $item->date();
-
-        $this->assertInstanceOf(\DateTimeImmutable::class, $date);
-        $this->assertEquals('2024-03-10', $date->format('Y-m-d'));
-    }
-
-    public function testUpdatedReturnsUpdatedDate(): void
-    {
-        $item = $this->createItem([
-            'date' => '2024-01-15',
-            'updated' => '2024-06-20',
-        ]);
-
-        $this->assertEquals('2024-01-15', $item->date()->format('Y-m-d'));
-        $this->assertEquals('2024-06-20', $item->updated()->format('Y-m-d'));
+        $this->assertNull($this->createItem([])->date());
     }
 
     public function testUpdatedFallsBackToDate(): void
     {
-        $item = $this->createItem(['date' => '2024-01-15']);
+        $withBoth = $this->createItem(['date' => '2024-01-15', 'updated' => '2024-06-20']);
+        $this->assertEquals('2024-01-15', $withBoth->date()->format('Y-m-d'));
+        $this->assertEquals('2024-06-20', $withBoth->updated()->format('Y-m-d'));
 
-        $this->assertEquals('2024-01-15', $item->updated()->format('Y-m-d'));
+        $dateOnly = $this->createItem(['date' => '2024-01-15']);
+        $this->assertEquals('2024-01-15', $dateOnly->updated()->format('Y-m-d'));
     }
 
-    // =========================================================================
-    // Content
-    // =========================================================================
-
-    public function testRawContentReturnsMarkdown(): void
+    /** Single values are normalised to arrays so templates can always iterate. */
+    public function testListFieldsNormaliseSingleValuesToArrays(): void
     {
-        $item = new Item([], 'This is **markdown**', '/test.md', 'post');
+        foreach ([
+            [['tutorials', 'php'], ['tutorials', 'php']],
+            ['tutorials', ['tutorials']],
+            [null, []],
+        ] as [$value, $expected]) {
+            $frontmatter = $value === null ? [] : ['categories' => $value];
+            $this->assertEquals($expected, $this->createItem($frontmatter)->terms('categories'));
+        }
+
+        foreach ([
+            [['/old-url', '/legacy/path'], ['/old-url', '/legacy/path']],
+            ['/old-url', ['/old-url']],
+            [null, []],
+        ] as [$value, $expected]) {
+            $frontmatter = $value === null ? [] : ['redirect_from' => $value];
+            $this->assertEquals($expected, $this->createItem($frontmatter)->redirectFrom());
+        }
+    }
+
+    public function testMetadataComesFromConstructorNotFrontmatter(): void
+    {
+        $item = new Item(['title' => 'Test'], 'This is **markdown**', '/content/posts/test.md', 'page');
+
+        $this->assertEquals('page', $item->type());
+        $this->assertEquals('/content/posts/test.md', $item->filePath());
         $this->assertEquals('This is **markdown**', $item->rawContent());
     }
 
-    public function testExcerptReturnsExcerpt(): void
-    {
-        $item = $this->createItem(['excerpt' => 'A short summary']);
-        $this->assertEquals('A short summary', $item->excerpt());
-    }
-
-    public function testExcerptReturnsNullIfMissing(): void
+    public function testWithHtmlLeavesTheOriginalItemUnchanged(): void
     {
         $item = $this->createItem([]);
-        $this->assertNull($item->excerpt());
-    }
-
-    public function testWithHtmlReturnsNewItemWithHtml(): void
-    {
-        $item = $this->createItem([]);
-
         $this->assertNull($item->html());
 
-        $itemWithHtml = $item->withHtml('<p>Rendered HTML</p>');
-        
-        // Original item unchanged (immutable)
+        $rendered = $item->withHtml('<p>Rendered HTML</p>');
+
         $this->assertNull($item->html());
-        
-        // New item has HTML
-        $this->assertEquals('<p>Rendered HTML</p>', $itemWithHtml->html());
+        $this->assertEquals('<p>Rendered HTML</p>', $rendered->html());
     }
 
-    // =========================================================================
-    // Metadata
-    // =========================================================================
-
-    public function testTypeReturnsContentType(): void
+    public function testFormatAndContentKeySurviveTheIndexRoundTrip(): void
     {
-        $item = new Item(['title' => 'Test'], '', '/test.md', 'page');
-        $this->assertEquals('page', $item->type());
-    }
-
-    public function testFilePathReturnsPath(): void
-    {
-        $item = new Item([], '', '/content/posts/test.md', 'post');
-        $this->assertEquals('/content/posts/test.md', $item->filePath());
-    }
-
-    public function testTemplateReturnsTemplate(): void
-    {
-        $item = $this->createItem(['template' => 'custom']);
-        $this->assertEquals('custom', $item->template());
-    }
-
-    public function testTemplateReturnsNullIfMissing(): void
-    {
-        $item = $this->createItem([]);
-        $this->assertNull($item->template());
-    }
-
-    // =========================================================================
-    // Taxonomies
-    // =========================================================================
-
-    public function testTermsReturnsTermsForTaxonomy(): void
-    {
-        $item = $this->createItem([
-            'categories' => ['tutorials', 'php'],
-        ]);
-
-        $terms = $item->terms('categories');
-        $this->assertEquals(['tutorials', 'php'], $terms);
-    }
-
-    public function testTermsReturnsSingleTermAsArray(): void
-    {
-        $item = $this->createItem([
-            'categories' => 'tutorials',
-        ]);
-
-        $terms = $item->terms('categories');
-        $this->assertEquals(['tutorials'], $terms);
-    }
-
-    public function testTermsReturnsEmptyArrayForMissingTaxonomy(): void
-    {
-        $item = $this->createItem([]);
-        $terms = $item->terms('categories');
-        $this->assertEquals([], $terms);
-    }
-
-    // =========================================================================
-    // SEO
-    // =========================================================================
-
-    public function testMetaTitleReturnsMetaTitle(): void
-    {
-        $item = $this->createItem(['meta_title' => 'SEO Title']);
-        $this->assertEquals('SEO Title', $item->metaTitle());
-    }
-
-    public function testMetaDescriptionReturnsMetaDescription(): void
-    {
-        $item = $this->createItem(['meta_description' => 'SEO description']);
-        $this->assertEquals('SEO description', $item->metaDescription());
-    }
-
-    public function testNoindexReturnsFalseByDefault(): void
-    {
-        $item = $this->createItem([]);
-        $this->assertFalse($item->noindex());
-    }
-
-    public function testNoindexReturnsTrueWhenSet(): void
-    {
-        $item = $this->createItem(['noindex' => true]);
-        $this->assertTrue($item->noindex());
-    }
-
-    public function testCanonicalReturnsCanonicalUrl(): void
-    {
-        $item = $this->createItem(['canonical' => 'https://example.com/original']);
-        $this->assertEquals('https://example.com/original', $item->canonical());
-    }
-
-    public function testOgImageReturnsOgImage(): void
-    {
-        $item = $this->createItem(['og_image' => '/images/og.jpg']);
-        $this->assertEquals('/images/og.jpg', $item->ogImage());
-    }
-
-    public function testOgImageFallsBackToFeaturedImage(): void
-    {
-        $item = $this->createItem(['featured_image' => '/images/featured.jpg']);
-        $this->assertEquals('/images/featured.jpg', $item->ogImage());
-    }
-
-    public function testOgImagePrefersOgImageOverFeaturedImage(): void
-    {
-        $item = $this->createItem(['og_image' => '/images/og.jpg', 'featured_image' => '/images/featured.jpg']);
-        $this->assertEquals('/images/og.jpg', $item->ogImage());
-    }
-
-    // =========================================================================
-    // Redirects
-    // =========================================================================
-
-    public function testRedirectFromReturnsArrayOfUrls(): void
-    {
-        $item = $this->createItem([
-            'redirect_from' => ['/old-url', '/legacy/path'],
-        ]);
-
-        $redirects = $item->redirectFrom();
-        $this->assertEquals(['/old-url', '/legacy/path'], $redirects);
-    }
-
-    public function testRedirectFromReturnsSingleUrlAsArray(): void
-    {
-        $item = $this->createItem([
-            'redirect_from' => '/old-url',
-        ]);
-
-        $redirects = $item->redirectFrom();
-        $this->assertEquals(['/old-url'], $redirects);
-    }
-
-    public function testRedirectFromReturnsEmptyArrayIfMissing(): void
-    {
-        $item = $this->createItem([]);
-        $this->assertEquals([], $item->redirectFrom());
-    }
-
-    // =========================================================================
-    // Content format
-    // =========================================================================
-
-    public function testFormatDefaultsToMarkdown(): void
-    {
-        $item = $this->createItem([]);
-        $this->assertEquals(Item::FORMAT_MARKDOWN, $item->format());
-        $this->assertFalse($item->isHtml());
-    }
-
-    public function testFormatDetectsHtmlFromExtension(): void
-    {
-        $item = new Item([], '<p>Content</p>', '/test.html', 'post', Item::FORMAT_HTML);
-        $this->assertEquals(Item::FORMAT_HTML, $item->format());
-        $this->assertTrue($item->isHtml());
-    }
-
-    public function testFormatMarkdownFromMdExtension(): void
-    {
-        $item = new Item([], '**bold**', '/test.md', 'post', Item::FORMAT_MARKDOWN);
-        $this->assertEquals(Item::FORMAT_MARKDOWN, $item->format());
-        $this->assertFalse($item->isHtml());
-    }
-
-    public function testFormatPersistedInToArray(): void
-    {
-        $item = new Item(['title' => 'Test'], '', '/test.html', 'post', Item::FORMAT_HTML);
-        $data = $item->toArray();
+        $data = (new Item(['title' => 'Test'], '', '/test.html', 'post', Item::FORMAT_HTML))->toArray();
         $this->assertEquals(Item::FORMAT_HTML, $data['format']);
-    }
 
-    public function testFormatRestoredFromArray(): void
-    {
-        $data = [
-            'frontmatter' => ['title' => 'Test'],
-            'file_path' => '/test.html',
-            'type' => 'post',
-            'format' => Item::FORMAT_HTML,
-        ];
-        $item = Item::fromArray($data);
-        $this->assertEquals(Item::FORMAT_HTML, $item->format());
-        $this->assertTrue($item->isHtml());
-    }
+        $restored = Item::fromArray($data);
+        $this->assertEquals(Item::FORMAT_HTML, $restored->format());
+        $this->assertTrue($restored->isHtml());
 
-    public function testContentKeyIsRestoredFromIndexedData(): void
-    {
-        $item = Item::fromArray([
+        $keyed = Item::fromArray([
             'frontmatter' => ['title' => 'Team', 'slug' => 'team'],
             'content_key' => 'about/team',
             'type' => 'page',
         ]);
-
-        $this->assertEquals('about/team', $item->get('content_key'));
+        $this->assertEquals('about/team', $keyed->get('content_key'));
     }
-
-    // =========================================================================
-    // Helper
-    // =========================================================================
 
     private function createItem(array $frontmatter, string $content = ''): Item
     {

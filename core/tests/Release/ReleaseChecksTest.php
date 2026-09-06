@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ava\Tests\Release;
 
+use Ava\Support\Arr;
 use Ava\Testing\TestCase;
 
 /**
@@ -17,176 +18,51 @@ use Ava\Testing\TestCase;
  */
 final class ReleaseChecksTest extends TestCase
 {
-    // =========================================================================
-    // Security & Git
-    // =========================================================================
-
-    /**
-     * Test that .env files are gitignored
-     */
-    public function testEnvFilesAreGitignored(): void
+    public function testSensitiveRuntimePathsAreGitignored(): void
     {
         $gitignore = file_get_contents(AVA_ROOT . '/.gitignore');
-        
-        $this->assertTrue(
-            str_contains($gitignore, '.env'),
-            '.env files should be listed in .gitignore'
-        );
+
+        foreach (['.env', 'storage/cache'] as $entry) {
+            $this->assertStringContains($entry, $gitignore, "$entry should be gitignored");
+        }
     }
 
-    /**
-     * Test that storage directories are gitignored
-     */
-    public function testStorageCacheIsGitignored(): void
-    {
-        $gitignore = file_get_contents(AVA_ROOT . '/.gitignore');
-        
-        $this->assertTrue(
-            str_contains($gitignore, 'storage/cache') || str_contains($gitignore, '/storage/cache/'),
-            'storage/cache should be gitignored'
-        );
-    }
-
-    // =========================================================================
-    // Configuration Defaults
-    // =========================================================================
-
-    /**
-     * Test that debug is disabled by default
-     */
-    public function testDebugIsDisabledByDefault(): void
+    public function testShippedConfigurationUsesSafeDefaults(): void
     {
         $config = require AVA_ROOT . '/app/config/ava.php';
-        
-        $this->assertFalse(
-            $config['debug']['enabled'] ?? true,
-            'Debug should be disabled (debug.enabled = false) for release'
+
+        $expected = [
+            'debug.enabled'        => false,
+            'theme'                => 'default',
+            'cli.theme'            => 'cyan',
+            'site.name'            => 'My Ava Site',
+            'site.base_url'        => 'http://localhost:8000',
+            'site.timezone'        => 'UTC',
+            'site.locale'          => 'en_GB',
+            'content_index.mode'   => 'auto',
+            // A shipped token would be a shared secret across every install.
+            'security.preview_token' => null,
+        ];
+
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, Arr::get($config, $key), "$key should be " . $this->export($value));
+        }
+    }
+
+    public function testVersionFollowsCalVer(): void
+    {
+        $this->assertMatchesRegex(
+            '/^\d+\.\d+\.\d+$/',
+            AVA_VERSION,
+            "Version '" . AVA_VERSION . "' should match YEAR.MONTH.PATCH (e.g. 26.9.0)"
         );
     }
 
-    /**
-     * Test that theme is set to default
-     */
-    public function testThemeIsDefault(): void
+    /** Guards against tagging a release that GitHub already has. */
+    public function testVersionLeadsTheLatestGitHubRelease(): void
     {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        
-        $this->assertEquals(
-            'default',
-            $config['theme'] ?? '',
-            'Theme should be set to "default" for release'
-        );
-    }
+        $current = AVA_VERSION;
 
-    /**
-     * Test that CLI theme is cyan
-     */
-    public function testCliThemeIsCyan(): void
-    {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        
-        $this->assertEquals(
-            'cyan',
-            $config['cli']['theme'] ?? '',
-            'CLI theme should be "cyan" for release'
-        );
-    }
-
-    /**
-     * Test that site name is "My Ava Site"
-     */
-    public function testSiteNameIsDefault(): void
-    {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        
-        $this->assertEquals(
-            'My Ava Site',
-            $config['site']['name'] ?? '',
-            'Site name should be "My Ava Site" for release'
-        );
-    }
-
-    /**
-     * Test that base URL is localhost
-     */
-    public function testBaseUrlIsLocalhost(): void
-    {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        $baseUrl = $config['site']['base_url'] ?? '';
-        
-        $this->assertTrue(
-            str_contains($baseUrl, 'localhost'),
-            "Base URL should contain 'localhost' for release (got: {$baseUrl})"
-        );
-    }
-
-    /**
-     * Test that timezone is UTC
-     */
-    public function testTimezoneIsUtc(): void
-    {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        
-        $this->assertEquals(
-            'UTC',
-            $config['site']['timezone'] ?? '',
-            'Timezone should be "UTC" for release'
-        );
-    }
-
-    /**
-     * Test that locale is en_GB
-     */
-    public function testLocaleIsEnGb(): void
-    {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        
-        $this->assertEquals(
-            'en_GB',
-            $config['site']['locale'] ?? '',
-            'Locale should be "en_GB" for release'
-        );
-    }
-
-    /**
-     * Test that content index rebuild is set to auto
-     */
-    public function testContentIndexRebuildIsAuto(): void
-    {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        
-        $this->assertEquals(
-            'auto',
-            $config['content_index']['mode'] ?? '',
-            'Content index rebuild mode should be "auto" for release'
-        );
-    }
-
-    // =========================================================================
-    // Version Checks
-    // =========================================================================
-
-    /**
-     * Test that version follows SemVer format
-     */
-    public function testVersionFollowsSemVer(): void
-    {
-        $version = AVA_VERSION;
-        
-        $this->assertTrue(
-            (bool) preg_match('/^\d+\.\d+\.\d+$/', $version),
-            "Version '{$version}' should match SemVer format MAJOR.MINOR.PATCH (e.g., 1.0.0)"
-        );
-    }
-
-    /**
-     * Test that version is higher than what's on GitHub
-     *
-     * This ensures you're releasing a new version, not an old one.
-     * Requires curl extension and network access.
-     */
-    public function testVersionIsHigherThanGitHub(): void
-    {
         if (!extension_loaded('curl')) {
             $this->skip('curl extension required for GitHub API check');
         }
@@ -200,7 +76,6 @@ final class ReleaseChecksTest extends TestCase
                 'Accept: application/vnd.github.v3+json',
             ],
         ]);
-        
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
@@ -214,167 +89,45 @@ final class ReleaseChecksTest extends TestCase
             $this->skip('Invalid GitHub API response');
         }
 
-        $latestGitHub = ltrim($release['tag_name'], 'v');
-        $current = AVA_VERSION;
-
+        $latest = ltrim($release['tag_name'], 'v');
         $this->assertTrue(
-            version_compare($current, $latestGitHub, '>'),
-            "Local version ({$current}) should be higher than GitHub release ({$latestGitHub})"
+            version_compare($current, $latest, '>'),
+            "Local version ({$current}) should be higher than GitHub release ({$latest})"
         );
     }
 
-    // =========================================================================
-    // Content & Structure
-    // =========================================================================
-
-    /**
-     * Test that default theme exists
-     */
-    public function testDefaultThemeExists(): void
+    public function testRequiredFilesAreShipped(): void
     {
-        $themePath = AVA_ROOT . '/app/themes/default';
-        
-        $this->assertTrue(
-            is_dir($themePath),
-            'Default theme directory should exist at app/themes/default'
-        );
+        $required = [
+            'app/themes/default'             => 'default theme',
+            'app/themes/default/theme.php'   => 'default theme bootstrap',
+            'content/pages/index.md'         => 'example index page',
+            'README.md'                      => 'readme',
+            'LICENSE'                        => 'licence',
+            'composer.json'                  => 'composer manifest',
+            'vendor/autoload.php'            => 'composer autoloader (run composer install)',
+        ];
+
+        foreach ($required as $path => $label) {
+            $this->assertTrue(file_exists(AVA_ROOT . '/' . $path), "Missing $label at $path");
+        }
+
+        $composer = json_decode(file_get_contents(AVA_ROOT . '/composer.json'), true);
+        $this->assertIsArray($composer, 'composer.json should be valid JSON');
+        $this->assertArrayHasKey('name', $composer);
     }
 
-    /**
-     * Test that default theme has theme.php
-     */
-    public function testDefaultThemeHasBootstrap(): void
-    {
-        $themeFile = AVA_ROOT . '/app/themes/default/theme.php';
-        
-        $this->assertTrue(
-            file_exists($themeFile),
-            'Default theme should have theme.php bootstrap file'
-        );
-    }
-
-    /**
-     * Test that example content exists
-     */
-    public function testExampleContentExists(): void
-    {
-        $indexPage = AVA_ROOT . '/content/pages/index.md';
-        
-        $this->assertTrue(
-            file_exists($indexPage),
-            'Example index page should exist at content/pages/index.md'
-        );
-    }
-
-    /**
-     * Test that media directory is empty (except .gitkeep)
-     */
-    public function testMediaDirectoryIsEmpty(): void
+    public function testMediaDirectoryShipsEmpty(): void
     {
         $mediaDir = AVA_ROOT . '/public/media';
-        
         if (!is_dir($mediaDir)) {
-            // Directory doesn't exist, which is fine
-            $this->assertTrue(true, 'Media directory does not exist (empty)');
             return;
         }
 
         $files = array_diff(scandir($mediaDir), ['.', '..', '.gitkeep']);
-        
         $this->assertEmpty(
             $files,
             'Media directory should be empty for release (found: ' . implode(', ', $files) . ')'
-        );
-    }
-
-    /**
-     * Test that preview token is placeholder
-     */
-    public function testPreviewTokenIsPlaceholder(): void
-    {
-        $config = require AVA_ROOT . '/app/config/ava.php';
-        $token = $config['security']['preview_token'] ?? '';
-        
-        $this->assertTrue(
-            str_contains($token, 'your-preview-token') || $token === '',
-            'Preview token should be a placeholder value for release'
-        );
-    }
-
-    // =========================================================================
-    // Documentation
-    // =========================================================================
-
-    /**
-     * Test that README exists
-     */
-    public function testReadmeExists(): void
-    {
-        $this->assertTrue(
-            file_exists(AVA_ROOT . '/README.md'),
-            'README.md should exist'
-        );
-    }
-
-    /**
-     * Test that LICENSE exists
-     */
-    public function testLicenseExists(): void
-    {
-        $this->assertTrue(
-            file_exists(AVA_ROOT . '/LICENSE'),
-            'LICENSE file should exist'
-        );
-    }
-
-    // =========================================================================
-    // Composer & Dependencies
-    // =========================================================================
-
-    /**
-     * Test that composer.json exists and is valid
-     */
-    public function testComposerJsonIsValid(): void
-    {
-        $composerFile = AVA_ROOT . '/composer.json';
-        
-        $this->assertTrue(
-            file_exists($composerFile),
-            'composer.json should exist'
-        );
-
-        $content = json_decode(file_get_contents($composerFile), true);
-        
-        $this->assertTrue(
-            $content !== null,
-            'composer.json should be valid JSON'
-        );
-
-        $this->assertTrue(
-            isset($content['name']),
-            'composer.json should have a name field'
-        );
-    }
-
-    /**
-     * Test that vendor directory exists
-     */
-    public function testVendorDirectoryExists(): void
-    {
-        $this->assertTrue(
-            is_dir(AVA_ROOT . '/vendor'),
-            'vendor/ directory should exist (run composer install)'
-        );
-    }
-
-    /**
-     * Test that autoloader exists
-     */
-    public function testAutoloaderExists(): void
-    {
-        $this->assertTrue(
-            file_exists(AVA_ROOT . '/vendor/autoload.php'),
-            'vendor/autoload.php should exist'
         );
     }
 }
